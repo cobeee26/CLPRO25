@@ -17,7 +17,7 @@ export default defineConfig({
     port: 5173,
     open: true,
     headers: {
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:8000;"
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:5173 http://localhost:3000; style-src 'self' 'unsafe-inline' http://localhost:5173; img-src 'self' data: blob: http://localhost:8000 http://localhost:5173; connect-src 'self' http://localhost:8000 http://localhost:5173 ws://localhost:5173; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self';"
     }
   },
   build: {

@@ -49,3 +49,14 @@ class Submission(SubmissionBase):
     submitted_at: datetime
 
     model_config = {"from_attributes": True}
+
+class SubmissionResponse(BaseModel):
+    """Response schema for Submission data"""
+    id: int
+    assignment_id: int
+    student_id: int
+    grade: Optional[float] = None
+    time_spent_minutes: int
+    submitted_at: datetime
+
+    model_config = {"from_attributes": True}

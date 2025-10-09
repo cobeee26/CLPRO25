@@ -89,6 +89,46 @@ export interface ClassUpdate {
   teacher_id?: number;
 }
 
+export interface ScheduleCreate {
+  class_id: number;
+  start_time: string;
+  end_time: string;
+  room_number: string;
+  status?: string;
+}
+
+export interface ScheduleResponse {
+  id: number;
+  class_id: number;
+  start_time: string;
+  end_time: string;
+  room_number: string;
+  status: string;
+}
+
+export interface ScheduleEnrichedResponse {
+  id: number;
+  class_id: number;
+  start_time: string;
+  end_time: string;
+  room_number: string;
+  status: string;
+  class_name: string;
+  class_code: string;
+  teacher_name: string;
+  teacher_full_name: string;
+}
+
+export interface AssignmentResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  class_id: number;
+  class_name?: string;
+  creator_id: number;
+  created_at: string;
+}
+
 // FastAPI OAuth2 login function - COMPLETELY REWRITTEN for correct form data format
 export const loginUser = async (username: string, password: string): Promise<string> => {
   try {
@@ -166,6 +206,134 @@ export const getTeachers = async (): Promise<User[]> => {
       } else if (error.response.status === 403) {
         throw new Error('Access denied. Admin privileges required.');
       }
+    }
+    throw error;
+  }
+};
+
+// Get all classes from the protected backend endpoint (Admin only)
+export const getAllClasses = async (): Promise<Class[]> => {
+  try {
+    // Use the configured apiClient which automatically includes auth headers
+    const response = await apiClient.get('/classes/');
+    
+    // Return the classes data
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to fetch classes:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+      
+      // Handle specific error cases
+      if (error.response.status === 401) {
+        throw new Error('Authentication failed. Please log in again.');
+      } else if (error.response.status === 403) {
+        throw new Error('Access denied. Admin privileges required.');
+      }
+    }
+    throw error;
+  }
+};
+
+// Get classes for the current teacher with metrics (Teacher-specific endpoint)
+export const getTeacherClasses = async (): Promise<{classes: Class[], metrics: {total_classes: number, total_students: number}}> => {
+  try {
+    // Use teacher-specific endpoint with metrics
+    const response = await apiClient.get('/teachers/me/classes');
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to fetch teacher classes:', error);
+    if (error.response?.status === 403) {
+      // If teacher endpoint doesn't exist, fall back to admin endpoint with role check
+      console.log('Teacher endpoint not available, checking admin endpoint...');
+      try {
+        const response = await apiClient.get('/classes/');
+        // Transform admin response to match teacher response format
+        return {
+          classes: response.data,
+          metrics: {
+            total_classes: response.data.length,
+            total_students: 0 // Can't calculate from admin endpoint
+          }
+        };
+      } catch (adminError: any) {
+        if (adminError.response?.status === 403) {
+          throw new Error('Access denied. Teacher or admin privileges required.');
+        }
+        throw adminError;
+      }
+    }
+    throw error;
+  }
+};
+
+// Get classes for the current student (Student-specific endpoint)
+export const getStudentClasses = async (): Promise<Class[]> => {
+  try {
+    // Use student-specific endpoint
+    const response = await apiClient.get('/students/me/classes');
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to fetch student classes:', error);
+    if (error.response?.status === 403) {
+      // If student endpoint doesn't exist, return empty array or mock data
+      console.log('Student endpoint not available, returning empty classes...');
+      return [];
+    }
+    throw error;
+  }
+};
+
+// Get student roster for a specific class (Teacher-specific endpoint)
+export const getClassRoster = async (classId: number): Promise<any[]> => {
+  try {
+    const response = await apiClient.get(`/teachers/me/classes/${classId}/roster`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to fetch roster for class ${classId}:`, error);
+    if (error.response?.status === 403) {
+      console.log('Roster endpoint not available, returning empty roster...');
+      return [];
+    }
+    throw error;
+  }
+};
+
+// Get teacher reports with student performance data (Teacher-specific endpoint)
+export const getTeacherReports = async (): Promise<any> => {
+  try {
+    const response = await apiClient.get('/teachers/me/reports');
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to fetch teacher reports:', error);
+    if (error.response?.status === 403) {
+      console.log('Teacher reports endpoint not available...');
+      return {
+        class_performance: [],
+        student_performance: [],
+        summary: {
+          total_classes: 0,
+          total_students: 0,
+          overall_average_grade: 0,
+          overall_submission_rate: 0
+        }
+      };
+    }
+    throw error;
+  }
+};
+
+// Get assignments for the current teacher (Teacher-specific endpoint)
+export const getTeacherAssignments = async (): Promise<AssignmentResponse[]> => {
+  try {
+    const response = await apiClient.get('/teachers/me/assignments');
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to fetch teacher assignments:', error);
+    if (error.response?.status === 403) {
+      console.log('Teacher assignments endpoint not available, returning empty array...');
+      return [];
     }
     throw error;
   }
@@ -347,30 +515,6 @@ export const deleteUserByAdmin = async (userId: number): Promise<{ message: stri
   }
 };
 
-// Get all classes from the protected backend endpoint
-export const getAllClasses = async (): Promise<Class[]> => {
-  try {
-    // Use the configured apiClient which automatically includes auth headers
-    const response = await apiClient.get('/classes/');
-    
-    // Return the data
-    return response.data;
-  } catch (error: any) {
-    console.error('Failed to fetch classes:', error);
-    if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
-      
-      // Handle specific error cases
-      if (error.response.status === 401) {
-        throw new Error('Authentication failed. Please log in again.');
-      } else if (error.response.status === 403) {
-        throw new Error('Access denied. Admin privileges required.');
-      }
-    }
-    throw error;
-  }
-};
 
 // Create class by admin from the protected backend endpoint
 export const createClassByAdmin = async (classData: ClassCreate): Promise<Class> => {
@@ -959,6 +1103,31 @@ export const authService = {
     }
   },
 
+  // Get user profile (assumes GET /users/me endpoint exists)
+  async getUserProfile(): Promise<any> {
+    try {
+      const response = await apiClient.get('/users/me');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get user profile:', error);
+      throw error;
+    }
+  },
+
+  // Change password (assumes PUT /users/change-password endpoint exists)
+  async changePassword(passwordData: {
+    current_password: string;
+    new_password: string;
+  }): Promise<any> {
+    try {
+      const response = await apiClient.put('/users/change-password', passwordData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to change password:', error);
+      throw error;
+    }
+  },
+
   // Check if user is authenticated
   isAuthenticated(): boolean {
     return !!localStorage.getItem('authToken');
@@ -992,6 +1161,160 @@ export const authService = {
   // Delete class (Admin only)
   async deleteClass(classId: number): Promise<{ message: string }> {
     return deleteClassByAdmin(classId);
+  },
+
+  // Get current user profile
+  async getCurrentUserProfile(): Promise<any> {
+    try {
+      const response = await apiClient.get('/users/me');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get user profile:', error);
+      throw error;
+    }
+  },
+
+  // Update user profile
+  async updateUserProfile(profileData: {
+    first_name?: string;
+    last_name?: string;
+  }): Promise<any> {
+    try {
+      const response = await apiClient.put('/users/me', profileData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update user profile:', error);
+      throw error;
+    }
+  },
+
+  // Upload profile photo
+  async uploadProfilePhoto(photoFile: File): Promise<any> {
+    try {
+      const formData = new FormData();
+      formData.append('photo', photoFile);
+      
+      const response = await apiClient.post('/users/me/photo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to upload profile photo:', error);
+      throw error;
+    }
+  },
+
+  // Schedule management functions
+  async getAllSchedules(): Promise<ScheduleResponse[]> {
+    try {
+      const response = await apiClient.get('/schedules/');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch schedules:', error);
+      throw error;
+    }
+  },
+
+  async getSchedulesLive(): Promise<ScheduleEnrichedResponse[]> {
+    try {
+      const response = await apiClient.get('/schedules/live');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch live schedules:', error);
+      throw error;
+    }
+  },
+
+  async createSchedule(scheduleData: ScheduleCreate): Promise<ScheduleResponse> {
+    try {
+      const response = await apiClient.post('/schedules/', scheduleData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create schedule:', error);
+      throw error;
+    }
+  },
+
+  async updateSchedule(scheduleId: number, scheduleData: ScheduleCreate): Promise<ScheduleResponse> {
+    try {
+      const response = await apiClient.put(`/schedules/${scheduleId}`, scheduleData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update schedule:', error);
+      throw error;
+    }
+  },
+
+  async deleteSchedule(scheduleId: number): Promise<{ message: string }> {
+    try {
+      const response = await apiClient.delete(`/schedules/${scheduleId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to delete schedule:', error);
+      throw error;
+    }
+  },
+
+  // Teacher-specific functions
+  async getTeacherClasses(): Promise<{classes: Class[], metrics: {total_classes: number, total_students: number}}> {
+    return getTeacherClasses();
+  },
+
+  async getTeacherAssignments(): Promise<AssignmentResponse[]> {
+    return getTeacherAssignments();
+  },
+
+  async getTeacherReports(): Promise<any> {
+    return getTeacherReports();
+  },
+
+  async getClassRoster(classId: number): Promise<any[]> {
+    return getClassRoster(classId);
+  },
+
+  // Student-specific functions
+  async getStudentAssignments(): Promise<AssignmentResponse[]> {
+    try {
+      const response = await apiClient.get('/students/me/assignments');
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch student assignments:', error);
+      if (error.response?.status === 403) {
+        console.log('Student assignments endpoint not available, returning empty array...');
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async getStudentSchedule(): Promise<ScheduleResponse[]> {
+    try {
+      const response = await apiClient.get('/students/me/schedule');
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch student schedule:', error);
+      if (error.response?.status === 403) {
+        console.log('Student schedule endpoint not available, returning empty array...');
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async getStudentGrades(): Promise<any[]> {
+    try {
+      const response = await apiClient.get('/students/me/grades');
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch student grades:', error);
+      if (error.response?.status === 403) {
+        console.log('Student grades endpoint not available, returning empty array...');
+        return [];
+      }
+      throw error;
+    }
   }
 };
 

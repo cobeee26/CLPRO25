@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { getAllClasses, getTeachers, createClass, updateClass, deleteClass } from '../services/authService';
+import { getAllClasses, getTeachers, createClass, updateClass, deleteClass, getTeacherClasses, getClassRoster } from '../services/authService';
 import type { ClassCreate, ClassUpdate, User } from '../services/authService';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
+import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import './DashboardPage.css';
 
@@ -16,12 +17,19 @@ interface Class {
 }
 
 const ClassesPage: React.FC = () => {
+  const { user } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [classes, setClasses] = useState<Class[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Teacher-specific metrics
+  const [teacherMetrics, setTeacherMetrics] = useState({
+    total_classes: 0,
+    total_students: 0
+  });
   
   // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,14 +59,41 @@ const ClassesPage: React.FC = () => {
   const [editSuccessMessage, setEditSuccessMessage] = useState<string | null>(null);
   const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
   const [globalSuccessMessage, setGlobalSuccessMessage] = useState<string | null>(null);
+  
+  // Roster modal state (for teachers)
+  const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
+  const [selectedClassForRoster, setSelectedClassForRoster] = useState<Class | null>(null);
+  const [roster, setRoster] = useState<any[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterError, setRosterError] = useState<string | null>(null);
 
-  // Fetch classes data on component mount
+  // Fetch classes data on component mount - role-aware
   useEffect(() => {
+    if (!user) return; // Wait for user context to load
+    
     const fetchClasses = async () => {
       try {
         setLoading(true);
         setError(null);
-        const apiClasses = await getAllClasses();
+        console.log('🔄 Fetching classes for user role:', user.role);
+        
+        let apiClasses: any[] = [];
+        let metrics = { total_classes: 0, total_students: 0 };
+        
+        if (user.role === 'admin') {
+          console.log('🔑 Admin user - fetching all classes');
+          apiClasses = await getAllClasses();
+          metrics.total_classes = apiClasses.length;
+        } else if (user.role === 'teacher') {
+          console.log('👨‍🏫 Teacher user - fetching assigned classes with metrics');
+          const teacherData = await getTeacherClasses();
+          apiClasses = teacherData.classes;
+          metrics = teacherData.metrics;
+          setTeacherMetrics(metrics);
+        } else {
+          console.warn('⚠️  Unknown or unauthorized user role, returning empty classes');
+          apiClasses = [];
+        }
         
         // Transform API data to match our interface
         const transformedClasses: Class[] = apiClasses.map(apiClass => ({
@@ -71,6 +106,10 @@ const ClassesPage: React.FC = () => {
         }));
         
         setClasses(transformedClasses);
+        console.log('✅ Classes loaded successfully:', transformedClasses.length);
+        if (user.role === 'teacher') {
+          console.log('📊 Teacher metrics:', metrics);
+        }
       } catch (err) {
         console.error('Failed to fetch classes:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch classes');
@@ -80,14 +119,18 @@ const ClassesPage: React.FC = () => {
     };
 
     fetchClasses();
-  }, []);
+  }, [user]); // Depend on user context
 
-  // Fetch teachers data on component mount
+  // Fetch teachers data on component mount - only for admin users
   useEffect(() => {
+    if (!user || user.role !== 'admin') return; // Only fetch teachers for admin users
+    
     const fetchTeachers = async () => {
       try {
+        console.log('🔑 Admin user - fetching teachers for dropdown');
         const apiTeachers = await getTeachers();
         setTeachers(apiTeachers);
+        console.log('✅ Teachers loaded successfully:', apiTeachers.length);
       } catch (err) {
         console.error('Failed to fetch teachers:', err);
         // Don't set error state for teachers as it's not critical for the main functionality
@@ -95,12 +138,12 @@ const ClassesPage: React.FC = () => {
     };
 
     fetchTeachers();
-  }, []);
+  }, [user]); // Depend on user context
 
   // Force center alignment on mount and resize
   useEffect(() => {
     const handleResize = () => {
-      window.dispatchEvent(new Event('resize'));
+      // Simple scroll reset without recursive calls
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
@@ -111,7 +154,6 @@ const ClassesPage: React.FC = () => {
         window.scrollTo(0, 0);
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
-        handleResize();
       }, 50);
     };
 
@@ -132,11 +174,35 @@ const ClassesPage: React.FC = () => {
     (classItem.assignedTeacher && classItem.assignedTeacher.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Dedicated function to refresh the class list
+  // Dedicated function to refresh the class list with role-specific data
   const refreshClassList = async () => {
+    if (!user) {
+      console.warn('⚠️  No user context available for refresh');
+      return;
+    }
+    
     try {
       setLoading(true);
-      const apiClasses = await getAllClasses();
+      console.log('🔄 Refreshing class list for user role:', user.role);
+      
+      let apiClasses: any[] = [];
+      let metrics = { total_classes: 0, total_students: 0 };
+      
+      if (user.role === 'admin') {
+        console.log('🔑 Admin user - fetching all classes');
+        apiClasses = await getAllClasses();
+        metrics.total_classes = apiClasses.length;
+      } else if (user.role === 'teacher') {
+        console.log('👨‍🏫 Teacher user - fetching assigned classes with metrics');
+        const teacherData = await getTeacherClasses();
+        apiClasses = teacherData.classes;
+        metrics = teacherData.metrics;
+        setTeacherMetrics(metrics);
+      } else {
+        console.warn('⚠️  Unknown or unauthorized user role, returning empty classes');
+        apiClasses = [];
+      }
+      
       const transformedClasses: Class[] = apiClasses.map(apiClass => ({
         id: apiClass.id,
         name: apiClass.name,
@@ -146,12 +212,50 @@ const ClassesPage: React.FC = () => {
         status: 'Active' as const
       }));
       setClasses(transformedClasses);
+      console.log('✅ Classes refreshed successfully:', transformedClasses.length);
+      if (user.role === 'teacher') {
+        console.log('📊 Teacher metrics refreshed:', metrics);
+      }
     } catch (err) {
       console.error('Failed to refresh class list:', err);
       setError(err instanceof Error ? err.message : 'Failed to refresh class list');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Load student roster for a specific class (Teacher only)
+  const loadClassRoster = async (classId: number) => {
+    try {
+      setRosterLoading(true);
+      setRosterError(null);
+      console.log(`📋 Loading roster for class ${classId}...`);
+      
+      const rosterData = await getClassRoster(classId);
+      setRoster(rosterData);
+      console.log('✅ Roster loaded successfully:', rosterData.length, 'students');
+    } catch (err: any) {
+      console.error('Failed to load class roster:', err);
+      setRosterError(err.response?.data?.detail || 'Failed to load student roster');
+      setRoster([]);
+    } finally {
+      setRosterLoading(false);
+    }
+  };
+
+  // Handle opening roster modal
+  const handleViewRoster = (classItem: Class) => {
+    setSelectedClassForRoster(classItem);
+    setIsRosterModalOpen(true);
+    loadClassRoster(classItem.id);
+  };
+
+  // Handle closing roster modal
+  const handleCloseRosterModal = () => {
+    setIsRosterModalOpen(false);
+    setSelectedClassForRoster(null);
+    setRoster([]);
+    setRosterError(null);
   };
 
   // Handle form submission for creating new class
@@ -321,7 +425,7 @@ const ClassesPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 overflow-x-hidden relative flex">
+    <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 overflow-y-auto relative flex">
       {/* Global Success Message (Toast Notification) */}
       {globalSuccessMessage && (
         <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-slide-in">
@@ -368,8 +472,8 @@ const ClassesPage: React.FC = () => {
         {/* Dynamic Header */}
         <div className="hidden lg:block">
           <DynamicHeader 
-            title="Manage Classes"
-            subtitle="View and manage all system classes"
+            title={user?.role === 'admin' ? "Manage Classes" : "My Classes"}
+            subtitle={user?.role === 'admin' ? "View and manage all system classes" : "View your assigned classes and student rosters"}
           />
         </div>
 
@@ -404,7 +508,7 @@ const ClassesPage: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 rounded-xl blur-sm group-hover:blur-md transition-all duration-300"></div>
                 <input
                   type="text"
-                  placeholder="Search by class name, code, or teacher..."
+                  placeholder={user?.role === 'admin' ? "Search by class name, code, or teacher..." : "Search your assigned classes..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="relative w-full px-4 lg:px-6 py-3 lg:py-4 pl-10 lg:pl-12 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-sm transition-all duration-300"
@@ -427,79 +531,120 @@ const ClassesPage: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex items-end">
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="w-full group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3 lg:py-4 px-4 lg:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl shadow-lg"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative flex items-center justify-center space-x-2 lg:space-x-3">
-                  <svg className="h-5 w-5 lg:h-6 lg:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <span className="text-sm lg:text-lg">Create New Class</span>
-                </div>
-              </button>
-            </div>
+            {/* Only show Create New Class button for Admin users */}
+            {user?.role === 'admin' && (
+              <div className="flex items-end">
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="w-full group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3 lg:py-4 px-4 lg:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl shadow-lg"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center justify-center space-x-2 lg:space-x-3">
+                    <svg className="h-5 w-5 lg:h-6 lg:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span className="text-sm lg:text-lg">Create New Class</span>
+                  </div>
+                </button>
+              </div>
+            )}
           </div>
           
-          {/* Quick Stats - Responsive Grid */}
+          {/* Quick Stats - Role-specific Metrics */}
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-            <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/30 hover:bg-blue-500/15 transition-all duration-300 group">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
+            {/* Admin Metrics */}
+            {user?.role === 'admin' && (
+              <>
+                <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/30 hover:bg-blue-500/15 transition-all duration-300 group">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors duration-200">{classes.length}</p>
+                      <p className="text-sm text-white/70">Total Classes</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors duration-200">{classes.length}</p>
-                  <p className="text-sm text-white/70">Total Classes</p>
+                
+                <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-xl p-4 border border-emerald-500/20 hover:border-emerald-400/30 hover:bg-emerald-500/15 transition-all duration-300 group">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white group-hover:text-emerald-200 transition-colors duration-200">{classes.filter(c => c.status === 'Active').length}</p>
+                      <p className="text-sm text-white/70">Active Classes</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+                
+                <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl p-4 border border-purple-500/20 hover:border-purple-400/30 hover:bg-purple-500/15 transition-all duration-300 group">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white group-hover:text-purple-200 transition-colors duration-200">{classes.filter(c => c.assignedTeacher !== 'Unassigned').length}</p>
+                      <p className="text-sm text-white/70">Assigned Teachers</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl p-4 border border-orange-500/20 hover:border-orange-400/30 hover:bg-orange-500/15 transition-all duration-300 group">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg shadow-lg group-hover:shadow-orange-500/25 transition-all duration-300">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white group-hover:text-orange-200 transition-colors duration-200">{classes.filter(c => c.assignedTeacher === 'Unassigned').length}</p>
+                      <p className="text-sm text-white/70">Unassigned</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
             
-            <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-xl p-4 border border-emerald-500/20 hover:border-emerald-400/30 hover:bg-emerald-500/15 transition-all duration-300 group">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+            {/* Teacher Metrics */}
+            {user?.role === 'teacher' && (
+              <>
+                <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/30 hover:bg-blue-500/15 transition-all duration-300 group">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors duration-200">{teacherMetrics.total_classes}</p>
+                      <p className="text-sm text-white/70">My Classes</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-white group-hover:text-emerald-200 transition-colors duration-200">{classes.filter(c => c.status === 'Active').length}</p>
-                  <p className="text-sm text-white/70">Active Classes</p>
+                
+                <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-xl p-4 border border-emerald-500/20 hover:border-emerald-400/30 hover:bg-emerald-500/15 transition-all duration-300 group">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white group-hover:text-emerald-200 transition-colors duration-200">{teacherMetrics.total_students}</p>
+                      <p className="text-sm text-white/70">Total Students</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            
-            <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl p-4 border border-purple-500/20 hover:border-purple-400/30 hover:bg-purple-500/15 transition-all duration-300 group">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300">
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-white group-hover:text-purple-200 transition-colors duration-200">{classes.filter(c => c.assignedTeacher !== 'Unassigned').length}</p>
-                  <p className="text-sm text-white/70">Assigned Teachers</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl p-4 border border-orange-500/20 hover:border-orange-400/30 hover:bg-orange-500/15 transition-all duration-300 group">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg shadow-lg group-hover:shadow-orange-500/25 transition-all duration-300">
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-white group-hover:text-orange-200 transition-colors duration-200">{classes.filter(c => c.assignedTeacher === 'Unassigned').length}</p>
-                  <p className="text-sm text-white/70">Unassigned</p>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -677,24 +822,42 @@ const ClassesPage: React.FC = () => {
                           </td>
                           <td className="px-4 sm:px-6 lg:px-8 py-5 whitespace-nowrap text-center">
                             <div className="flex items-center justify-center space-x-2">
-                              <button
-                                onClick={() => openEditModal(classItem)}
-                                className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/30 hover:to-indigo-500/30 text-blue-300 hover:text-blue-200 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 border border-blue-500/30"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                <span className="hidden sm:inline font-medium">Edit</span>
-                              </button>
-                              <button
-                                onClick={() => openDeleteModal(classItem)}
-                                className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 text-red-300 hover:text-red-200 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/20 border border-red-500/30"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                                <span className="hidden sm:inline font-medium">Delete</span>
-                              </button>
+                              {/* Roster button - only for teachers */}
+                              {user?.role === 'teacher' && (
+                                <button
+                                  onClick={() => handleViewRoster(classItem)}
+                                  className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 text-green-300 hover:text-green-200 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/20 border border-green-500/30"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                                  </svg>
+                                  <span className="hidden sm:inline font-medium">Roster</span>
+                                </button>
+                              )}
+                              
+                              {/* Edit and Delete buttons - only for admin */}
+                              {user?.role === 'admin' && (
+                                <>
+                                  <button
+                                    onClick={() => openEditModal(classItem)}
+                                    className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/30 hover:to-indigo-500/30 text-blue-300 hover:text-blue-200 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 border border-blue-500/30"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    <span className="hidden sm:inline font-medium">Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => openDeleteModal(classItem)}
+                                    className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 text-red-300 hover:text-red-200 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/20 border border-red-500/30"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    <span className="hidden sm:inline font-medium">Delete</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -953,6 +1116,96 @@ const ClassesPage: React.FC = () => {
                 className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deleteLoading ? 'Deleting...' : 'Delete Class'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Roster Modal - Teacher Only */}
+      {isRosterModalOpen && selectedClassForRoster && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[80vh] border border-gray-700/50 overflow-hidden">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white">
+                Student Roster - {selectedClassForRoster.name}
+              </h3>
+              <button
+                onClick={handleCloseRosterModal}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {rosterError && (
+              <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-medium">{rosterError}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-y-auto max-h-[60vh]">
+              {rosterLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  <span className="ml-3 text-white">Loading roster...</span>
+                </div>
+              ) : roster.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                    </svg>
+                  </div>
+                  <h4 className="text-lg font-semibold text-white mb-2">No Students Enrolled</h4>
+                  <p className="text-gray-400">This class doesn't have any enrolled students yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {roster.map((student, index) => (
+                    <div key={student.id || index} className="bg-gray-700/50 rounded-lg p-4 border border-gray-600/50">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">
+                            {student.first_name?.[0] || student.username?.[0] || 'S'}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-white font-semibold">
+                            {student.first_name && student.last_name 
+                              ? `${student.first_name} ${student.last_name}`
+                              : student.username || 'Unknown Student'
+                            }
+                          </h4>
+                          <p className="text-gray-400 text-sm">
+                            {student.email || student.username || 'No email available'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Enrolled
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={handleCloseRosterModal}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

@@ -80,7 +80,7 @@ const UsersPage: React.FC = () => {
   // Force center alignment on mount and resize
   useEffect(() => {
     const handleResize = () => {
-      window.dispatchEvent(new Event('resize'));
+      // Simple scroll reset without recursive calls
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
@@ -91,7 +91,6 @@ const UsersPage: React.FC = () => {
         window.scrollTo(0, 0);
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
-        handleResize();
       }, 50);
     };
 
@@ -389,18 +388,7 @@ const UsersPage: React.FC = () => {
 
   return (
     <div 
-      className="dashboard-container fixed inset-0 w-screen h-screen flex flex-col lg:flex-row overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 font-inter" 
-      style={{ 
-        minWidth: '100vw', 
-        minHeight: '100vh',
-        width: '100vw',
-        height: '100vh',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0
-      }}
+      className="h-screen w-screen flex flex-col lg:flex-row overflow-y-auto bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 font-inter"
     >
       {/* Mobile Header */}
       <header className="lg:hidden bg-slate-800/95 backdrop-blur-xl border-b border-slate-700/50 p-4 shadow-xl flex items-center justify-between z-20">

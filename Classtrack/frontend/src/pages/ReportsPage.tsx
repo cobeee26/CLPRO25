@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getAllUsers, getAllClasses, exportAllUsers, exportAllClasses, type User, type Class as ApiClass } from '../services/authService';
+import { getAllUsers, getAllClasses, exportAllUsers, exportAllClasses, getTeacherReports, type User, type Class as ApiClass } from '../services/authService';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
+import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import './DashboardPage.css';
 
@@ -10,10 +11,45 @@ interface Class extends ApiClass {
   assignedTeacher: string;
 }
 
+interface StudentPerformance {
+  student_id: number;
+  student_name: string;
+  class_id: number;
+  class_name: string;
+  average_grade_in_class: number;
+  total_assignments_submitted: number;
+  total_assignments_available: number;
+  submission_rate: number;
+}
+
+interface ClassPerformance {
+  class_id: number;
+  class_name: string;
+  class_code: string;
+  total_students: number;
+  total_assignments: number;
+  average_grade: number;
+  submission_rate: number;
+  students: StudentPerformance[];
+}
+
+interface TeacherReports {
+  class_performance: ClassPerformance[];
+  student_performance: StudentPerformance[];
+  summary: {
+    total_classes: number;
+    total_students: number;
+    overall_average_grade: number;
+    overall_submission_rate: number;
+  };
+}
+
 const ReportsPage: React.FC = () => {
+  const { user } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
+  const [teacherReports, setTeacherReports] = useState<TeacherReports | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState<{ users: boolean; classes: boolean }>({
@@ -21,31 +57,45 @@ const ReportsPage: React.FC = () => {
     classes: false
   });
 
-  // Fetch data on component mount
+  // Fetch data on component mount - role-aware
   useEffect(() => {
+    if (!user) return; // Wait for user context to load
+    
     const fetchData = async () => {
       try {
-        console.log('Fetching reports data...');
+        console.log('Fetching reports data for user role:', user.role);
         setLoading(true);
         setError(null);
-        const [usersData, classesData] = await Promise.all([
-          getAllUsers(),
-          getAllClasses()
-        ]);
         
-        console.log('Users data fetched:', usersData);
-        console.log('Classes data fetched:', classesData);
+        if (user.role === 'admin') {
+          console.log('🔑 Admin user - fetching all users and classes');
+          const [usersData, classesData] = await Promise.all([
+            getAllUsers(),
+            getAllClasses()
+          ]);
+          
+          console.log('Users data fetched:', usersData);
+          console.log('Classes data fetched:', classesData);
+          
+          setUsers(usersData);
+          
+          // Add missing properties to classes data
+          const enhancedClasses: Class[] = classesData.map(cls => ({
+            ...cls,
+            status: 'Active', // Default status
+            assignedTeacher: cls.teacher_id ? `Teacher ${cls.teacher_id}` : 'Unassigned'
+          }));
+          
+          setClasses(enhancedClasses);
+        } else if (user.role === 'teacher') {
+          console.log('👨‍🏫 Teacher user - fetching teacher reports');
+          const reportsData = await getTeacherReports();
+          console.log('Teacher reports fetched:', reportsData);
+          setTeacherReports(reportsData);
+        } else {
+          console.warn('⚠️  Unknown or unauthorized user role for reports');
+        }
         
-        setUsers(usersData);
-        
-        // Add missing properties to classes data
-        const enhancedClasses: Class[] = classesData.map(cls => ({
-          ...cls,
-          status: 'Active', // Default status
-          assignedTeacher: cls.teacher_id ? `Teacher ${cls.teacher_id}` : 'Unassigned'
-        }));
-        
-        setClasses(enhancedClasses);
         console.log('Data fetch completed successfully');
       } catch (err) {
         console.error('Failed to fetch data:', err);
@@ -56,7 +106,7 @@ const ReportsPage: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [user]); // Depend on user context
 
   // Calculate metrics
   const totalActiveUsers = users.filter(user => user.role === 'teacher' || user.role === 'student').length;
@@ -140,7 +190,7 @@ const ReportsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 overflow-x-hidden relative flex">
+    <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 overflow-y-auto relative flex">
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-800/95 backdrop-blur-xl border-b border-slate-700/50 p-4">
         <div className="flex items-center justify-between">
@@ -170,8 +220,8 @@ const ReportsPage: React.FC = () => {
         {/* Dynamic Header */}
         <div className="hidden lg:block">
           <DynamicHeader 
-            title="System Reports & Analytics"
-            subtitle="Comprehensive data insights and export capabilities"
+            title={user?.role === 'admin' ? "System Reports & Analytics" : "My Reports & Analytics"}
+            subtitle={user?.role === 'admin' ? "Comprehensive data insights and export capabilities" : "Student performance and class analytics"}
           />
         </div>
 
@@ -220,10 +270,13 @@ const ReportsPage: React.FC = () => {
                     </svg>
                   </div>
                   <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent mb-4">
-                    System Analytics
+                    {user?.role === 'admin' ? 'System Analytics' : 'My Reports & Analytics'}
                   </h1>
                   <p className="text-xl text-white/70 max-w-2xl mx-auto">
-                    Comprehensive insights into your educational platform's performance and data management
+                    {user?.role === 'admin' 
+                      ? "Comprehensive insights into your educational platform's performance and data management"
+                      : "Student performance insights and class analytics for your assigned classes"
+                    }
                   </p>
                 </div>
 
@@ -339,7 +392,121 @@ const ReportsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Data Export Section */}
+                {/* Teacher-specific Student Performance Section */}
+                {user?.role === 'teacher' && teacherReports && (
+                  <div className="space-y-8">
+                    {/* Class Performance Overview */}
+                    {teacherReports.class_performance.length > 0 && (
+                      <div className="bg-white/5 backdrop-blur-2xl rounded-3xl p-8 lg:p-12 border border-white/10 shadow-2xl">
+                        <div className="text-center mb-8">
+                          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl mb-4 shadow-lg">
+                            <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                          </div>
+                          <h2 className="text-3xl font-bold text-white mb-3">Class Performance Overview</h2>
+                          <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                            Performance metrics for each of your assigned classes
+                          </p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {teacherReports.class_performance.map((classData) => (
+                            <div key={classData.class_id} className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-xl font-bold text-white">{classData.class_name}</h3>
+                                <span className="text-sm text-white/60">{classData.class_code}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="text-center">
+                                  <p className="text-2xl font-bold text-blue-400">{classData.total_students}</p>
+                                  <p className="text-sm text-white/60">Students</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-2xl font-bold text-emerald-400">{classData.total_assignments}</p>
+                                  <p className="text-sm text-white/60">Assignments</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-2xl font-bold text-purple-400">{classData.average_grade}%</p>
+                                  <p className="text-sm text-white/60">Avg Grade</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-2xl font-bold text-orange-400">{classData.submission_rate}%</p>
+                                  <p className="text-sm text-white/60">Submission Rate</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Individual Student Performance Table */}
+                    {teacherReports.student_performance.length > 0 && (
+                      <div className="bg-white/5 backdrop-blur-2xl rounded-3xl p-8 lg:p-12 border border-white/10 shadow-2xl">
+                        <div className="text-center mb-8">
+                          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl mb-4 shadow-lg">
+                            <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                            </svg>
+                          </div>
+                          <h2 className="text-3xl font-bold text-white mb-3">Individual Student Performance</h2>
+                          <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                            Detailed performance data for each student across your classes
+                          </p>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead>
+                              <tr className="border-b border-white/20">
+                                <th className="pb-4 text-white font-semibold">Student Name</th>
+                                <th className="pb-4 text-white font-semibold">Class</th>
+                                <th className="pb-4 text-white font-semibold">Average Grade</th>
+                                <th className="pb-4 text-white font-semibold">Assignments Submitted</th>
+                                <th className="pb-4 text-white font-semibold">Submission Rate</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {teacherReports.student_performance.map((student) => (
+                                <tr key={`${student.student_id}-${student.class_id}`} className="border-b border-white/10">
+                                  <td className="py-4 text-white font-medium">{student.student_name}</td>
+                                  <td className="py-4 text-white/80">{student.class_name}</td>
+                                  <td className="py-4">
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                      student.average_grade_in_class >= 90 ? 'bg-green-500/20 text-green-400' :
+                                      student.average_grade_in_class >= 80 ? 'bg-blue-500/20 text-blue-400' :
+                                      student.average_grade_in_class >= 70 ? 'bg-yellow-500/20 text-yellow-400' :
+                                      'bg-red-500/20 text-red-400'
+                                    }`}>
+                                      {student.average_grade_in_class}%
+                                    </span>
+                                  </td>
+                                  <td className="py-4 text-white/80">
+                                    {student.total_assignments_submitted} / {student.total_assignments_available}
+                                  </td>
+                                  <td className="py-4">
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                      student.submission_rate >= 90 ? 'bg-green-500/20 text-green-400' :
+                                      student.submission_rate >= 70 ? 'bg-blue-500/20 text-blue-400' :
+                                      student.submission_rate >= 50 ? 'bg-yellow-500/20 text-yellow-400' :
+                                      'bg-red-500/20 text-red-400'
+                                    }`}>
+                                      {student.submission_rate}%
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Data Export Section - Admin Only */}
+                {user?.role === 'admin' && (
                 <div className="bg-white/5 backdrop-blur-2xl rounded-3xl p-8 lg:p-12 border border-white/10 shadow-2xl">
                   <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl mb-4 shadow-lg">
@@ -431,6 +598,7 @@ const ReportsPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             )}
           </div>
