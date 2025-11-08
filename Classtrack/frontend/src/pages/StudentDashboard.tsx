@@ -1475,7 +1475,11 @@ const StudentDashboard: React.FC = () => {
                 <span>Quick Actions</span>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <button className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+                {/* Blue - Submit Assignment */}
+                <button 
+                  onClick={() => navigate("/student/assignments")}
+                  className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                >
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
                       className="w-5 h-5 text-white"
@@ -1499,6 +1503,8 @@ const StudentDashboard: React.FC = () => {
                     <p className="text-xs text-slate-300">Upload your work</p>
                   </div>
                 </button>
+
+                {/* Orange - Submit Room Report */}
                 <button
                   onClick={() => setShowRoomReportModal(true)}
                   className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
@@ -1529,7 +1535,12 @@ const StudentDashboard: React.FC = () => {
                     </p>
                   </div>
                 </button>
-                <button className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+
+                {/* Green - View Grades */}
+                <button 
+                  onClick={() => navigate("/student/grades")}
+                  className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                >
                   <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
                       className="w-5 h-5 text-white"
@@ -1555,7 +1566,12 @@ const StudentDashboard: React.FC = () => {
                     </p>
                   </div>
                 </button>
-                <button className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+
+                {/* Violet - View Schedule */}
+                <button 
+                  onClick={() => navigate("/student/schedule")}
+                  className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                >
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
                       className="w-5 h-5 text-white"

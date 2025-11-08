@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import axios from 'axios';
+import { getAllUsers, getAllClasses } from '../services/authService';
 
 // API configuration
 const API_BASE_URL = 'http://localhost:8000';
 
-// Create axios instance with auth interceptor
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -30,12 +31,25 @@ apiClient.interceptors.request.use(
 );
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+  
   // Error boundary state
   const [hasError] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUtilityModal, setShowUtilityModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'schedule' | 'announcement'>('schedule');
+  
+  // Dashboard stats state
+  const [dashboardStats, setDashboardStats] = useState({
+    totalUsers: 0,
+    activeClasses: 0,
+    systemHealth: 98,
+    storageUsed: 2.4
+  });
+  
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
   
   // Schedule form state
   const [scheduleForm, setScheduleForm] = useState({
@@ -63,6 +77,33 @@ const DashboardPage: React.FC = () => {
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [classesError, setClassesError] = useState<string>('');
 
+  // Fetch dashboard statistics
+  const fetchDashboardStats = async () => {
+    try {
+      setStatsLoading(true);
+      setStatsError(null);
+      
+      // Fetch users and classes data
+      const [usersData, classesData] = await Promise.all([
+        getAllUsers(),
+        getAllClasses()
+      ]);
+      
+      setDashboardStats({
+        totalUsers: usersData.length,
+        activeClasses: classesData.length,
+        systemHealth: 98, // Static for now
+        storageUsed: 2.4 // Static for now
+      });
+      
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error);
+      setStatsError('Failed to load dashboard statistics');
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
   // Logout function
   const handleLogout = () => {
     try {
@@ -75,6 +116,19 @@ const DashboardPage: React.FC = () => {
       // Fallback: direct redirect
       window.location.href = '/login';
     }
+  };
+
+  // Navigation functions for Quick Actions
+  const handleManageUsers = () => {
+    navigate('/admin/users');
+  };
+
+  const handleManageClasses = () => {
+    navigate('/admin/classes');
+  };
+
+  const handleViewReports = () => {
+    navigate('/admin/reports');
   };
 
   // Form handlers
@@ -171,20 +225,22 @@ const DashboardPage: React.FC = () => {
     setShowUtilityModal(true);
     setSubmitError('');
     setSubmitSuccess('');
-    // Always try to fetch classes if not already loaded or if there was an error
     if (classes.length === 0 || classesError) {
       fetchClasses();
     }
   };
 
-  // Optional: Fetch classes on component mount for better UX
+  // Fetch dashboard stats on component mount
   useEffect(() => {
-    // Only fetch if we have a valid auth token
     const token = localStorage.getItem('authToken');
-    if (token && classes.length === 0) {
-      fetchClasses();
+    if (token) {
+      fetchDashboardStats();
+      // Fetch classes on mount for better UX
+      if (classes.length === 0) {
+        fetchClasses();
+      }
     }
-  }, []); // Empty dependency array - only run on mount
+  }, []);
 
   // Error fallback UI
   if (hasError) {
@@ -315,12 +371,29 @@ const DashboardPage: React.FC = () => {
                       </svg>
                     </div>
                   </div>
-                  <span className="text-emerald-400 text-sm font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">+12%</span>
+                  <span className="text-emerald-400 text-sm font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                    {statsLoading ? '...' : '+12%'}
+                  </span>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-400 mb-2 tracking-wide uppercase">Total Users</p>
-                  <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">1,247</p>
-                  <p className="text-sm text-slate-500 font-medium">Active members</p>
+                  {statsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-10 bg-slate-700 rounded mb-2"></div>
+                      <div className="h-4 bg-slate-700 rounded w-3/4"></div>
+                    </div>
+                  ) : statsError ? (
+                    <div className="text-red-400 text-sm">
+                      Failed to load
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                        {dashboardStats.totalUsers.toLocaleString()}
+                      </p>
+                      <p className="text-sm text-slate-500 font-medium">Active members</p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -335,12 +408,29 @@ const DashboardPage: React.FC = () => {
                       </svg>
                     </div>
                   </div>
-                  <span className="text-emerald-400 text-sm font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">+5%</span>
+                  <span className="text-emerald-400 text-sm font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                    {statsLoading ? '...' : '+5%'}
+                  </span>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-400 mb-2 tracking-wide uppercase">Active Classes</p>
-                  <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">89</p>
-                  <p className="text-sm text-slate-500 font-medium">Currently running</p>
+                  {statsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-10 bg-slate-700 rounded mb-2"></div>
+                      <div className="h-4 bg-slate-700 rounded w-3/4"></div>
+                    </div>
+                  ) : statsError ? (
+                    <div className="text-red-400 text-sm">
+                      Failed to load
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                        {dashboardStats.activeClasses}
+                      </p>
+                      <p className="text-sm text-slate-500 font-medium">Currently running</p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -359,7 +449,9 @@ const DashboardPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-400 mb-2 tracking-wide uppercase">System Health</p>
-                  <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">98%</p>
+                  <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                    {dashboardStats.systemHealth}%
+                  </p>
                   <p className="text-sm text-slate-500 font-medium">Optimal performance</p>
                 </div>
               </div>
@@ -379,7 +471,9 @@ const DashboardPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-400 mb-2 tracking-wide uppercase">Storage Used</p>
-                  <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">2.4GB</p>
+                  <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                    {dashboardStats.storageUsed}GB
+                  </p>
                   <p className="text-sm text-slate-500 font-medium">Of 10GB total</p>
                 </div>
               </div>
@@ -401,7 +495,8 @@ const DashboardPage: React.FC = () => {
                   <div className="space-y-4">
                     <button 
                       className="group w-full flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl sm:rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer"
-                      title="Add new user"
+                      title="Manage users"
+                      onClick={handleManageUsers}
                     >
                       <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600/50 rounded-xl sm:rounded-2xl flex items-center justify-center backdrop-blur-sm">
                         <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -409,14 +504,15 @@ const DashboardPage: React.FC = () => {
                         </svg>
                       </div>
                       <div className="text-left flex-1">
-                        <p className="text-xs sm:text-sm font-bold text-white">Add New User</p>
-                        <p className="text-xs text-blue-100 font-medium">Create a new user account</p>
+                        <p className="text-xs sm:text-sm font-bold text-white">Manage Users</p>
+                        <p className="text-xs text-blue-100 font-medium">View and manage user accounts</p>
                       </div>
                     </button>
 
                     <button 
                       className="group w-full flex items-center space-x-4 p-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer"
-                      title="Create class"
+                      title="Manage classes"
+                      onClick={handleManageClasses}
                     >
                       <div className="w-12 h-12 bg-emerald-600/50 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -424,14 +520,15 @@ const DashboardPage: React.FC = () => {
                         </svg>
                       </div>
                       <div className="text-left flex-1">
-                        <p className="text-sm font-bold text-white">Create Class</p>
-                        <p className="text-xs text-emerald-100 font-medium">Set up a new class</p>
+                        <p className="text-sm font-bold text-white">Manage Classes</p>
+                        <p className="text-xs text-emerald-100 font-medium">View and manage all classes</p>
                       </div>
                     </button>
 
                     <button 
                       className="group w-full flex items-center space-x-4 p-4 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer"
-                      title="Generate report"
+                      title="View reports"
+                      onClick={handleViewReports}
                     >
                       <div className="w-12 h-12 bg-purple-600/50 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -439,8 +536,8 @@ const DashboardPage: React.FC = () => {
                         </svg>
                       </div>
                       <div className="text-left flex-1">
-                        <p className="text-sm font-bold text-white">Generate Report</p>
-                        <p className="text-xs text-purple-100 font-medium">Create system reports</p>
+                        <p className="text-sm font-bold text-white">View Reports</p>
+                        <p className="text-xs text-purple-100 font-medium">View system reports and analytics</p>
                       </div>
                     </button>
 

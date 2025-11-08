@@ -71,6 +71,7 @@ export default defineConfig([
 #Backend Setup (Python + FastAPI)
 # 1. Create and activate virtual environment
 python -m venv venv
+#Run the venv Script
 source venv/Scripts/activate   # Windows
 # or
 source venv/bin/activate       # macOS/Linux

@@ -104,10 +104,31 @@ const UsersPage: React.FC = () => {
     };
   }, []);
 
-  // Filter users based on search term and role
+  // Filter users based on search term and role - COMPLETELY FIXED VERSION
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === 'All' || user.role === filterRole;
+    // Fix search functionality - handle empty search term
+    const matchesSearch = searchTerm === '' || 
+                         user.username.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Fix role comparison - handle case sensitivity and role mapping
+    const userRole = user.role.toLowerCase();
+    const selectedRole = filterRole.toLowerCase();
+    
+    let matchesRole = false;
+    
+    if (filterRole === 'All') {
+      matchesRole = true;
+    } else {
+      // Handle different role naming conventions
+      if (selectedRole === 'admin') {
+        matchesRole = userRole === 'admin';
+      } else if (selectedRole === 'teacher') {
+        matchesRole = userRole === 'teacher';
+      } else if (selectedRole === 'student') {
+        matchesRole = userRole === 'student';
+      }
+    }
+    
     return matchesSearch && matchesRole;
   });
 

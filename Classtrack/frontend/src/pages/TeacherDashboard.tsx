@@ -1212,7 +1212,11 @@ const TeacherDashboard: React.FC = () => {
                       </div>
 
                       {/* Schedule */}
-                      <div className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40 hover:bg-slate-600/80 transition-all duration-200 shadow-sm cursor-pointer group" style={{ cursor: 'pointer' }}>
+                      <div 
+                        onClick={() => navigate("/teacher/schedule")}
+                        className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40 hover:bg-slate-600/80 transition-all duration-200 shadow-sm cursor-pointer group" 
+                        style={{ cursor: 'pointer' }}
+                      >
                         <div className="flex flex-col items-center text-center">
                           <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-200">
                             <svg

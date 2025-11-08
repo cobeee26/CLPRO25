@@ -681,34 +681,33 @@ const SchedulePage: React.FC = () => {
         </main>
       </div>
 
-      {/* Create Schedule Modal */}
+      {/* Create Schedule Modal - UPDATED WITH DARKER GRAY COLORS */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-96 shadow-lg rounded-md bg-white max-h-[80vh] overflow-y-auto">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Create New Schedule</h3>
-                <button
-                  type="button"
-                  onClick={loadData}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                  title="Refresh classes list"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh Classes
-                </button>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-auto border border-gray-600">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-600 bg-gradient-to-r from-gray-600 to-gray-700 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Create New Schedule</h2>
+                  <p className="text-sm text-gray-300 mt-1">Add new class schedule to the system</p>
+                </div>
               </div>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreateSchedule} className="p-6">
               {formError && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-                  <div className="text-sm text-red-700">{formError}</div>
+                <div className="mb-4 bg-red-900/50 border border-red-700 rounded-lg p-3">
+                  <div className="text-sm text-red-200">{formError}</div>
                 </div>
               )}
-              <form onSubmit={handleCreateSchedule} className="space-y-4">
+
+              <div className="space-y-4">
+                {/* Class Selection */}
                 <div>
-                  <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-1">
-                    Class <span className="text-red-500">*</span>
+                  <label htmlFor="class-select" className="block text-sm font-medium text-gray-300 mb-1">
+                    Class <span className="text-red-400">*</span>
                   </label>
                   <select
                     id="class-select"
@@ -718,58 +717,64 @@ const SchedulePage: React.FC = () => {
                       console.log('🎯 Class selection changed:', { selectedClassId, selectedClass: classes.find(c => c.id === selectedClassId) });
                       setFormData({ ...formData, class_id: selectedClassId });
                     }}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
                     required
                     title="Select a class"
                   >
-                    <option value={0}>Select a class</option>
+                    <option value={0} className="text-gray-400">Select a class</option>
                     {classes.length > 0 ? (
                       classes.map((classItem) => (
-                        <option key={classItem.id} value={classItem.id}>
+                        <option key={classItem.id} value={classItem.id} className="text-white">
                           {classItem.name} ({classItem.code})
                         </option>
                       ))
                     ) : (
-                      <option value={0} disabled>No classes available - Please refresh the page</option>
+                      <option value={0} disabled className="text-gray-400">No classes available</option>
                     )}
                   </select>
                   {classes.length === 0 && (
-                    <p className="mt-1 text-sm text-red-600">
-                      ⚠️ No classes found. Please ensure classes exist in the system.
+                    <p className="mt-1 text-xs text-red-400">
+                      No classes found. Please ensure classes exist in the system.
                     </p>
                   )}
                 </div>
+
+                {/* Start Time */}
                 <div>
-                  <label htmlFor="start-time" className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Time <span className="text-red-500">*</span>
+                  <label htmlFor="start-time" className="block text-sm font-medium text-gray-300 mb-1">
+                    Start Time <span className="text-red-400">*</span>
                   </label>
                   <input
                     id="start-time"
                     type="datetime-local"
                     value={formData.start_time}
                     onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
                     required
                     title="Select start time"
                   />
                 </div>
+
+                {/* End Time */}
                 <div>
-                  <label htmlFor="end-time" className="block text-sm font-medium text-gray-700 mb-1">
-                    End Time <span className="text-red-500">*</span>
+                  <label htmlFor="end-time" className="block text-sm font-medium text-gray-300 mb-1">
+                    End Time <span className="text-red-400">*</span>
                   </label>
                   <input
                     id="end-time"
                     type="datetime-local"
                     value={formData.end_time}
                     onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
                     required
                     title="Select end time"
                   />
                 </div>
+
+                {/* Room Number */}
                 <div>
-                  <label htmlFor="room-number" className="block text-sm font-medium text-gray-700 mb-1">
-                    Room Number <span className="text-red-500">*</span>
+                  <label htmlFor="room-number" className="block text-sm font-medium text-gray-300 mb-1">
+                    Room Number <span className="text-red-400">*</span>
                   </label>
                   <input
                     id="room-number"
@@ -777,113 +782,118 @@ const SchedulePage: React.FC = () => {
                     value={formData.room_number}
                     onChange={(e) => setFormData({ ...formData, room_number: e.target.value })}
                     placeholder="e.g., Room 101, Lab A"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white placeholder-gray-400"
                     required
                     title="Enter room number"
                   />
                 </div>
+
+                {/* Status */}
                 <div>
-                  <label htmlFor="status-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="status-select" className="block text-sm font-medium text-gray-300 mb-1">
                     Status
                   </label>
                   <select
                     id="status-select"
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
                     title="Select status"
                   >
-                    <option value="Occupied">Occupied</option>
-                    <option value="Clean">Clean</option>
-                    <option value="Needs Cleaning">Needs Cleaning</option>
+                    <option value="Occupied" className="text-white">Occupied</option>
+                    <option value="Clean" className="text-white">Clean</option>
+                    <option value="Needs Cleaning" className="text-white">Needs Cleaning</option>
                   </select>
                 </div>
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    title="Cancel schedule creation"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={formLoading}
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                    title="Create schedule"
-                  >
-                    {formLoading ? 'Creating...' : 'Create Schedule'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-600">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  disabled={formLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
+                >
+                  {formLoading ? 'Creating...' : 'Create Schedule'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Edit Schedule Modal */}
+      {/* Edit Schedule Modal - UPDATED WITH DARKER GRAY COLORS */}
       {isEditModalOpen && editingSchedule && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-96 shadow-lg rounded-md bg-white max-h-[80vh] overflow-y-auto">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Schedule</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-auto border border-gray-600">
+            <div className="px-6 py-4 border-b border-gray-600 bg-gradient-to-r from-gray-600 to-gray-700 rounded-t-xl">
+              <h3 className="text-lg font-semibold text-white">Edit Schedule</h3>
+            </div>
+            <div className="p-6">
               {editFormError && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-                  <div className="text-sm text-red-700">{editFormError}</div>
+                <div className="mb-4 bg-red-900/50 border border-red-700 rounded-lg p-3">
+                  <div className="text-sm text-red-200">{editFormError}</div>
                 </div>
               )}
               <form onSubmit={handleUpdateSchedule} className="space-y-4">
                 <div>
-                  <label htmlFor="edit-class-select" className="block text-sm font-medium text-gray-700 mb-1">
-                    Class <span className="text-red-500">*</span>
+                  <label htmlFor="edit-class-select" className="block text-sm font-medium text-gray-300 mb-1">
+                    Class <span className="text-red-400">*</span>
                   </label>
                   <select
                     id="edit-class-select"
                     value={editFormData.class_id}
                     onChange={(e) => setEditFormData({ ...editFormData, class_id: parseInt(e.target.value) })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
                     required
                     title="Select a class"
                   >
                     {classes.map((classItem) => (
-                      <option key={classItem.id} value={classItem.id}>
+                      <option key={classItem.id} value={classItem.id} className="text-white">
                         {classItem.name} ({classItem.code})
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="edit-start-time" className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Time <span className="text-red-500">*</span>
+                  <label htmlFor="edit-start-time" className="block text-sm font-medium text-gray-300 mb-1">
+                    Start Time <span className="text-red-400">*</span>
                   </label>
                   <input
                     id="edit-start-time"
                     type="datetime-local"
                     value={editFormData.start_time}
                     onChange={(e) => setEditFormData({ ...editFormData, start_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
                     required
                     title="Select start time"
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-end-time" className="block text-sm font-medium text-gray-700 mb-1">
-                    End Time <span className="text-red-500">*</span>
+                  <label htmlFor="edit-end-time" className="block text-sm font-medium text-gray-300 mb-1">
+                    End Time <span className="text-red-400">*</span>
                   </label>
                   <input
                     id="edit-end-time"
                     type="datetime-local"
                     value={editFormData.end_time}
                     onChange={(e) => setEditFormData({ ...editFormData, end_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
                     required
                     title="Select end time"
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-room-number" className="block text-sm font-medium text-gray-700 mb-1">
-                    Room Number <span className="text-red-500">*</span>
+                  <label htmlFor="edit-room-number" className="block text-sm font-medium text-gray-300 mb-1">
+                    Room Number <span className="text-red-400">*</span>
                   </label>
                   <input
                     id="edit-room-number"
@@ -891,32 +901,32 @@ const SchedulePage: React.FC = () => {
                     value={editFormData.room_number}
                     onChange={(e) => setEditFormData({ ...editFormData, room_number: e.target.value })}
                     placeholder="e.g., Room 101, Lab A"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white placeholder-gray-400"
                     required
                     title="Enter room number"
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-status-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="edit-status-select" className="block text-sm font-medium text-gray-300 mb-1">
                     Status
                   </label>
                   <select
                     id="edit-status-select"
                     value={editFormData.status}
                     onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
                     title="Select status"
                   >
-                    <option value="Occupied">Occupied</option>
-                    <option value="Clean">Clean</option>
-                    <option value="Needs Cleaning">Needs Cleaning</option>
+                    <option value="Occupied" className="text-white">Occupied</option>
+                    <option value="Clean" className="text-white">Clean</option>
+                    <option value="Needs Cleaning" className="text-white">Needs Cleaning</option>
                   </select>
                 </div>
-                <div className="flex justify-end space-x-3 pt-4">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-600">
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="px-4 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                     title="Cancel editing"
                   >
                     Cancel
@@ -924,7 +934,7 @@ const SchedulePage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={editFormLoading}
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
                     title="Update schedule"
                   >
                     {editFormLoading ? 'Updating...' : 'Update Schedule'}
@@ -936,25 +946,27 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - UPDATED WITH DARKER GRAY COLORS */}
       {isDeleteModalOpen && deletingSchedule && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Schedule</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-auto border border-gray-600">
+            <div className="px-6 py-4 border-b border-gray-600 bg-gradient-to-r from-gray-600 to-gray-700 rounded-t-xl">
+              <h3 className="text-lg font-semibold text-white">Delete Schedule</h3>
+            </div>
+            <div className="p-6">
               {deleteError && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-                  <div className="text-sm text-red-700">{deleteError}</div>
+                <div className="mb-4 bg-red-900/50 border border-red-700 rounded-lg p-3">
+                  <div className="text-sm text-red-200">{deleteError}</div>
                 </div>
               )}
-              <p className="text-sm text-gray-700 mb-4">
-                Are you sure you want to delete the schedule for <strong>{deletingSchedule.class_name}</strong> in <strong>{deletingSchedule.room_number}</strong>? This action cannot be undone.
+              <p className="text-sm text-gray-300 mb-4">
+                Are you sure you want to delete the schedule for <strong className="text-white">{deletingSchedule.class_name}</strong> in <strong className="text-white">{deletingSchedule.room_number}</strong>? This action cannot be undone.
               </p>
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsDeleteModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="px-4 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                   title="Cancel deletion"
                 >
                   Cancel
@@ -962,7 +974,7 @@ const SchedulePage: React.FC = () => {
                 <button
                   onClick={confirmDeleteSchedule}
                   disabled={deleteLoading}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                  className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors duration-200"
                   title="Delete schedule"
                 >
                   {deleteLoading ? 'Deleting...' : 'Delete Schedule'}

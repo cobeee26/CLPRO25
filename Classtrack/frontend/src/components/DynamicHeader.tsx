@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import plmunLogo from "../assets/images/PLMUNLOGO.png?url";
+import plmunLogo from "../assets/images/PLMUNLOGO.png";
 import { useSystemStatus } from '../contexts/SystemStatusContext';
 import { useUser } from '../contexts/UserContext';
 import { Button } from './ui';
@@ -11,7 +11,6 @@ interface DynamicHeaderProps {
   showBackButton?: boolean;
   backTo?: string;
   backLabel?: string;
-  // Add these new props for sidebar functionality
   onMenuToggle?: () => void;
   sidebarOpen?: boolean;
   showMenuToggle?: boolean;
@@ -23,7 +22,6 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
   showBackButton = false,
   backTo = "/admin/dashboard", 
   backLabel = "Back to Dashboard",
-  // New props with defaults
   onMenuToggle,
   sidebarOpen = false,
   showMenuToggle = false

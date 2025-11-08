@@ -392,14 +392,14 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     switch (userRole) {
       case "admin":
         return {
-          title: "PLMun Admin",
+          title: "ClassTrack Pro Admin",
           subtitle: "Management System",
           userTitle: "Administrator",
           userRole: "Admin User",
         };
       case "teacher":
         return {
-          title: "ClassTrack",
+          title: "ClassTrack Pro Teacher",
           subtitle: "Teacher Portal",
           userTitle: "Teacher",
           userRole:
@@ -409,7 +409,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         };
       case "student":
         return {
-          title: "ClassTrack",
+          title: "ClassTrack Pro Student",
           subtitle: "Student Portal",
           userTitle: "Student",
           userRole:
@@ -419,7 +419,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         };
       default:
         return {
-          title: "ClassTrack",
+          title: "ClassTrack Pro",
           subtitle: "Learning Portal",
           userTitle: "User",
           userRole: "Portal User",
