@@ -398,7 +398,7 @@ const ClassesPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 overflow-hidden relative flex">
+    <div className="h-screen w-full bg-white overflow-hidden relative flex">
       {/* Global Success Message (Toast Notification) */}
       {globalSuccessMessage && (
         <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-slide-in">
@@ -410,11 +410,11 @@ const ClassesPage: React.FC = () => {
       )}
 
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-800/95 backdrop-blur-xl border-b border-slate-700/50 p-4">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-lg blur-sm"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg"></div>
               <img 
                 src={plmunLogo} 
                 alt="PLMun Logo" 
@@ -422,17 +422,17 @@ const ClassesPage: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">Manage Classes</h1>
-              <p className="text-xs text-slate-400">View and manage all system classes</p>
+              <h1 className="text-lg font-bold text-gray-900">Manage Classes</h1>
+              <p className="text-xs text-gray-600">View and manage all system classes</p>
             </div>
           </div>
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
             title="Toggle menu"
             aria-label="Toggle navigation menu"
           >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
@@ -456,7 +456,7 @@ const ClassesPage: React.FC = () => {
         <main className="flex-1 overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8 relative z-20">
           <div className="dashboard-content w-full max-w-7xl mx-auto">
             {/* Enhanced Search & Filter Card - IMPROVED MOBILE VISIBILITY */}
-            <div className="w-full bg-white/10 backdrop-blur-xl rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 lg:mb-8 border border-white/20 shadow-2xl">
+            <div className="w-full bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 lg:mb-8 shadow-lg">
               {/* Header Section - Improved Mobile Visibility */}
               <div className="flex flex-col space-y-4 mb-6 lg:mb-8">
                 <div className="flex items-center justify-between">
@@ -467,36 +467,36 @@ const ClassesPage: React.FC = () => {
                       </svg>
                     </div>
                     <div>
-                      <h2 className="text-lg lg:text-2xl font-bold text-white">
+                      <h2 className="text-lg lg:text-2xl font-bold text-gray-900">
                         Search & Filter
                       </h2>
-                      <p className="text-xs text-white/70 mt-1 lg:hidden">
+                      <p className="text-xs text-gray-600 mt-1 lg:hidden">
                         Find classes quickly
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2 text-xs text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded-full border border-emerald-500/30">
-                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
+                  <div className="flex items-center space-x-2 text-xs text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-200">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
                     <span className="font-medium">Real-time</span>
                   </div>
                 </div>
                 
                 {/* Search Input - Improved Mobile Visibility */}
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-white">
+                  <label className="block text-sm font-semibold text-gray-700">
                     Search Classes
                   </label>
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/30 to-teal-500/30 rounded-xl blur-sm group-hover:blur transition-all duration-300"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-xl blur-sm group-hover:blur transition-all duration-300"></div>
                     <input
                       type="text"
                       placeholder={user?.role === 'admin' ? "Search by class name, code, or teacher..." : "Search your assigned classes..."}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="relative w-full px-4 py-3 lg:py-4 pl-12 bg-white/15 border-2 border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 backdrop-blur-sm transition-all duration-300 text-base lg:text-base font-medium"
+                      className="relative w-full px-4 py-3 lg:py-4 pl-12 bg-white border-2 border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 text-base lg:text-base font-medium"
                     />
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 lg:h-6 lg:w-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-5 w-5 lg:h-6 lg:w-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </div>
@@ -507,7 +507,7 @@ const ClassesPage: React.FC = () => {
                         title="Clear search"
                         aria-label="Clear search input"
                       >
-                        <svg className="h-5 w-5 text-white/70 hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="h-5 w-5 text-gray-500 hover:text-gray-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
@@ -541,7 +541,7 @@ const ClassesPage: React.FC = () => {
                 {/* Admin Metrics */}
                 {user?.role === 'admin' && (
                   <>
-                    <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl p-3 lg:p-4 border-2 border-blue-500/30 hover:border-blue-400/50 hover:bg-blue-500/20 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -549,13 +549,13 @@ const ClassesPage: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-white group-hover:text-blue-200 transition-colors duration-200">{classes.length}</p>
-                          <p className="text-xs lg:text-sm text-white/80 font-medium">Total Classes</p>
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors duration-200">{classes.length}</p>
+                          <p className="text-xs lg:text-sm text-gray-600 font-medium">Total Classes</p>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl p-3 lg:p-4 border-2 border-emerald-500/30 hover:border-emerald-400/50 hover:bg-emerald-500/20 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 lg:p-4 border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100 transition-all duration-300 group">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -563,13 +563,13 @@ const ClassesPage: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-white group-hover:text-emerald-200 transition-colors duration-200">{classes.filter(c => c.status === 'Active').length}</p>
-                          <p className="text-xs lg:text-sm text-white/80 font-medium">Active Classes</p>
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-emerald-700 transition-colors duration-200">{classes.filter(c => c.status === 'Active').length}</p>
+                          <p className="text-xs lg:text-sm text-gray-600 font-medium">Active Classes</p>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl p-3 lg:p-4 border-2 border-purple-500/30 hover:border-purple-400/50 hover:bg-purple-500/20 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 lg:p-4 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-100 transition-all duration-300 group">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -577,13 +577,13 @@ const ClassesPage: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-white group-hover:text-purple-200 transition-colors duration-200">{classes.filter(c => c.assignedTeacher !== 'Unassigned').length}</p>
-                          <p className="text-xs lg:text-sm text-white/80 font-medium">Assigned Teachers</p>
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors duration-200">{classes.filter(c => c.assignedTeacher !== 'Unassigned').length}</p>
+                          <p className="text-xs lg:text-sm text-gray-600 font-medium">Assigned Teachers</p>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-xl p-3 lg:p-4 border-2 border-orange-500/30 hover:border-orange-400/50 hover:bg-orange-500/20 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-3 lg:p-4 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-100 transition-all duration-300 group">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg shadow-lg group-hover:shadow-orange-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -591,8 +591,8 @@ const ClassesPage: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-white group-hover:text-orange-200 transition-colors duration-200">{classes.filter(c => c.assignedTeacher === 'Unassigned').length}</p>
-                          <p className="text-xs lg:text-sm text-white/80 font-medium">Unassigned</p>
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-orange-700 transition-colors duration-200">{classes.filter(c => c.assignedTeacher === 'Unassigned').length}</p>
+                          <p className="text-xs lg:text-sm text-gray-600 font-medium">Unassigned</p>
                         </div>
                       </div>
                     </div>
@@ -602,7 +602,7 @@ const ClassesPage: React.FC = () => {
                 {/* Teacher Metrics */}
                 {user?.role === 'teacher' && (
                   <>
-                    <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl p-3 lg:p-4 border-2 border-blue-500/30 hover:border-blue-400/50 hover:bg-blue-500/20 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -610,13 +610,13 @@ const ClassesPage: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-white group-hover:text-blue-200 transition-colors duration-200">{teacherMetrics.total_classes}</p>
-                          <p className="text-xs lg:text-sm text-white/80 font-medium">My Classes</p>
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors duration-200">{teacherMetrics.total_classes}</p>
+                          <p className="text-xs lg:text-sm text-gray-600 font-medium">My Classes</p>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl p-3 lg:p-4 border-2 border-emerald-500/30 hover:border-emerald-400/50 hover:bg-emerald-500/20 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 lg:p-4 border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100 transition-all duration-300 group">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -624,8 +624,8 @@ const ClassesPage: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-white group-hover:text-emerald-200 transition-colors duration-200">{teacherMetrics.total_students}</p>
-                          <p className="text-xs lg:text-sm text-white/80 font-medium">Total Students</p>
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-emerald-700 transition-colors duration-200">{teacherMetrics.total_students}</p>
+                          <p className="text-xs lg:text-sm text-gray-600 font-medium">Total Students</p>
                         </div>
                       </div>
                     </div>
@@ -636,42 +636,42 @@ const ClassesPage: React.FC = () => {
 
             {/* Enhanced Error Message */}
             {error && (
-              <div className="bg-red-500/20 border-2 border-red-500/40 text-red-200 px-4 lg:px-6 py-3 lg:py-4 rounded-xl mb-6 lg:mb-8 backdrop-blur-sm">
+              <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 lg:px-6 py-3 lg:py-4 rounded-xl mb-6 lg:mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-500/30 rounded-lg">
-                    <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div>
                     <p className="font-semibold text-sm lg:text-base">Failed to load classes</p>
-                    <p className="text-xs lg:text-sm text-red-300/80">{error}</p>
+                    <p className="text-xs lg:text-sm text-red-600">{error}</p>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Enhanced Classes Table - MOBILE OPTIMIZED */}
-            <div className="w-full bg-white/10 backdrop-blur-xl rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl">
+            <div className="w-full bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg">
               {loading ? (
                 <div className="p-6 lg:p-12 text-center">
                   <div className="inline-flex flex-col items-center space-y-4">
                     <div className="relative">
-                      <div className="w-10 h-10 lg:w-16 lg:h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                      <div className="w-10 h-10 lg:w-16 lg:h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
                       <div className="absolute inset-0 w-10 h-10 lg:w-16 lg:h-16 border-4 border-transparent border-t-emerald-500 rounded-full animate-spin" style={{animationDirection: 'reverse', animationDuration: '1.5s'}}></div>
                     </div>
                     <div className="space-y-2">
-                      <p className="text-sm lg:text-lg font-semibold text-white">Loading Classes</p>
-                      <p className="text-xs lg:text-sm text-white/60">Please wait while we fetch your data...</p>
+                      <p className="text-sm lg:text-lg font-semibold text-gray-700">Loading Classes</p>
+                      <p className="text-xs lg:text-sm text-gray-500">Please wait while we fetch your data...</p>
                     </div>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="px-4 lg:px-8 py-4 bg-white/10 border-b border-white/20">
+                  <div className="px-4 lg:px-8 py-4 bg-gray-50 border-b border-gray-200">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-                      <h3 className="text-base lg:text-lg font-semibold text-white">Classes Overview</h3>
-                      <div className="flex items-center space-x-2 text-xs lg:text-sm text-white/70 bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
+                      <h3 className="text-base lg:text-lg font-semibold text-gray-900">Classes Overview</h3>
+                      <div className="flex items-center space-x-2 text-xs lg:text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
                         <svg className="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
@@ -684,17 +684,17 @@ const ClassesPage: React.FC = () => {
                     <div className="p-6 lg:p-12 text-center">
                       <div className="inline-flex flex-col items-center space-y-4 lg:space-y-6">
                         <div className="relative">
-                          <div className="w-16 h-16 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-500/30 to-purple-500/30 rounded-2xl flex items-center justify-center border-2 border-white/20">
-                            <svg className="w-8 h-8 lg:w-12 lg:h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-16 h-16 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center border-2 border-gray-200">
+                            <svg className="w-8 h-8 lg:w-12 lg:h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                           </div>
                         </div>
                         <div className="space-y-2 lg:space-y-3">
-                          <h3 className="text-base lg:text-xl font-semibold text-white">
+                          <h3 className="text-base lg:text-xl font-semibold text-gray-900">
                             {searchTerm ? 'No classes found' : 'No classes available'}
                           </h3>
-                          <p className="text-white/70 max-w-md text-xs lg:text-base">
+                          <p className="text-gray-600 max-w-md text-xs lg:text-base">
                             {searchTerm 
                               ? `No classes match your search for "${searchTerm}". Try adjusting your search terms.`
                               : 'Get started by creating your first class. Click the "Create New Class" button above.'
@@ -722,7 +722,7 @@ const ClassesPage: React.FC = () => {
                       <div className="block lg:hidden">
                         <div className="space-y-3 p-4">
                           {filteredClasses.map((classItem) => (
-                            <div key={classItem.id} className="bg-white/10 rounded-xl p-4 border-2 border-white/20 hover:bg-white/15 transition-all duration-300">
+                            <div key={classItem.id} className="bg-white rounded-xl p-4 border-2 border-gray-200 hover:bg-gray-50 transition-all duration-300">
                               {/* Header */}
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -732,12 +732,12 @@ const ClassesPage: React.FC = () => {
                                     </svg>
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <h4 className="text-sm font-bold text-white truncate">{classItem.name}</h4>
-                                    <p className="text-xs text-white/70 truncate">ID: {classItem.id}</p>
+                                    <h4 className="text-sm font-bold text-gray-900 truncate">{classItem.name}</h4>
+                                    <p className="text-xs text-gray-600 truncate">ID: {classItem.id}</p>
                                   </div>
                                 </div>
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-500/30 via-green-500/30 to-teal-500/30 text-emerald-300 border border-emerald-500/40">
-                                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5"></div>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 via-green-100 to-teal-100 text-emerald-700 border border-emerald-200">
+                                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5"></div>
                                   Active
                                 </span>
                               </div>
@@ -745,23 +745,23 @@ const ClassesPage: React.FC = () => {
                               {/* Details */}
                               <div className="space-y-2 mb-4">
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-white/70 font-medium">Class Code:</span>
-                                  <span className="text-white font-bold">{classItem.code}</span>
+                                  <span className="text-gray-600 font-medium">Class Code:</span>
+                                  <span className="text-gray-900 font-bold">{classItem.code}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-white/70 font-medium">Teacher:</span>
-                                  <span className="text-white font-medium truncate ml-2">{classItem.assignedTeacher}</span>
+                                  <span className="text-gray-600 font-medium">Teacher:</span>
+                                  <span className="text-gray-900 font-medium truncate ml-2">{classItem.assignedTeacher}</span>
                                 </div>
                               </div>
                               
                               {/* Actions */}
-                              <div className="flex items-center justify-between pt-3 border-t border-white/20">
+                              <div className="flex items-center justify-between pt-3 border-t border-gray-200">
                                 <div className="flex items-center space-x-2">
                                   {/* Roster button - only for teachers */}
                                   {user?.role === 'teacher' && (
                                     <button
                                       onClick={() => handleViewRoster(classItem)}
-                                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500/30 to-emerald-500/30 hover:from-green-500/40 hover:to-emerald-500/40 text-green-300 hover:text-green-200 rounded-lg transition-all duration-300 text-xs border border-green-500/40 font-medium"
+                                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 text-green-700 hover:text-green-800 rounded-lg transition-all duration-300 text-xs border border-green-200 font-medium"
                                       title={`View roster for ${classItem.name}`}
                                       aria-label={`View student roster for ${classItem.name}`}
                                     >
@@ -777,7 +777,7 @@ const ClassesPage: React.FC = () => {
                                     <>
                                       <button
                                         onClick={() => openEditModal(classItem)}
-                                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 hover:from-blue-500/40 hover:to-indigo-500/40 text-blue-300 hover:text-blue-200 rounded-lg transition-all duration-300 text-xs border border-blue-500/40 font-medium"
+                                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-100 to-indigo-100 hover:from-blue-200 hover:to-indigo-200 text-blue-700 hover:text-blue-800 rounded-lg transition-all duration-300 text-xs border border-blue-200 font-medium"
                                         title={`Edit ${classItem.name}`}
                                         aria-label={`Edit class ${classItem.name}`}
                                       >
@@ -788,7 +788,7 @@ const ClassesPage: React.FC = () => {
                                       </button>
                                       <button
                                         onClick={() => openDeleteModal(classItem)}
-                                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-red-500/30 to-pink-500/30 hover:from-red-500/40 hover:to-pink-500/40 text-red-300 hover:text-red-200 rounded-lg transition-all duration-300 text-xs border border-red-500/40 font-medium"
+                                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-red-100 to-pink-100 hover:from-red-200 hover:to-pink-200 text-red-700 hover:text-red-800 rounded-lg transition-all duration-300 text-xs border border-red-200 font-medium"
                                         title={`Delete ${classItem.name}`}
                                         aria-label={`Delete class ${classItem.name}`}
                                       >
@@ -807,44 +807,44 @@ const ClassesPage: React.FC = () => {
                       </div>
 
                       {/* Desktop Table View */}
-                      <table className="hidden lg:table min-w-full divide-y divide-white/10">
-                        <thead className="bg-gradient-to-r from-slate-800/50 to-blue-900/30 backdrop-blur-sm">
+                      <table className="hidden lg:table min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gradient-to-r from-gray-50 to-blue-50">
                           <tr>
-                            <th className="px-6 lg:px-8 py-4 text-left text-xs font-bold text-white/90 uppercase tracking-wider">
+                            <th className="px-6 lg:px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                               <div className="flex items-center space-x-2">
-                                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                 </svg>
                                 <span>Class Name</span>
                               </div>
                             </th>
-                            <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-white/90 uppercase tracking-wider">
+                            <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
                               <div className="flex items-center justify-center space-x-2">
-                                <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                                 </svg>
                                 <span>Class Code</span>
                               </div>
                             </th>
-                            <th className="px-6 lg:px-8 py-4 text-left text-xs font-bold text-white/90 uppercase tracking-wider">
+                            <th className="px-6 lg:px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                               <div className="flex items-center space-x-2">
-                                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
                                 <span>Assigned Teacher</span>
                               </div>
                             </th>
-                            <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-white/90 uppercase tracking-wider">
+                            <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
                               <div className="flex items-center justify-center space-x-2">
-                                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 <span>Status</span>
                               </div>
                             </th>
-                            <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-white/90 uppercase tracking-wider">
+                            <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
                               <div className="flex items-center justify-center space-x-2">
-                                <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
@@ -853,9 +853,9 @@ const ClassesPage: React.FC = () => {
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white/5 divide-y divide-white/10">
+                        <tbody className="bg-white divide-y divide-gray-200">
                           {filteredClasses.map((classItem) => (
-                            <tr key={classItem.id} className="hover:bg-white/10 transition-all duration-300 group border-b border-white/5">
+                            <tr key={classItem.id} className="hover:bg-gray-50 transition-all duration-300 group border-b border-gray-100">
                               <td className="px-6 lg:px-8 py-5 whitespace-nowrap">
                                 <div className="flex items-center space-x-3">
                                   <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
@@ -864,14 +864,14 @@ const ClassesPage: React.FC = () => {
                                     </svg>
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <div className="text-sm font-bold text-white truncate group-hover:text-blue-200 transition-colors duration-200">{classItem.name}</div>
-                                    <div className="text-xs text-white/60 mt-1">Class ID: {classItem.id}</div>
+                                    <div className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-200">{classItem.name}</div>
+                                    <div className="text-xs text-gray-500 mt-1">Class ID: {classItem.id}</div>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-6 lg:px-8 py-5 whitespace-nowrap text-center">
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-indigo-500/20 text-blue-300 border border-blue-500/30 shadow-sm hover:shadow-blue-500/20 transition-all duration-200">
-                                  <svg className="w-3 h-3 mr-1.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-blue-100 via-purple-100 to-indigo-100 text-blue-700 border border-blue-200 shadow-sm hover:shadow-blue-500/20 transition-all duration-200">
+                                  <svg className="w-3 h-3 mr-1.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                                   </svg>
                                   {classItem.code}
@@ -884,13 +884,13 @@ const ClassesPage: React.FC = () => {
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                     </svg>
                                   </div>
-                                  <span className="text-sm font-medium text-white/90 truncate group-hover:text-emerald-200 transition-colors duration-200">{classItem.assignedTeacher}</span>
+                                  <span className="text-sm font-medium text-gray-700 truncate group-hover:text-emerald-700 transition-colors duration-200">{classItem.assignedTeacher}</span>
                                 </div>
                               </td>
                               <td className="px-6 lg:px-8 py-5 whitespace-nowrap text-center">
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-500/20 via-green-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm hover:shadow-emerald-500/20 transition-all duration-200">
-                                  <div className="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse shadow-sm"></div>
-                                  <svg className="w-3 h-3 mr-1.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 via-green-100 to-teal-100 text-emerald-700 border border-emerald-200 shadow-sm hover:shadow-emerald-500/20 transition-all duration-200">
+                                  <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse shadow-sm"></div>
+                                  <svg className="w-3 h-3 mr-1.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
                                   {classItem.status}
@@ -902,7 +902,7 @@ const ClassesPage: React.FC = () => {
                                   {user?.role === 'teacher' && (
                                     <button
                                       onClick={() => handleViewRoster(classItem)}
-                                      className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 text-green-300 hover:text-green-200 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/20 border border-green-500/30"
+                                      className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 text-green-700 hover:text-green-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/20 border border-green-200"
                                       title={`View roster for ${classItem.name}`}
                                       aria-label={`View student roster for ${classItem.name}`}
                                     >
@@ -918,7 +918,7 @@ const ClassesPage: React.FC = () => {
                                     <>
                                       <button
                                         onClick={() => openEditModal(classItem)}
-                                        className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/30 hover:to-indigo-500/30 text-blue-300 hover:text-blue-200 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 border border-blue-500/30"
+                                        className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 hover:from-blue-200 hover:to-indigo-200 text-blue-700 hover:text-blue-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 border border-blue-200"
                                         title={`Edit ${classItem.name}`}
                                         aria-label={`Edit class ${classItem.name}`}
                                       >
@@ -929,7 +929,7 @@ const ClassesPage: React.FC = () => {
                                       </button>
                                       <button
                                         onClick={() => openDeleteModal(classItem)}
-                                        className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 text-red-300 hover:text-red-200 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/20 border border-red-500/30"
+                                        className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-red-100 to-pink-100 hover:from-red-200 hover:to-pink-200 text-red-700 hover:text-red-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/20 border border-red-200"
                                         title={`Delete ${classItem.name}`}
                                         aria-label={`Delete class ${classItem.name}`}
                                       >
@@ -959,13 +959,13 @@ const ClassesPage: React.FC = () => {
       {/* Create Class Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700/50 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold text-white mb-6">Create New Class</h3>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-300 max-h-[80vh] overflow-y-auto shadow-xl">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">Create New Class</h3>
             
             {formError && (
-              <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   <span className="font-medium">{formError}</span>
@@ -974,9 +974,9 @@ const ClassesPage: React.FC = () => {
             )}
 
             {successMessage && (
-              <div className="bg-green-900/50 border border-green-500/50 text-green-200 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   <span className="font-medium">{successMessage}</span>
@@ -986,7 +986,7 @@ const ClassesPage: React.FC = () => {
 
             <form onSubmit={handleCreateClass} className="space-y-4">
               <div>
-                <label htmlFor="className" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="className" className="block text-sm font-medium text-gray-700 mb-2">
                   Class Name
                 </label>
                 <input
@@ -994,14 +994,14 @@ const ClassesPage: React.FC = () => {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   placeholder="Enter class name"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="classCode" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="classCode" className="block text-sm font-medium text-gray-700 mb-2">
                   Class Code
                 </label>
                 <input
@@ -1009,21 +1009,21 @@ const ClassesPage: React.FC = () => {
                   type="text"
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   placeholder="Enter class code (e.g., MATH101)"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="teacherSelect" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="teacherSelect" className="block text-sm font-medium text-gray-700 mb-2">
                   Assigned Teacher
                 </label>
                 <select
                   id="teacherSelect"
                   value={formData.teacher_id || ''}
                   onChange={(e) => setFormData({ ...formData, teacher_id: e.target.value ? parseInt(e.target.value) : undefined })}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   aria-label="Select a teacher"
                 >
                   <option value="">Select a teacher (optional)</option>
@@ -1039,7 +1039,7 @@ const ClassesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors"
+                  className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
                   title="Cancel class creation"
                   aria-label="Cancel creating new class"
                 >
@@ -1063,13 +1063,13 @@ const ClassesPage: React.FC = () => {
       {/* Edit Class Modal */}
       {isEditModalOpen && editingClass && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700/50 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold text-white mb-6">Edit Class</h3>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-300 max-h-[80vh] overflow-y-auto shadow-xl">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">Edit Class</h3>
             
             {editFormError && (
-              <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   <span className="font-medium">{editFormError}</span>
@@ -1078,9 +1078,9 @@ const ClassesPage: React.FC = () => {
             )}
 
             {editSuccessMessage && (
-              <div className="bg-green-900/50 border border-green-500/50 text-green-200 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   <span className="font-medium">{editSuccessMessage}</span>
@@ -1090,7 +1090,7 @@ const ClassesPage: React.FC = () => {
 
             <form onSubmit={handleEditClass} className="space-y-4">
               <div>
-                <label htmlFor="editClassName" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="editClassName" className="block text-sm font-medium text-gray-700 mb-2">
                   Class Name
                 </label>
                 <input
@@ -1098,14 +1098,14 @@ const ClassesPage: React.FC = () => {
                   type="text"
                   value={editFormData.name}
                   onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   placeholder="Enter class name"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="editClassCode" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="editClassCode" className="block text-sm font-medium text-gray-700 mb-2">
                   Class Code
                 </label>
                 <input
@@ -1113,21 +1113,21 @@ const ClassesPage: React.FC = () => {
                   type="text"
                   value={editFormData.code}
                   onChange={(e) => setEditFormData({ ...editFormData, code: e.target.value.toUpperCase() })}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   placeholder="Enter class code (e.g., MATH101)"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="editTeacherSelect" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="editTeacherSelect" className="block text-sm font-medium text-gray-700 mb-2">
                   Assigned Teacher
                 </label>
                 <select
                   id="editTeacherSelect"
                   value={editFormData.teacher_id || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, teacher_id: e.target.value ? parseInt(e.target.value) : undefined })}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   aria-label="Select a teacher for editing"
                 >
                   <option value="">Select a teacher (optional)</option>
@@ -1143,7 +1143,7 @@ const ClassesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors"
+                  className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
                   title="Cancel editing"
                   aria-label="Cancel editing class"
                 >
@@ -1167,13 +1167,13 @@ const ClassesPage: React.FC = () => {
       {/* Delete Class Modal */}
       {isDeleteModalOpen && deletingClass && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700/50">
-            <h3 className="text-xl font-semibold text-white mb-6">Delete Class</h3>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-300 shadow-xl">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">Delete Class</h3>
             
             {deleteError && (
-              <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   <span className="font-medium">{deleteError}</span>
@@ -1182,9 +1182,9 @@ const ClassesPage: React.FC = () => {
             )}
 
             {deleteSuccessMessage && (
-              <div className="bg-green-900/50 border border-green-500/50 text-green-200 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   <span className="font-medium">{deleteSuccessMessage}</span>
@@ -1193,10 +1193,10 @@ const ClassesPage: React.FC = () => {
             )}
 
             <div className="mb-6">
-              <p className="text-gray-300 mb-4">
-                Are you sure you want to delete the class <span className="font-semibold text-white">{deletingClass.name}</span>?
+              <p className="text-gray-700 mb-4">
+                Are you sure you want to delete the class <span className="font-semibold text-gray-900">{deletingClass.name}</span>?
               </p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-600">
                 This action cannot be undone.
               </p>
             </div>
@@ -1205,7 +1205,7 @@ const ClassesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors"
+                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
                 title="Cancel deletion"
                 aria-label="Cancel class deletion"
               >
@@ -1228,14 +1228,14 @@ const ClassesPage: React.FC = () => {
       {/* Student Roster Modal - Teacher Only */}
       {isRosterModalOpen && selectedClassForRoster && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[80vh] border border-gray-700/50 overflow-hidden">
+          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[80vh] border border-gray-300 overflow-hidden shadow-xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-white">
+              <h3 className="text-xl font-semibold text-gray-900">
                 Student Roster - {selectedClassForRoster.name}
               </h3>
               <button
                 onClick={handleCloseRosterModal}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-500 hover:text-gray-700 transition-colors"
                 title="Close roster"
                 aria-label="Close student roster modal"
               >
@@ -1246,9 +1246,9 @@ const ClassesPage: React.FC = () => {
             </div>
             
             {rosterError && (
-              <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   <span className="font-medium">{rosterError}</span>
@@ -1260,22 +1260,22 @@ const ClassesPage: React.FC = () => {
               {rosterLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  <span className="ml-3 text-white">Loading roster...</span>
+                  <span className="ml-3 text-gray-700">Loading roster...</span>
                 </div>
               ) : roster.length === 0 ? (
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                     </svg>
                   </div>
-                  <h4 className="text-lg font-semibold text-white mb-2">No Students Enrolled</h4>
-                  <p className="text-gray-400">This class doesn't have any enrolled students yet.</p>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Students Enrolled</h4>
+                  <p className="text-gray-600">This class doesn't have any enrolled students yet.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {roster.map((student, index) => (
-                    <div key={student.id || index} className="bg-gray-700/50 rounded-lg p-4 border border-gray-600/50">
+                    <div key={student.id || index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                       <div className="flex items-center space-x-4">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
                           <span className="text-white font-bold text-sm">
@@ -1283,13 +1283,13 @@ const ClassesPage: React.FC = () => {
                           </span>
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-white font-semibold">
+                          <h4 className="text-gray-900 font-semibold">
                             {student.first_name && student.last_name 
                               ? `${student.first_name} ${student.last_name}`
                               : student.username || 'Unknown Student'
                             }
                           </h4>
-                          <p className="text-gray-400 text-sm">
+                          <p className="text-gray-600 text-sm">
                             {student.email || student.username || 'No email available'}
                           </p>
                         </div>
@@ -1308,7 +1308,7 @@ const ClassesPage: React.FC = () => {
             <div className="mt-6 flex justify-end">
               <button
                 onClick={handleCloseRosterModal}
-                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors"
+                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
                 title="Close roster"
                 aria-label="Close student roster"
               >

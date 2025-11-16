@@ -245,9 +245,9 @@ const ReportsPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 overflow-hidden relative flex">
+    <div className="h-screen w-full bg-white overflow-hidden relative flex">
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-800/95 backdrop-blur-xl border-b border-slate-700/50 p-4">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <img 
@@ -256,21 +256,21 @@ const ReportsPage: React.FC = () => {
               className="w-8 h-8 rounded-lg"
             />
             <div>
-              <h1 className="text-lg font-bold text-white">
+              <h1 className="text-lg font-bold text-gray-900">
                 {user?.role === 'admin' ? 'System Reports & Analytics' : 'My Reports & Analytics'}
               </h1>
-              <p className="text-xs text-white/70">
+              <p className="text-xs text-gray-600">
                 {user?.role === 'admin' ? 'Comprehensive data insights and export capabilities' : 'Student performance and class analytics'}
               </p>
             </div>
           </div>
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
             title="Toggle navigation menu"
             aria-label="Toggle navigation menu"
           >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
@@ -305,12 +305,12 @@ const ReportsPage: React.FC = () => {
               <div className="flex items-center justify-center py-20">
                 <div className="flex flex-col items-center space-y-4">
                   <div className="relative">
-                    <div className="animate-spin rounded-full h-12 w-12 lg:h-16 lg:w-16 border-4 border-blue-500/20 border-t-blue-500"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 lg:h-16 lg:w-16 border-4 border-blue-200 border-t-blue-500"></div>
                     <div className="absolute inset-0 rounded-full h-12 w-12 lg:h-16 lg:w-16 border-4 border-transparent border-r-purple-500/30 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
                   </div>
                   <div className="text-center">
-                    <p className="text-white/80 text-base lg:text-lg font-medium">Loading Analytics Dashboard</p>
-                    <p className="text-white/50 text-xs lg:text-sm">Gathering system insights...</p>
+                    <p className="text-gray-700 text-base lg:text-lg font-medium">Loading Analytics Dashboard</p>
+                    <p className="text-gray-500 text-xs lg:text-sm">Gathering system insights...</p>
                   </div>
                 </div>
               </div>
@@ -318,10 +318,10 @@ const ReportsPage: React.FC = () => {
 
             {/* Error State */}
             {error && (
-              <div className="bg-red-900/20 border border-red-500/30 text-red-200 px-4 lg:px-6 py-3 lg:py-4 rounded-2xl mb-6 lg:mb-8 backdrop-blur-sm">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 lg:px-6 py-3 lg:py-4 rounded-2xl mb-6 lg:mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-500/20 rounded-lg">
-                    <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -340,10 +340,10 @@ const ReportsPage: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <h1 className="text-2xl lg:text-5xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent mb-3 lg:mb-4">
+                  <h1 className="text-2xl lg:text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-3 lg:mb-4">
                     {user?.role === 'admin' ? 'System Analytics' : 'My Reports & Analytics'}
                   </h1>
-                  <p className="text-base lg:text-xl text-white/70 max-w-2xl mx-auto px-4">
+                  <p className="text-base lg:text-xl text-gray-600 max-w-2xl mx-auto px-4">
                     {user?.role === 'admin' 
                       ? "Comprehensive insights into your educational platform's performance and data management"
                       : "Student performance insights and class analytics for your assigned classes"
@@ -354,8 +354,8 @@ const ReportsPage: React.FC = () => {
                 {/* Key Metrics Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
                   {/* Active Users / My Students - BLUE CARD */}
-                  <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500/10 via-blue-600/5 to-purple-500/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-100 to-purple-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-blue-200 hover:border-blue-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
                       <div className="flex items-center justify-between mb-3 lg:mb-4">
                         <div className="p-2 lg:p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl lg:rounded-2xl shadow-lg group-hover:shadow-blue-500/30 transition-all duration-300">
@@ -364,25 +364,25 @@ const ReportsPage: React.FC = () => {
                           </svg>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl lg:text-3xl font-bold text-white group-hover:text-blue-200 transition-colors duration-300">
+                          <p className="text-xl lg:text-3xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors duration-300">
                             {user?.role === 'admin' ? totalActiveUsers : (teacherReports?.summary.total_students || 0)}
                           </p>
-                          <p className="text-xs lg:text-sm text-white/60">
+                          <p className="text-xs lg:text-sm text-gray-600">
                             {user?.role === 'admin' ? 'Active Users' : 'My Students'}
                           </p>
                         </div>
                       </div>
                       <div className="space-y-1 lg:space-y-2">
-                        <p className="text-white/80 font-medium text-sm lg:text-base">
+                        <p className="text-gray-700 font-medium text-sm lg:text-base">
                           {user?.role === 'admin' ? 'Teachers and students' : 'Student Count'}
                         </p>
-                        <p className="text-xs lg:text-sm text-white/50">
+                        <p className="text-xs lg:text-sm text-gray-500">
                           {user?.role === 'admin' 
                             ? 'Teachers and students in the system'
                             : 'Total students enrolled in your classes'
                           }
                         </p>
-                        <div className="flex justify-between text-xs text-white/40">
+                        <div className="flex justify-between text-xs text-gray-400">
                           {user?.role === 'admin' ? (
                             <>
                               <span>{totalTeachers} teachers</span>
@@ -397,8 +397,8 @@ const ReportsPage: React.FC = () => {
                   </div>
 
                   {/* Active Classes / My Classes - GREEN CARD */}
-                  <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500/10 via-emerald-600/5 to-teal-500/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-emerald-500/20 hover:border-emerald-400/40 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20">
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-100 to-teal-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-emerald-200 hover:border-emerald-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
                       <div className="flex items-center justify-between mb-3 lg:mb-4">
                         <div className="p-2 lg:p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl lg:rounded-2xl shadow-lg group-hover:shadow-emerald-500/30 transition-all duration-300">
@@ -407,25 +407,25 @@ const ReportsPage: React.FC = () => {
                           </svg>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl lg:text-3xl font-bold text-white group-hover:text-emerald-200 transition-colors duration-300">
+                          <p className="text-xl lg:text-3xl font-bold text-gray-900 group-hover:text-emerald-700 transition-colors duration-300">
                             {user?.role === 'admin' ? totalActiveClasses : (teacherReports?.summary.total_classes || 0)}
                           </p>
-                          <p className="text-xs lg:text-sm text-white/60">
+                          <p className="text-xs lg:text-sm text-gray-600">
                             {user?.role === 'admin' ? 'Active Classes' : 'My Classes'}
                           </p>
                         </div>
                       </div>
                       <div className="space-y-1 lg:space-y-2">
-                        <p className="text-white/80 font-medium text-sm lg:text-base">
+                        <p className="text-gray-700 font-medium text-sm lg:text-base">
                           {user?.role === 'admin' ? 'System Classes' : 'Assigned Classes'}
                         </p>
-                        <p className="text-xs lg:text-sm text-white/50">
+                        <p className="text-xs lg:text-sm text-gray-500">
                           {user?.role === 'admin' 
                             ? 'Currently active classes in the system'
                             : 'Classes assigned to you'
                           }
                         </p>
-                        <div className="text-xs text-white/40">
+                        <div className="text-xs text-gray-400">
                           <span>{user?.role === 'admin' ? 'All classes operational' : `${totalStudentsInMyClasses} Students enrolled`}</span>
                         </div>
                       </div>
@@ -433,8 +433,8 @@ const ReportsPage: React.FC = () => {
                   </div>
 
                   {/* System Health / Class Performance - PURPLE CARD */}
-                  <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500/10 via-purple-600/5 to-pink-500/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-purple-500/20 hover:border-purple-400/40 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="group relative overflow-hidden bg-gradient-to-br from-purple-50 via-purple-100 to-pink-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-purple-200 hover:border-purple-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
                       <div className="flex items-center justify-between mb-3 lg:mb-4">
                         <div className="p-2 lg:p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl lg:rounded-2xl shadow-lg group-hover:shadow-purple-500/30 transition-all duration-300">
@@ -443,25 +443,25 @@ const ReportsPage: React.FC = () => {
                           </svg>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl lg:text-3xl font-bold text-white group-hover:text-purple-200 transition-colors duration-300">
+                          <p className="text-xl lg:text-3xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors duration-300">
                             {user?.role === 'admin' ? '100%' : `${teacherReports?.summary.overall_average_grade || 0}%`}
                           </p>
-                          <p className="text-xs lg:text-sm text-white/60">
+                          <p className="text-xs lg:text-sm text-gray-600">
                             {user?.role === 'admin' ? 'System Health' : 'Avg Grade'}
                           </p>
                         </div>
                       </div>
                       <div className="space-y-1 lg:space-y-2">
-                        <p className="text-white/80 font-medium text-sm lg:text-base">
+                        <p className="text-gray-700 font-medium text-sm lg:text-base">
                           {user?.role === 'admin' ? 'All Systems Operational' : 'Class Performance'}
                         </p>
-                        <p className="text-xs lg:text-sm text-white/50">
+                        <p className="text-xs lg:text-sm text-gray-500">
                           {user?.role === 'admin' 
                             ? 'Platform running smoothly'
                             : 'Overall average grade across classes'
                           }
                         </p>
-                        <div className="text-xs text-white/40">
+                        <div className="text-xs text-gray-400">
                           <span>Last updated: Now</span>
                         </div>
                       </div>
@@ -469,8 +469,8 @@ const ReportsPage: React.FC = () => {
                   </div>
 
                   {/* Data Integrity / Submission Rate - ORANGE CARD */}
-                  <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500/10 via-orange-600/5 to-red-500/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-orange-500/20 hover:border-orange-400/40 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
-                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="group relative overflow-hidden bg-gradient-to-br from-orange-50 via-orange-100 to-red-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-orange-200 hover:border-orange-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
                       <div className="flex items-center justify-between mb-3 lg:mb-4">
                         <div className="p-2 lg:p-3 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl lg:rounded-2xl shadow-lg group-hover:shadow-orange-500/30 transition-all duration-300">
@@ -479,25 +479,25 @@ const ReportsPage: React.FC = () => {
                           </svg>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl lg:text-3xl font-bold text-white group-hover:text-orange-200 transition-colors duration-300">
+                          <p className="text-xl lg:text-3xl font-bold text-gray-900 group-hover:text-orange-700 transition-colors duration-300">
                             {user?.role === 'admin' ? (users.length + classes.length) : `${teacherReports?.summary.overall_submission_rate || 0}%`}
                           </p>
-                          <p className="text-xs lg:text-sm text-white/60">
+                          <p className="text-xs lg:text-sm text-gray-600">
                             {user?.role === 'admin' ? 'Data Records' : 'Submission Rate'}
                           </p>
                         </div>
                       </div>
                       <div className="space-y-1 lg:space-y-2">
-                        <p className="text-white/80 font-medium text-sm lg:text-base">
+                        <p className="text-gray-700 font-medium text-sm lg:text-base">
                           {user?.role === 'admin' ? 'Data Integrity' : 'Assignment Completion'}
                         </p>
-                        <p className="text-xs lg:text-sm text-white/50">
+                        <p className="text-xs lg:text-sm text-gray-500">
                           {user?.role === 'admin' 
                             ? 'All records validated and secure'
                             : 'Overall assignment submission rate'
                           }
                         </p>
-                        <div className="text-xs text-white/40">
+                        <div className="text-xs text-gray-400">
                           <span>{user?.role === 'admin' ? 'Backup: Enabled' : 'All assignments'}</span>
                         </div>
                       </div>
@@ -510,42 +510,42 @@ const ReportsPage: React.FC = () => {
                   <div className="space-y-6 lg:space-y-8">
                     {/* Class Performance Overview */}
                     {teacherReports.class_performance.length > 0 ? (
-                      <div className="bg-white/5 backdrop-blur-2xl rounded-2xl lg:rounded-3xl p-4 lg:p-12 border border-white/10 shadow-2xl">
+                      <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                         <div className="text-center mb-6 lg:mb-8">
                           <div className="inline-flex items-center justify-center w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl lg:rounded-2xl mb-3 lg:mb-4 shadow-lg">
                             <svg className="h-6 w-6 lg:h-8 lg:w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                           </div>
-                          <h2 className="text-xl lg:text-3xl font-bold text-white mb-2 lg:mb-3">Class Performance Overview</h2>
-                          <p className="text-white/70 text-sm lg:text-lg max-w-2xl mx-auto">
+                          <h2 className="text-xl lg:text-3xl font-bold text-gray-900 mb-2 lg:mb-3">Class Performance Overview</h2>
+                          <p className="text-gray-600 text-sm lg:text-lg max-w-2xl mx-auto">
                             Performance metrics for each of your assigned classes
                           </p>
                         </div>
                         
                         <div className="grid grid-cols-1 gap-4 lg:gap-6">
                           {teacherReports.class_performance.map((classData) => (
-                            <div key={classData.class_id} className="bg-white/5 rounded-xl lg:rounded-2xl p-4 lg:p-6 border border-white/10">
+                            <div key={classData.class_id} className="bg-gray-50 rounded-xl lg:rounded-2xl p-4 lg:p-6 border border-gray-200">
                               <div className="flex items-center justify-between mb-3 lg:mb-4">
-                                <h3 className="text-base lg:text-xl font-bold text-white truncate">{classData.class_name}</h3>
-                                <span className="text-xs lg:text-sm text-white/60">{classData.class_code}</span>
+                                <h3 className="text-base lg:text-xl font-bold text-gray-900 truncate">{classData.class_name}</h3>
+                                <span className="text-xs lg:text-sm text-gray-600">{classData.class_code}</span>
                               </div>
                               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-3 lg:mb-4">
                                 <div className="text-center">
-                                  <p className="text-lg lg:text-2xl font-bold text-blue-400">{classData.total_students}</p>
-                                  <p className="text-xs lg:text-sm text-white/60">Students</p>
+                                  <p className="text-lg lg:text-2xl font-bold text-blue-600">{classData.total_students}</p>
+                                  <p className="text-xs lg:text-sm text-gray-600">Students</p>
                                 </div>
                                 <div className="text-center">
-                                  <p className="text-lg lg:text-2xl font-bold text-emerald-400">{classData.total_assignments}</p>
-                                  <p className="text-xs lg:text-sm text-white/60">Assignments</p>
+                                  <p className="text-lg lg:text-2xl font-bold text-emerald-600">{classData.total_assignments}</p>
+                                  <p className="text-xs lg:text-sm text-gray-600">Assignments</p>
                                 </div>
                                 <div className="text-center">
-                                  <p className="text-lg lg:text-2xl font-bold text-purple-400">{classData.average_grade}%</p>
-                                  <p className="text-xs lg:text-sm text-white/60">Avg Grade</p>
+                                  <p className="text-lg lg:text-2xl font-bold text-purple-600">{classData.average_grade}%</p>
+                                  <p className="text-xs lg:text-sm text-gray-600">Avg Grade</p>
                                 </div>
                                 <div className="text-center">
-                                  <p className="text-lg lg:text-2xl font-bold text-orange-400">{classData.submission_rate}%</p>
-                                  <p className="text-xs lg:text-sm text-white/60">Submission Rate</p>
+                                  <p className="text-lg lg:text-2xl font-bold text-orange-600">{classData.submission_rate}%</p>
+                                  <p className="text-xs lg:text-sm text-gray-600">Submission Rate</p>
                                 </div>
                               </div>
                             </div>
@@ -553,14 +553,14 @@ const ReportsPage: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-white/5 backdrop-blur-2xl rounded-2xl lg:rounded-3xl p-8 lg:p-12 border border-white/10 shadow-2xl text-center">
+                      <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-8 lg:p-12 shadow-2xl text-center">
                         <div className="inline-flex items-center justify-center w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl lg:rounded-3xl mb-4 lg:mb-6 shadow-lg">
                           <svg className="h-8 w-8 lg:h-10 lg:w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
                         </div>
-                        <h2 className="text-xl lg:text-3xl font-bold text-white mb-2 lg:mb-3">No Classes Assigned</h2>
-                        <p className="text-white/70 text-sm lg:text-lg max-w-2xl mx-auto">
+                        <h2 className="text-xl lg:text-3xl font-bold text-gray-900 mb-2 lg:mb-3">No Classes Assigned</h2>
+                        <p className="text-gray-600 text-sm lg:text-lg max-w-2xl mx-auto">
                           You don't have any classes assigned to you yet. Please contact the administrator to get assigned to classes.
                         </p>
                       </div>
@@ -568,15 +568,15 @@ const ReportsPage: React.FC = () => {
 
                     {/* Individual Student Performance Table */}
                     {teacherReports.student_performance.length > 0 ? (
-                      <div className="bg-white/5 backdrop-blur-2xl rounded-2xl lg:rounded-3xl p-4 lg:p-12 border border-white/10 shadow-2xl">
+                      <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                         <div className="text-center mb-6 lg:mb-8">
                           <div className="inline-flex items-center justify-center w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl lg:rounded-2xl mb-3 lg:mb-4 shadow-lg">
                             <svg className="h-6 w-6 lg:h-8 lg:w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                             </svg>
                           </div>
-                          <h2 className="text-xl lg:text-3xl font-bold text-white mb-2 lg:mb-3">Individual Student Performance</h2>
-                          <p className="text-white/70 text-sm lg:text-lg max-w-2xl mx-auto">
+                          <h2 className="text-xl lg:text-3xl font-bold text-gray-900 mb-2 lg:mb-3">Individual Student Performance</h2>
+                          <p className="text-gray-600 text-sm lg:text-lg max-w-2xl mx-auto">
                             Detailed performance data for each student across your classes
                           </p>
                         </div>
@@ -584,39 +584,39 @@ const ReportsPage: React.FC = () => {
                         {/* Mobile Card View */}
                         <div className="block lg:hidden space-y-3">
                           {teacherReports.student_performance.map((student) => (
-                            <div key={`${student.student_id}-${student.class_id}`} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                            <div key={`${student.student_id}-${student.class_id}`} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                               <div className="space-y-3">
                                 <div>
-                                  <h3 className="text-white font-semibold text-sm mb-1">{student.student_name}</h3>
-                                  <p className="text-white/60 text-xs">{student.class_name}</p>
+                                  <h3 className="text-gray-900 font-semibold text-sm mb-1">{student.student_name}</h3>
+                                  <p className="text-gray-600 text-xs">{student.class_name}</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
-                                    <p className="text-white/70 text-xs">Average Grade</p>
+                                    <p className="text-gray-700 text-xs">Average Grade</p>
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      student.average_grade_in_class >= 90 ? 'bg-green-500/20 text-green-400' :
-                                      student.average_grade_in_class >= 80 ? 'bg-blue-500/20 text-blue-400' :
-                                      student.average_grade_in_class >= 70 ? 'bg-yellow-500/20 text-yellow-400' :
-                                      'bg-red-500/20 text-red-400'
+                                      student.average_grade_in_class >= 90 ? 'bg-green-100 text-green-800' :
+                                      student.average_grade_in_class >= 80 ? 'bg-blue-100 text-blue-800' :
+                                      student.average_grade_in_class >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-red-100 text-red-800'
                                     }`}>
                                       {student.average_grade_in_class}%
                                     </span>
                                   </div>
                                   <div>
-                                    <p className="text-white/70 text-xs">Submission Rate</p>
+                                    <p className="text-gray-700 text-xs">Submission Rate</p>
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      student.submission_rate >= 90 ? 'bg-green-500/20 text-green-400' :
-                                      student.submission_rate >= 70 ? 'bg-blue-500/20 text-blue-400' :
-                                      student.submission_rate >= 50 ? 'bg-yellow-500/20 text-yellow-400' :
-                                      'bg-red-500/20 text-red-400'
+                                      student.submission_rate >= 90 ? 'bg-green-100 text-green-800' :
+                                      student.submission_rate >= 70 ? 'bg-blue-100 text-blue-800' :
+                                      student.submission_rate >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-red-100 text-red-800'
                                     }`}>
                                       {student.submission_rate}%
                                     </span>
                                   </div>
                                 </div>
                                 <div>
-                                  <p className="text-white/70 text-xs">Assignments</p>
-                                  <p className="text-white text-xs">{student.total_assignments_submitted} / {student.total_assignments_available} submitted</p>
+                                  <p className="text-gray-700 text-xs">Assignments</p>
+                                  <p className="text-gray-900 text-xs">{student.total_assignments_submitted} / {student.total_assignments_available} submitted</p>
                                 </div>
                               </div>
                             </div>
@@ -627,38 +627,38 @@ const ReportsPage: React.FC = () => {
                         <div className="hidden lg:block overflow-x-auto">
                           <table className="w-full text-left">
                             <thead>
-                              <tr className="border-b border-white/20">
-                                <th className="pb-4 text-white font-semibold">Student Name</th>
-                                <th className="pb-4 text-white font-semibold">Class</th>
-                                <th className="pb-4 text-white font-semibold">Average Grade</th>
-                                <th className="pb-4 text-white font-semibold">Assignments Submitted</th>
-                                <th className="pb-4 text-white font-semibold">Submission Rate</th>
+                              <tr className="border-b border-gray-300">
+                                <th className="pb-4 text-gray-900 font-semibold">Student Name</th>
+                                <th className="pb-4 text-gray-900 font-semibold">Class</th>
+                                <th className="pb-4 text-gray-900 font-semibold">Average Grade</th>
+                                <th className="pb-4 text-gray-900 font-semibold">Assignments Submitted</th>
+                                <th className="pb-4 text-gray-900 font-semibold">Submission Rate</th>
                               </tr>
                             </thead>
                             <tbody>
                               {teacherReports.student_performance.map((student) => (
-                                <tr key={`${student.student_id}-${student.class_id}`} className="border-b border-white/10">
-                                  <td className="py-4 text-white font-medium">{student.student_name}</td>
-                                  <td className="py-4 text-white/80">{student.class_name}</td>
+                                <tr key={`${student.student_id}-${student.class_id}`} className="border-b border-gray-200">
+                                  <td className="py-4 text-gray-900 font-medium">{student.student_name}</td>
+                                  <td className="py-4 text-gray-700">{student.class_name}</td>
                                   <td className="py-4">
                                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                      student.average_grade_in_class >= 90 ? 'bg-green-500/20 text-green-400' :
-                                      student.average_grade_in_class >= 80 ? 'bg-blue-500/20 text-blue-400' :
-                                      student.average_grade_in_class >= 70 ? 'bg-yellow-500/20 text-yellow-400' :
-                                      'bg-red-500/20 text-red-400'
+                                      student.average_grade_in_class >= 90 ? 'bg-green-100 text-green-800' :
+                                      student.average_grade_in_class >= 80 ? 'bg-blue-100 text-blue-800' :
+                                      student.average_grade_in_class >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-red-100 text-red-800'
                                     }`}>
                                       {student.average_grade_in_class}%
                                     </span>
                                   </td>
-                                  <td className="py-4 text-white/80">
+                                  <td className="py-4 text-gray-700">
                                     {student.total_assignments_submitted} / {student.total_assignments_available}
                                   </td>
                                   <td className="py-4">
                                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                      student.submission_rate >= 90 ? 'bg-green-500/20 text-green-400' :
-                                      student.submission_rate >= 70 ? 'bg-blue-500/20 text-blue-400' :
-                                      student.submission_rate >= 50 ? 'bg-yellow-500/20 text-yellow-400' :
-                                      'bg-red-500/20 text-red-400'
+                                      student.submission_rate >= 90 ? 'bg-green-100 text-green-800' :
+                                      student.submission_rate >= 70 ? 'bg-blue-100 text-blue-800' :
+                                      student.submission_rate >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-red-100 text-red-800'
                                     }`}>
                                       {student.submission_rate}%
                                     </span>
@@ -670,14 +670,14 @@ const ReportsPage: React.FC = () => {
                         </div>
                       </div>
                     ) : teacherReports.class_performance.length > 0 && (
-                      <div className="bg-white/5 backdrop-blur-2xl rounded-2xl lg:rounded-3xl p-8 lg:p-12 border border-white/10 shadow-2xl text-center">
+                      <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-8 lg:p-12 shadow-2xl text-center">
                         <div className="inline-flex items-center justify-center w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl lg:rounded-3xl mb-4 lg:mb-6 shadow-lg">
                           <svg className="h-8 w-8 lg:h-10 lg:w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                           </svg>
                         </div>
-                        <h2 className="text-xl lg:text-3xl font-bold text-white mb-2 lg:mb-3">No Student Data Available</h2>
-                        <p className="text-white/70 text-sm lg:text-lg max-w-2xl mx-auto">
+                        <h2 className="text-xl lg:text-3xl font-bold text-gray-900 mb-2 lg:mb-3">No Student Data Available</h2>
+                        <p className="text-gray-600 text-sm lg:text-lg max-w-2xl mx-auto">
                           There are no students enrolled in your classes yet, or no performance data has been recorded.
                         </p>
                       </div>
@@ -687,15 +687,15 @@ const ReportsPage: React.FC = () => {
 
                 {/* Data Export Section - Admin Only */}
                 {user?.role === 'admin' && (
-                  <div className="bg-white/5 backdrop-blur-2xl rounded-2xl lg:rounded-3xl p-4 lg:p-12 border border-white/10 shadow-2xl">
+                  <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                     <div className="text-center mb-6 lg:mb-8">
                       <div className="inline-flex items-center justify-center w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl lg:rounded-2xl mb-3 lg:mb-4 shadow-lg">
                         <svg className="h-6 w-6 lg:h-8 lg:w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
-                      <h2 className="text-xl lg:text-3xl font-bold text-white mb-2 lg:mb-3">Data Export Center</h2>
-                      <p className="text-white/70 text-sm lg:text-lg max-w-2xl mx-auto">
+                      <h2 className="text-xl lg:text-3xl font-bold text-gray-900 mb-2 lg:mb-3">Data Export Center</h2>
+                      <p className="text-gray-600 text-sm lg:text-lg max-w-2xl mx-auto">
                         Export comprehensive system data in CSV format for analysis, reporting, and backup purposes
                       </p>
                     </div>
@@ -765,16 +765,16 @@ const ReportsPage: React.FC = () => {
                     </div>
 
                     {/* Additional Info */}
-                    <div className="mt-6 lg:mt-8 p-4 lg:p-6 bg-white/5 rounded-xl lg:rounded-2xl border border-white/10">
+                    <div className="mt-6 lg:mt-8 p-4 lg:p-6 bg-gray-50 rounded-xl lg:rounded-2xl border border-gray-200">
                       <div className="flex items-start space-x-3 lg:space-x-4">
-                        <div className="p-1 lg:p-2 bg-blue-500/20 rounded-lg">
-                          <svg className="h-4 w-4 lg:h-5 lg:w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="p-1 lg:p-2 bg-blue-100 rounded-lg">
+                          <svg className="h-4 w-4 lg:h-5 lg:w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
                         <div>
-                          <h4 className="text-white font-medium mb-1 lg:mb-2 text-sm lg:text-base">Export Information</h4>
-                          <p className="text-white/70 text-xs lg:text-sm leading-relaxed">
+                          <h4 className="text-gray-900 font-medium mb-1 lg:mb-2 text-sm lg:text-base">Export Information</h4>
+                          <p className="text-gray-600 text-xs lg:text-sm leading-relaxed">
                             All exports include comprehensive data with proper formatting. CSV files are compatible with Excel, Google Sheets, and other data analysis tools. 
                             Exports are generated in real-time and include the most current system data.
                           </p>

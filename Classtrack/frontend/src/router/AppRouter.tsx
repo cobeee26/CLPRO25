@@ -4,6 +4,8 @@ import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import TeacherDashboard from '../pages/TeacherDashboard';
 import StudentDashboard from '../pages/StudentDashboard';
+import SubmissionAssignment from '../pages/StudentAssignmentPage';
+import SubmissionViewTeacher from '../pages/TeacherAssignmentPage';
 import UsersPage from '../pages/UsersPage';
 import ClassesPage from '../pages/ClassesPage';
 import ReportsPage from '../pages/ReportsPage';
@@ -79,6 +81,15 @@ const AppRouter: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      {/* NEW: Teacher Assignment Management Page */}
+      <Route
+        path="/teacher/assignments/:assignmentId"
+        element={
+          <ProtectedRoute requiredRole="teacher">
+            <SubmissionViewTeacher />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/teacher/assignments/:assignmentId/submissions"
         element={
@@ -129,6 +140,24 @@ const AppRouter: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      {/* NEW: Student Assignment Submission Page */}
+      <Route
+        path="/student/assignments/:assignmentId"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <SubmissionAssignment />
+          </ProtectedRoute>
+        }
+      />
+      {/* NEW: Student Assignment Submit Page (Alias for consistency) */}
+      <Route
+        path="/student/assignments/:assignmentId/submit"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <SubmissionAssignment />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/student/schedule"
         element={
@@ -155,6 +184,9 @@ const AppRouter: React.FC = () => {
           </ProtectedRoute>
         }
       />
+
+      {/* Catch-all route for 404 */}
+      <Route path="*" element={<div>Page Not Found</div>} />
     </Routes>
   );
 };

@@ -46,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       case "admin":
         return (
           <svg
-            className="w-4 h-4 text-white"
+            className="w-4 h-4 text-gray-700"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -62,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       case "teacher":
         return (
           <svg
-            className="w-4 h-4 text-white"
+            className="w-4 h-4 text-gray-700"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -84,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       case "student":
         return (
           <svg
-            className="w-4 h-4 text-white"
+            className="w-4 h-4 text-gray-700"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -106,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       default:
         return (
           <svg
-            className="w-4 h-4 text-white"
+            className="w-4 h-4 text-gray-700"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -168,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-blue-500/10 to-purple-500/10 border-blue-500/20 hover:from-blue-500/20 hover:to-purple-500/20 hover:shadow-blue-500/10",
+              "bg-blue-50 border-blue-200 hover:bg-blue-100",
             iconColors: "from-blue-500 to-blue-600",
           },
           {
@@ -190,7 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-emerald-500/10 to-emerald-600/10 border-emerald-500/20 hover:from-emerald-500/20 hover:to-emerald-600/20 hover:shadow-emerald-500/10",
+              "bg-emerald-50 border-emerald-200 hover:bg-emerald-100",
             iconColors: "from-emerald-500 to-emerald-600",
           },
           {
@@ -212,7 +212,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-purple-500/10 to-purple-600/10 border-purple-500/20 hover:from-purple-500/20 hover:to-purple-600/20 hover:shadow-purple-500/10",
+              "bg-purple-50 border-purple-200 hover:bg-purple-100",
             iconColors: "from-purple-500 to-purple-600",
           },
           {
@@ -234,7 +234,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-indigo-500/10 to-indigo-600/10 border-indigo-500/20 hover:from-indigo-500/20 hover:to-indigo-600/20 hover:shadow-indigo-500/10",
+              "bg-indigo-50 border-indigo-200 hover:bg-indigo-100",
             iconColors: "from-indigo-500 to-indigo-600",
           },
           {
@@ -256,7 +256,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-orange-500/10 to-orange-600/10 border-orange-500/20 hover:from-orange-500/20 hover:to-orange-600/20 hover:shadow-orange-500/10",
+              "bg-orange-50 border-orange-200 hover:bg-orange-100",
             iconColors: "from-orange-500 to-orange-600",
           },
         ];
@@ -288,7 +288,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-red-500/10 to-red-600/10 border-red-500/20 hover:from-red-500/20 hover:to-red-600/20 hover:shadow-red-500/10",
+              "bg-red-50 border-red-200 hover:bg-red-100",
             iconColors: "from-red-500 to-red-600",
           },
           {
@@ -310,7 +310,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-blue-500/10 to-blue-600/10 border-blue-500/20 hover:from-blue-500/20 hover:to-blue-600/20 hover:shadow-blue-500/10",
+              "bg-blue-50 border-blue-200 hover:bg-blue-100",
             iconColors: "from-blue-500 to-blue-600",
           },
           {
@@ -332,7 +332,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-purple-500/10 to-purple-600/10 border-purple-500/20 hover:from-purple-500/20 hover:to-purple-600/20 hover:shadow-purple-500/10",
+              "bg-purple-50 border-purple-200 hover:bg-purple-100",
             iconColors: "from-purple-500 to-purple-600",
           },
           {
@@ -354,7 +354,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-indigo-500/10 to-indigo-600/10 border-indigo-500/20 hover:from-indigo-500/20 hover:to-indigo-600/20 hover:shadow-indigo-500/10",
+              "bg-indigo-50 border-indigo-200 hover:bg-indigo-100",
             iconColors: "from-indigo-500 to-indigo-600",
           },
           {
@@ -376,7 +376,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-orange-500/10 to-orange-600/10 border-orange-500/20 hover:from-orange-500/20 hover:to-orange-600/20 hover:shadow-orange-500/10",
+              "bg-orange-50 border-orange-200 hover:bg-orange-100",
             iconColors: "from-orange-500 to-orange-600",
           },
         ];
@@ -408,7 +408,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-blue-500/10 to-blue-600/10 border-blue-500/20 hover:from-blue-500/20 hover:to-blue-600/20 hover:shadow-blue-500/10",
+              "bg-blue-50 border-blue-200 hover:bg-blue-100",
             iconColors: "from-blue-500 to-blue-600",
           },
           {
@@ -430,7 +430,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-green-500/10 to-green-600/10 border-green-500/20 hover:from-green-500/20 hover:to-green-600/20 hover:shadow-green-500/10",
+              "bg-green-50 border-green-200 hover:bg-green-100",
             iconColors: "from-green-500 to-green-600",
           },
           {
@@ -452,7 +452,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-purple-500/10 to-purple-600/10 border-purple-500/20 hover:from-purple-500/20 hover:to-purple-600/20 hover:shadow-purple-500/10",
+              "bg-purple-50 border-purple-200 hover:bg-purple-100",
             iconColors: "from-purple-500 to-purple-600",
           },
           {
@@ -474,7 +474,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "from-yellow-500/10 to-yellow-600/10 border-yellow-500/20 hover:from-yellow-500/20 hover:to-yellow-600/20 hover:shadow-yellow-500/10",
+              "bg-yellow-50 border-yellow-200 hover:bg-yellow-100",
             iconColors: "from-yellow-500 to-yellow-600",
           },
         ];
@@ -554,13 +554,13 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
     switch (userRole) {
       case "admin":
-        return "from-blue-500 to-purple-600";
+        return "from-purple-400 to-pink-500";
       case "teacher":
-        return "from-red-500 to-red-600";
+        return "from-red-400 to-red-500";
       case "student":
-        return "from-blue-500 to-blue-600";
+        return "from-blue-400 to-blue-500";
       default:
-        return "from-gray-500 to-gray-600";
+        return "from-gray-400 to-gray-500";
     }
   };
 
@@ -571,15 +571,15 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         key={`sidebar-${user?.role || "unknown"}`}
         className={`dashboard-sidebar ${
           sidebarOpen ? "open translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 fixed lg:relative inset-y-0 left-0 w-64 bg-slate-800/95 backdrop-blur-xl border-r border-slate-700/50 flex flex-col flex-shrink-0 shadow-2xl z-30 lg:z-10 dashboard-transition`}
+        } lg:translate-x-0 fixed lg:relative inset-y-0 left-0 w-64 bg-white backdrop-blur-xl border-r border-gray-200 flex flex-col flex-shrink-0 shadow-lg z-30 lg:z-10 dashboard-transition`}
         style={{ height: "100vh", minHeight: "100vh" }}
       >
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-slate-700/50">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all duration-500"></div>
-              <div className="relative w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl flex items-center justify-center shadow-lg border border-slate-600/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all duration-500"></div>
+              <div className="relative w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center shadow-lg border border-gray-300">
                 <img
                   src={plmunLogo}
                   alt="ClassTrack Logo"
@@ -588,10 +588,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-base font-bold text-white tracking-tight truncate">
+              <h1 className="text-base font-bold text-gray-900 tracking-tight truncate">
                 {branding.title}
               </h1>
-              <p className="text-xs text-slate-400 font-medium truncate">
+              <p className="text-xs text-gray-600 font-medium truncate">
                 {branding.subtitle}
               </p>
             </div>
@@ -608,12 +608,12 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               const active = isActive(item.path);
 
               const linkClasses = active
-                ? `flex items-center px-3 py-2.5 text-white bg-gradient-to-r ${item.activeColors} rounded-xl transition-all duration-300 hover:shadow-lg group`
-                : `flex items-center px-3 py-2.5 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-xl transition-all duration-300 hover:shadow-lg group`;
+                ? `flex items-center px-3 py-2.5 text-gray-900 ${item.activeColors} rounded-xl transition-all duration-300 hover:shadow-md group border`
+                : `flex items-center px-3 py-2.5 text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-all duration-300 hover:shadow-md group`;
 
               const iconClasses = active
                 ? `w-8 h-8 bg-gradient-to-br ${item.iconColors} rounded-lg flex items-center justify-center shadow-lg`
-                : `w-8 h-8 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center shadow-lg group-hover:${item.iconColors
+                : `w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-500 rounded-lg flex items-center justify-center shadow-lg group-hover:${item.iconColors
                     .replace("from-", "from-")
                     .replace("to-", "to-")} transition-all duration-300`;
 
@@ -646,7 +646,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-3 border-t border-slate-700/50 mt-auto">
+        <div className="p-3 border-t border-gray-200 mt-auto">
           {/* User Info */}
           <div className="flex items-center space-x-3 mb-3">
             <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-lg flex-shrink-0">
@@ -686,10 +686,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">
+              <p className="text-sm font-semibold text-gray-900 truncate">
                 {branding.userRole}
               </p>
-              <p className="text-xs text-slate-400 font-medium truncate">
+              <p className="text-xs text-gray-600 font-medium truncate">
                 {branding.userTitle}
               </p>
             </div>
@@ -703,9 +703,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               localStorage.removeItem("userId");
               window.location.href = "/login";
             }}
-            className="w-full flex items-center px-3 py-2.5 text-slate-300 hover:bg-red-600/20 hover:text-red-400 rounded-xl transition-all duration-300 hover:shadow-lg group border border-slate-700/50 hover:border-red-500/30 cursor-pointer"
+            className="w-full flex items-center px-3 py-2.5 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all duration-300 hover:shadow-md group border border-gray-200 hover:border-red-200 cursor-pointer"
           >
-            <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-red-700 rounded-lg flex items-center justify-center shadow-lg group-hover:from-red-500 group-hover:to-red-600 transition-all duration-300 cursor-pointer">
+            <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg group-hover:from-red-600 group-hover:to-red-700 transition-all duration-300 cursor-pointer">
               <svg
                 className="w-4 h-4 text-white"
                 fill="none"

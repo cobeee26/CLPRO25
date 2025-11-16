@@ -369,13 +369,13 @@ const SchedulePage: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Clean':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'Occupied':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Needs Cleaning':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -406,18 +406,18 @@ const SchedulePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex relative">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex relative">
       {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/50 p-4 lg:hidden h-16">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16 shadow-sm">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center space-x-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl blur-sm"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-xl blur-sm"></div>
               <img src={plmunLogo} alt="PLMun Logo" className="relative w-8 h-8 object-contain" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">{user?.role === 'student' ? "My Schedule" : "Schedule Management"}</h1>
-              <p className="text-xs text-slate-400">{user?.role === 'student' ? "View your class schedules" : "Create, edit, and manage class schedules"}</p>
+              <h1 className="text-lg font-bold text-gray-900">{user?.role === 'student' ? "My Schedule" : "Schedule Management"}</h1>
+              <p className="text-xs text-gray-600">{user?.role === 'student' ? "View your class schedules" : "Create, edit, and manage class schedules"}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -428,7 +428,7 @@ const SchedulePage: React.FC = () => {
                 localStorage.removeItem('userId');
                 window.location.href = '/login';
               }}
-              className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
+              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300"
               title="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -437,10 +437,10 @@ const SchedulePage: React.FC = () => {
             </button>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
               title="Toggle menu"
             >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -511,15 +511,15 @@ const SchedulePage: React.FC = () => {
             )}
 
             {/* SCHEDULE CONTAINER */}
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/50 flex-1 flex flex-col min-h-0">
+            <div className="bg-white backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
               {/* HEADER SECTION */}
-              <div className="flex-shrink-0 bg-slate-800/50 backdrop-blur-sm rounded-t-xl border-b border-slate-700/50 p-3">
+              <div className="flex-shrink-0 bg-white backdrop-blur-sm rounded-t-xl border-b border-gray-200 p-3">
                 <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
                   <div className="flex items-center space-x-3">
-                    <h2 className="text-lg font-semibold text-white">
+                    <h2 className="text-lg font-semibold text-gray-900">
                       {user?.role === 'student' ? "My Class Schedule" : "Class Schedules"}
                     </h2>
-                    <span className="text-sm text-slate-400">
+                    <span className="text-sm text-gray-600">
                       {filteredSchedules.length} {filteredSchedules.length === 1 ? 'schedule' : 'schedules'}
                     </span>
                   </div>
@@ -527,7 +527,7 @@ const SchedulePage: React.FC = () => {
                     <button
                       onClick={loadData}
                       disabled={loading}
-                      className="inline-flex items-center px-3 py-1.5 border border-slate-600/50 text-sm font-medium rounded-lg text-slate-300 bg-slate-700/50 hover:bg-slate-600/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                       title="Refresh schedules"
                     >
                       <svg className={`-ml-1 mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -538,7 +538,7 @@ const SchedulePage: React.FC = () => {
                     {user?.role !== 'student' && (
                       <button
                         onClick={() => setIsModalOpen(true)}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg"
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm"
                         title="Create new schedule"
                       >
                         <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -552,7 +552,7 @@ const SchedulePage: React.FC = () => {
                 <div className="mt-3">
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </div>
@@ -561,7 +561,7 @@ const SchedulePage: React.FC = () => {
                       placeholder={user?.role === 'student' ? "Search classes, teachers, or rooms..." : "Search schedules..."}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-1.5 border border-slate-600/50 rounded-lg leading-5 bg-slate-700/50 placeholder-slate-400 text-white focus:outline-none focus:placeholder-slate-300 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 sm:text-sm transition-all duration-200"
+                      className="block w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 text-gray-900 focus:outline-none focus:placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 sm:text-sm transition-all duration-200"
                     />
                   </div>
                 </div>
@@ -571,12 +571,12 @@ const SchedulePage: React.FC = () => {
               <div className="flex-1 overflow-hidden">
                 <div className="h-full overflow-auto">
                   {user?.role === 'student' && filteredSchedules.length > 0 && (
-                    <div className="p-4 bg-blue-900/20 border-b border-blue-700/30">
+                    <div className="p-4 bg-blue-50 border-b border-blue-200">
                       <div className="flex items-center">
-                        <svg className="w-5 h-5 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <p className="text-blue-300 text-sm">
+                        <p className="text-blue-700 text-sm">
                           {filteredSchedules.length > 2 
                             ? `Showing ${filteredSchedules.length} of your class schedules` 
                             : 'Showing your class schedule for the current semester'}
@@ -584,42 +584,42 @@ const SchedulePage: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  <table className="min-w-full divide-y divide-slate-700/50">
-                    <thead className="bg-slate-700/30 sticky top-0 z-10">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
                       <tr>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Class</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Teacher</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Room</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Start Time</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">End Time</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
+                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Class</th>
+                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Teacher</th>
+                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Room</th>
+                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Start Time</th>
+                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">End Time</th>
+                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
                         {user?.role !== 'student' && (
-                          <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
+                          <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
                         )}
                       </tr>
                     </thead>
-                    <tbody className="bg-slate-800/30 divide-y divide-slate-700/50">
+                    <tbody className="bg-white divide-y divide-gray-200">
                       {filteredSchedules.length > 0 ? (
                         filteredSchedules.map((schedule) => (
-                          <tr key={schedule.id} className="hover:bg-slate-700/50 transition-colors duration-200">
+                          <tr key={schedule.id} className="hover:bg-gray-50 transition-colors duration-200">
                             <td className="px-4 lg:px-6 py-3 whitespace-nowrap">
-                              <div className="text-sm font-medium text-white">{schedule.class_name}</div>
-                              <div className="text-sm text-slate-400">{schedule.class_code}</div>
+                              <div className="text-sm font-medium text-gray-900">{schedule.class_name}</div>
+                              <div className="text-sm text-gray-500">{schedule.class_code}</div>
                             </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-slate-200">
+                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-700">
                               {schedule.teacher_name}
                             </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-slate-200">
+                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-700">
                               {schedule.room_number}
                             </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-slate-200">
+                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-700">
                               {formatDateTime(schedule.start_time)}
                             </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-slate-200">
+                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-700">
                               {formatDateTime(schedule.end_time)}
                             </td>
                             <td className="px-4 lg:px-6 py-3 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(schedule.status)}`}>
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(schedule.status)}`}>
                                 {schedule.status}
                               </span>
                             </td>
@@ -627,14 +627,14 @@ const SchedulePage: React.FC = () => {
                               <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
                                 <button
                                   onClick={() => handleEditSchedule(schedule)}
-                                  className="text-blue-400 hover:text-blue-300 mr-3 transition-colors duration-200"
+                                  className="text-blue-600 hover:text-blue-800 mr-3 transition-colors duration-200"
                                   title="Edit schedule"
                                 >
                                   Edit
                                 </button>
                                 <button
                                   onClick={() => handleDeleteSchedule(schedule)}
-                                  className="text-red-400 hover:text-red-300 transition-colors duration-200"
+                                  className="text-red-600 hover:text-red-800 transition-colors duration-200"
                                   title="Delete schedule"
                                 >
                                   Delete
@@ -647,11 +647,11 @@ const SchedulePage: React.FC = () => {
                         <tr>
                           <td colSpan={user?.role !== 'student' ? 7 : 6} className="px-6 py-10 text-center">
                             <div className="flex flex-col items-center">
-                              <svg className="w-10 h-10 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-10 h-10 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
-                              <h3 className="text-base font-medium text-white mb-1">No schedules found</h3>
-                              <p className="text-slate-400 mb-3 text-sm">
+                              <h3 className="text-base font-medium text-gray-900 mb-1">No schedules found</h3>
+                              <p className="text-gray-500 mb-3 text-sm">
                                 {searchTerm ? 'No schedules match your search criteria.' : 
                                  user?.role === 'student' ? 'No schedules assigned to you yet. Please check back later.' : 
                                  'Get started by creating your first schedule.'}
@@ -659,7 +659,7 @@ const SchedulePage: React.FC = () => {
                               {!searchTerm && user?.role !== 'student' && (
                                 <button
                                   onClick={() => setIsModalOpen(true)}
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg"
+                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm"
                                   title="Create new schedule"
                                 >
                                   <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -681,16 +681,16 @@ const SchedulePage: React.FC = () => {
         </main>
       </div>
 
-      {/* Create Schedule Modal - UPDATED WITH DARKER GRAY COLORS */}
+      {/* Create Schedule Modal - UPDATED WITH WHITE BACKGROUND */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-auto border border-gray-600">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-600 bg-gradient-to-r from-gray-600 to-gray-700 rounded-t-xl">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Create New Schedule</h2>
-                  <p className="text-sm text-gray-300 mt-1">Add new class schedule to the system</p>
+                  <h2 className="text-lg font-semibold text-gray-900">Create New Schedule</h2>
+                  <p className="text-sm text-gray-600 mt-1">Add new class schedule to the system</p>
                 </div>
               </div>
             </div>
@@ -698,16 +698,16 @@ const SchedulePage: React.FC = () => {
             {/* Modal Form */}
             <form onSubmit={handleCreateSchedule} className="p-6">
               {formError && (
-                <div className="mb-4 bg-red-900/50 border border-red-700 rounded-lg p-3">
-                  <div className="text-sm text-red-200">{formError}</div>
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="text-sm text-red-700">{formError}</div>
                 </div>
               )}
 
               <div className="space-y-4">
                 {/* Class Selection */}
                 <div>
-                  <label htmlFor="class-select" className="block text-sm font-medium text-gray-300 mb-1">
-                    Class <span className="text-red-400">*</span>
+                  <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-1">
+                    Class <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="class-select"
@@ -717,23 +717,23 @@ const SchedulePage: React.FC = () => {
                       console.log('🎯 Class selection changed:', { selectedClassId, selectedClass: classes.find(c => c.id === selectedClassId) });
                       setFormData({ ...formData, class_id: selectedClassId });
                     }}
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     required
                     title="Select a class"
                   >
-                    <option value={0} className="text-gray-400">Select a class</option>
+                    <option value={0} className="text-gray-500">Select a class</option>
                     {classes.length > 0 ? (
                       classes.map((classItem) => (
-                        <option key={classItem.id} value={classItem.id} className="text-white">
+                        <option key={classItem.id} value={classItem.id} className="text-gray-900">
                           {classItem.name} ({classItem.code})
                         </option>
                       ))
                     ) : (
-                      <option value={0} disabled className="text-gray-400">No classes available</option>
+                      <option value={0} disabled className="text-gray-500">No classes available</option>
                     )}
                   </select>
                   {classes.length === 0 && (
-                    <p className="mt-1 text-xs text-red-400">
+                    <p className="mt-1 text-xs text-red-600">
                       No classes found. Please ensure classes exist in the system.
                     </p>
                   )}
@@ -741,15 +741,15 @@ const SchedulePage: React.FC = () => {
 
                 {/* Start Time */}
                 <div>
-                  <label htmlFor="start-time" className="block text-sm font-medium text-gray-300 mb-1">
-                    Start Time <span className="text-red-400">*</span>
+                  <label htmlFor="start-time" className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="start-time"
                     type="datetime-local"
                     value={formData.start_time}
                     onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     required
                     title="Select start time"
                   />
@@ -757,15 +757,15 @@ const SchedulePage: React.FC = () => {
 
                 {/* End Time */}
                 <div>
-                  <label htmlFor="end-time" className="block text-sm font-medium text-gray-300 mb-1">
-                    End Time <span className="text-red-400">*</span>
+                  <label htmlFor="end-time" className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="end-time"
                     type="datetime-local"
                     value={formData.end_time}
                     onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     required
                     title="Select end time"
                   />
@@ -773,8 +773,8 @@ const SchedulePage: React.FC = () => {
 
                 {/* Room Number */}
                 <div>
-                  <label htmlFor="room-number" className="block text-sm font-medium text-gray-300 mb-1">
-                    Room Number <span className="text-red-400">*</span>
+                  <label htmlFor="room-number" className="block text-sm font-medium text-gray-700 mb-1">
+                    Room Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="room-number"
@@ -782,7 +782,7 @@ const SchedulePage: React.FC = () => {
                     value={formData.room_number}
                     onChange={(e) => setFormData({ ...formData, room_number: e.target.value })}
                     placeholder="e.g., Room 101, Lab A"
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white placeholder-gray-400"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 placeholder-gray-500"
                     required
                     title="Enter room number"
                   />
@@ -790,29 +790,29 @@ const SchedulePage: React.FC = () => {
 
                 {/* Status */}
                 <div>
-                  <label htmlFor="status-select" className="block text-sm font-medium text-gray-300 mb-1">
+                  <label htmlFor="status-select" className="block text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
                   <select
                     id="status-select"
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     title="Select status"
                   >
-                    <option value="Occupied" className="text-white">Occupied</option>
-                    <option value="Clean" className="text-white">Clean</option>
-                    <option value="Needs Cleaning" className="text-white">Needs Cleaning</option>
+                    <option value="Occupied" className="text-gray-900">Occupied</option>
+                    <option value="Clean" className="text-gray-900">Clean</option>
+                    <option value="Needs Cleaning" className="text-gray-900">Needs Cleaning</option>
                   </select>
                 </div>
               </div>
 
               {/* Modal Actions */}
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-600">
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                   disabled={formLoading}
                 >
                   Cancel
@@ -830,70 +830,70 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Schedule Modal - UPDATED WITH DARKER GRAY COLORS */}
+      {/* Edit Schedule Modal - UPDATED WITH WHITE BACKGROUND */}
       {isEditModalOpen && editingSchedule && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-auto border border-gray-600">
-            <div className="px-6 py-4 border-b border-gray-600 bg-gradient-to-r from-gray-600 to-gray-700 rounded-t-xl">
-              <h3 className="text-lg font-semibold text-white">Edit Schedule</h3>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Schedule</h3>
             </div>
             <div className="p-6">
               {editFormError && (
-                <div className="mb-4 bg-red-900/50 border border-red-700 rounded-lg p-3">
-                  <div className="text-sm text-red-200">{editFormError}</div>
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="text-sm text-red-700">{editFormError}</div>
                 </div>
               )}
               <form onSubmit={handleUpdateSchedule} className="space-y-4">
                 <div>
-                  <label htmlFor="edit-class-select" className="block text-sm font-medium text-gray-300 mb-1">
-                    Class <span className="text-red-400">*</span>
+                  <label htmlFor="edit-class-select" className="block text-sm font-medium text-gray-700 mb-1">
+                    Class <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="edit-class-select"
                     value={editFormData.class_id}
                     onChange={(e) => setEditFormData({ ...editFormData, class_id: parseInt(e.target.value) })}
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     required
                     title="Select a class"
                   >
                     {classes.map((classItem) => (
-                      <option key={classItem.id} value={classItem.id} className="text-white">
+                      <option key={classItem.id} value={classItem.id} className="text-gray-900">
                         {classItem.name} ({classItem.code})
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="edit-start-time" className="block text-sm font-medium text-gray-300 mb-1">
-                    Start Time <span className="text-red-400">*</span>
+                  <label htmlFor="edit-start-time" className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="edit-start-time"
                     type="datetime-local"
                     value={editFormData.start_time}
                     onChange={(e) => setEditFormData({ ...editFormData, start_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     required
                     title="Select start time"
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-end-time" className="block text-sm font-medium text-gray-300 mb-1">
-                    End Time <span className="text-red-400">*</span>
+                  <label htmlFor="edit-end-time" className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="edit-end-time"
                     type="datetime-local"
                     value={editFormData.end_time}
                     onChange={(e) => setEditFormData({ ...editFormData, end_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     required
                     title="Select end time"
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-room-number" className="block text-sm font-medium text-gray-300 mb-1">
-                    Room Number <span className="text-red-400">*</span>
+                  <label htmlFor="edit-room-number" className="block text-sm font-medium text-gray-700 mb-1">
+                    Room Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="edit-room-number"
@@ -901,32 +901,32 @@ const SchedulePage: React.FC = () => {
                     value={editFormData.room_number}
                     onChange={(e) => setEditFormData({ ...editFormData, room_number: e.target.value })}
                     placeholder="e.g., Room 101, Lab A"
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white placeholder-gray-400"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 placeholder-gray-500"
                     required
                     title="Enter room number"
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-status-select" className="block text-sm font-medium text-gray-300 mb-1">
+                  <label htmlFor="edit-status-select" className="block text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
                   <select
                     id="edit-status-select"
                     value={editFormData.status}
                     onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-600 text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     title="Select status"
                   >
-                    <option value="Occupied" className="text-white">Occupied</option>
-                    <option value="Clean" className="text-white">Clean</option>
-                    <option value="Needs Cleaning" className="text-white">Needs Cleaning</option>
+                    <option value="Occupied" className="text-gray-900">Occupied</option>
+                    <option value="Clean" className="text-gray-900">Clean</option>
+                    <option value="Needs Cleaning" className="text-gray-900">Needs Cleaning</option>
                   </select>
                 </div>
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-600">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                     title="Cancel editing"
                   >
                     Cancel
@@ -946,27 +946,27 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal - UPDATED WITH DARKER GRAY COLORS */}
+      {/* Delete Confirmation Modal - UPDATED WITH WHITE BACKGROUND */}
       {isDeleteModalOpen && deletingSchedule && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-auto border border-gray-600">
-            <div className="px-6 py-4 border-b border-gray-600 bg-gradient-to-r from-gray-600 to-gray-700 rounded-t-xl">
-              <h3 className="text-lg font-semibold text-white">Delete Schedule</h3>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+              <h3 className="text-lg font-semibold text-gray-900">Delete Schedule</h3>
             </div>
             <div className="p-6">
               {deleteError && (
-                <div className="mb-4 bg-red-900/50 border border-red-700 rounded-lg p-3">
-                  <div className="text-sm text-red-200">{deleteError}</div>
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="text-sm text-red-700">{deleteError}</div>
                 </div>
               )}
-              <p className="text-sm text-gray-300 mb-4">
-                Are you sure you want to delete the schedule for <strong className="text-white">{deletingSchedule.class_name}</strong> in <strong className="text-white">{deletingSchedule.room_number}</strong>? This action cannot be undone.
+              <p className="text-sm text-gray-600 mb-4">
+                Are you sure you want to delete the schedule for <strong className="text-gray-900">{deletingSchedule.class_name}</strong> in <strong className="text-gray-900">{deletingSchedule.room_number}</strong>? This action cannot be undone.
               </p>
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsDeleteModalOpen(false)}
-                  className="px-4 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                   title="Cancel deletion"
                 >
                   Cancel

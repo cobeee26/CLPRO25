@@ -245,18 +245,18 @@ const DashboardPage: React.FC = () => {
   // Error fallback UI
   if (hasError) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="text-center p-8 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-xl">
-          <div className="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="h-screen flex items-center justify-center bg-white">
+        <div className="text-center p-8 bg-gray-100 border border-gray-300 rounded-2xl shadow-xl">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
-          <p className="text-slate-400 mb-4">The dashboard encountered an error. Please refresh the page.</p>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-4">The dashboard encountered an error. Please refresh the page.</p>
           <button 
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl transition-all duration-200"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200"
           >
             Refresh Page
           </button>
@@ -266,17 +266,17 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex overflow-hidden">
+    <div className="h-screen bg-white flex overflow-hidden">
       {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {/* Mobile Header */}
-        <header className="lg:hidden bg-slate-800/95 backdrop-blur-xl border-b border-slate-700/50 p-4 shadow-xl flex items-center justify-between z-20">
+        <header className="lg:hidden bg-white border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl blur-sm"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl"></div>
               <img 
                 src={plmunLogo} 
                 alt="PLMun Logo" 
@@ -284,15 +284,15 @@ const DashboardPage: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">Admin Dashboard</h1>
-              <p className="text-xs text-slate-400">Welcome to your administrative control panel</p>
+              <h1 className="text-lg font-bold text-gray-900">Admin Dashboard</h1>
+              <p className="text-xs text-gray-600">Welcome to your administrative control panel</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {/* Logout Button */}
             <button 
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
+              className="p-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300"
               title="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -303,10 +303,10 @@ const DashboardPage: React.FC = () => {
             {/* Menu Button */}
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
               title="Toggle menu"
             >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -322,38 +322,36 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* Status Bar */}
-        <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/30 rounded-xl p-3 mx-4 mb-4 mt-3">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-400 font-medium">System Active</span>
+                <span className="text-green-600 font-medium">System Active</span>
               </div>
-              <div className="text-slate-400">
+              <div className="text-gray-600">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-blue-400 font-medium">Admin User</span>
+              <span className="text-blue-600 font-medium">Admin User</span>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+        <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
             {/* Welcome Section */}
             <div className="text-center mb-10">
               <div className="relative inline-block">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight">
-                  <span className="bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
-                    Welcome to the Admin Portal
-                  </span>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight text-gray-900">
+                  Welcome to the Admin Portal
                 </h1>
                 <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 rounded-full"></div>
               </div>
-              <p className="text-lg text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
+              <p className="text-lg text-gray-600 font-medium max-w-2xl mx-auto leading-relaxed">
                 Manage your system and users from this central dashboard with powerful insights and controls.
               </p>
             </div>
@@ -361,120 +359,120 @@ const DashboardPage: React.FC = () => {
             {/* Stats Widgets */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {/* Total Users Card */}
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
+              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-2xl blur-lg"></div>
-                    <div className="relative w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <div className="absolute inset-0 bg-blue-50 rounded-2xl"></div>
+                    <div className="relative w-14 h-14 bg-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
                       <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                       </svg>
                     </div>
                   </div>
-                  <span className="text-emerald-400 text-sm font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                  <span className="text-green-600 text-sm font-bold bg-green-100 border border-green-200 px-3 py-1 rounded-full">
                     {statsLoading ? '...' : '+12%'}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-400 mb-2 tracking-wide uppercase">Total Users</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-2 tracking-wide uppercase">Total Users</p>
                   {statsLoading ? (
                     <div className="animate-pulse">
-                      <div className="h-10 bg-slate-700 rounded mb-2"></div>
-                      <div className="h-4 bg-slate-700 rounded w-3/4"></div>
+                      <div className="h-10 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                     </div>
                   ) : statsError ? (
-                    <div className="text-red-400 text-sm">
+                    <div className="text-red-600 text-sm">
                       Failed to load
                     </div>
                   ) : (
                     <>
-                      <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                      <p className="text-4xl font-black mb-1 text-gray-900">
                         {dashboardStats.totalUsers.toLocaleString()}
                       </p>
-                      <p className="text-sm text-slate-500 font-medium">Active members</p>
+                      <p className="text-sm text-gray-500 font-medium">Active members</p>
                     </>
                   )}
                 </div>
               </div>
 
               {/* Active Classes Card */}
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
+              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-2xl blur-lg"></div>
-                    <div className="relative w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <div className="absolute inset-0 bg-green-50 rounded-2xl"></div>
+                    <div className="relative w-14 h-14 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg">
                       <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                       </svg>
                     </div>
                   </div>
-                  <span className="text-emerald-400 text-sm font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                  <span className="text-green-600 text-sm font-bold bg-green-100 border border-green-200 px-3 py-1 rounded-full">
                     {statsLoading ? '...' : '+5%'}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-400 mb-2 tracking-wide uppercase">Active Classes</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-2 tracking-wide uppercase">Active Classes</p>
                   {statsLoading ? (
                     <div className="animate-pulse">
-                      <div className="h-10 bg-slate-700 rounded mb-2"></div>
-                      <div className="h-4 bg-slate-700 rounded w-3/4"></div>
+                      <div className="h-10 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                     </div>
                   ) : statsError ? (
-                    <div className="text-red-400 text-sm">
+                    <div className="text-red-600 text-sm">
                       Failed to load
                     </div>
                   ) : (
                     <>
-                      <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                      <p className="text-4xl font-black mb-1 text-gray-900">
                         {dashboardStats.activeClasses}
                       </p>
-                      <p className="text-sm text-slate-500 font-medium">Currently running</p>
+                      <p className="text-sm text-gray-500 font-medium">Currently running</p>
                     </>
                   )}
                 </div>
               </div>
 
               {/* System Health Card */}
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
+              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl blur-lg"></div>
-                    <div className="relative w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <div className="absolute inset-0 bg-purple-50 rounded-2xl"></div>
+                    <div className="relative w-14 h-14 bg-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
                       <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                   </div>
-                  <span className="text-emerald-400 text-sm font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">+2%</span>
+                  <span className="text-green-600 text-sm font-bold bg-green-100 border border-green-200 px-3 py-1 rounded-full">+2%</span>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-400 mb-2 tracking-wide uppercase">System Health</p>
-                  <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                  <p className="text-sm font-semibold text-gray-600 mb-2 tracking-wide uppercase">System Health</p>
+                  <p className="text-4xl font-black mb-1 text-gray-900">
                     {dashboardStats.systemHealth}%
                   </p>
-                  <p className="text-sm text-slate-500 font-medium">Optimal performance</p>
+                  <p className="text-sm text-gray-500 font-medium">Optimal performance</p>
                 </div>
               </div>
 
               {/* Storage Used Card */}
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
+              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-2xl blur-lg"></div>
-                    <div className="relative w-14 h-14 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <div className="absolute inset-0 bg-orange-50 rounded-2xl"></div>
+                    <div className="relative w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
                       <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                       </svg>
                     </div>
                   </div>
-                  <span className="text-slate-400 text-sm font-bold bg-slate-500/10 border border-slate-500/20 px-3 py-1 rounded-full">+0.8GB</span>
+                  <span className="text-gray-600 text-sm font-bold bg-gray-100 border border-gray-200 px-3 py-1 rounded-full">+0.8GB</span>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-400 mb-2 tracking-wide uppercase">Storage Used</p>
-                  <p className="text-4xl font-black mb-1 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                  <p className="text-sm font-semibold text-gray-600 mb-2 tracking-wide uppercase">Storage Used</p>
+                  <p className="text-4xl font-black mb-1 text-gray-900">
                     {dashboardStats.storageUsed}GB
                   </p>
-                  <p className="text-sm text-slate-500 font-medium">Of 10GB total</p>
+                  <p className="text-sm text-gray-500 font-medium">Of 10GB total</p>
                 </div>
               </div>
             </div>
@@ -483,14 +481,14 @@ const DashboardPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Quick Actions */}
               <div className="lg:col-span-1">
-                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl shadow-xl">
-                  <h3 className="text-xl font-bold text-white mb-6 flex items-center">
+                <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg mr-3">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     </div>
-                    <span className="bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">Quick Actions</span>
+                    <span className="text-gray-900">Quick Actions</span>
                   </h3>
                   <div className="space-y-4">
                     <button 
@@ -498,7 +496,7 @@ const DashboardPage: React.FC = () => {
                       title="Manage users"
                       onClick={handleManageUsers}
                     >
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600/50 rounded-xl sm:rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600/20 rounded-xl sm:rounded-2xl flex items-center justify-center backdrop-blur-sm">
                         <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                         </svg>
@@ -510,18 +508,18 @@ const DashboardPage: React.FC = () => {
                     </button>
 
                     <button 
-                      className="group w-full flex items-center space-x-4 p-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer"
+                      className="group w-full flex items-center space-x-4 p-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer"
                       title="Manage classes"
                       onClick={handleManageClasses}
                     >
-                      <div className="w-12 h-12 bg-emerald-600/50 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                      <div className="w-12 h-12 bg-green-600/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
                       </div>
                       <div className="text-left flex-1">
                         <p className="text-sm font-bold text-white">Manage Classes</p>
-                        <p className="text-xs text-emerald-100 font-medium">View and manage all classes</p>
+                        <p className="text-xs text-green-100 font-medium">View and manage all classes</p>
                       </div>
                     </button>
 
@@ -530,7 +528,7 @@ const DashboardPage: React.FC = () => {
                       title="View reports"
                       onClick={handleViewReports}
                     >
-                      <div className="w-12 h-12 bg-purple-600/50 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                      <div className="w-12 h-12 bg-purple-600/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
@@ -546,7 +544,7 @@ const DashboardPage: React.FC = () => {
                       className="group w-full flex items-center space-x-4 p-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer"
                       title="Create system utility data"
                     >
-                      <div className="w-12 h-12 bg-amber-600/50 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                      <div className="w-12 h-12 bg-amber-600/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
@@ -562,74 +560,74 @@ const DashboardPage: React.FC = () => {
 
               {/* Recent Activity - 2/3 Width */}
               <div className="lg:col-span-2">
-                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 sm:p-5 lg:p-6 rounded-xl sm:rounded-2xl shadow-xl">
-                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white mb-3 sm:mb-4 lg:mb-6 flex items-center">
+                <div className="bg-white border border-gray-200 p-4 sm:p-5 lg:p-6 rounded-xl sm:rounded-2xl shadow-lg">
+                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-3 sm:mb-4 lg:mb-6 flex items-center">
                     <div className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center shadow-lg mr-2 sm:mr-3">
                       <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 lg:w-4 lg:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                       </svg>
                     </div>
-                    <span className="bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">Recent Activity</span>
+                    <span className="text-gray-900">Recent Activity</span>
                   </h3>
                   <div className="space-y-3 sm:space-y-4">
-                    <div className="group flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-slate-700/30 hover:bg-slate-700/50 rounded-xl sm:rounded-2xl transition-all duration-300 hover:shadow-lg border border-slate-600/30 cursor-pointer">
+                    <div className="group flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 hover:bg-gray-100 rounded-xl sm:rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer">
                       <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl sm:rounded-2xl blur-sm group-hover:blur-md transition-all duration-300"></div>
-                        <div className="relative w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                        <div className="absolute inset-0 bg-blue-100 rounded-xl sm:rounded-2xl"></div>
+                        <div className="relative w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
                           <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-bold text-white mb-1">New user registered</p>
-                        <p className="text-xs text-slate-400 font-medium truncate">John Doe joined the system</p>
+                        <p className="text-xs sm:text-sm font-bold text-gray-900 mb-1">New user registered</p>
+                        <p className="text-xs text-gray-600 font-medium truncate">John Doe joined the system</p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <span className="text-xs text-slate-500 font-medium bg-slate-800/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">2 min ago</span>
+                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">2 min ago</span>
                       </div>
                     </div>
 
-                    <div className="group flex items-center space-x-4 p-4 bg-slate-700/30 hover:bg-slate-700/50 rounded-2xl transition-all duration-300 hover:shadow-lg border border-slate-600/30 cursor-pointer">
+                    <div className="group flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer">
                       <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-2xl blur-sm group-hover:blur-md transition-all duration-300"></div>
-                        <div className="relative w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                        <div className="absolute inset-0 bg-green-100 rounded-2xl"></div>
+                        <div className="relative w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg">
                           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white mb-1">Class created</p>
-                        <p className="text-xs text-slate-400 font-medium truncate">Dr. Smith created "Advanced Mathematics"</p>
+                        <p className="text-sm font-bold text-gray-900 mb-1">Class created</p>
+                        <p className="text-xs text-gray-600 font-medium truncate">Dr. Smith created "Advanced Mathematics"</p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <span className="text-xs text-slate-500 font-medium bg-slate-800/50 px-3 py-1.5 rounded-full">15 min ago</span>
+                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-full">15 min ago</span>
                       </div>
                     </div>
 
-                    <div className="group flex items-center space-x-4 p-4 bg-slate-700/30 hover:bg-slate-700/50 rounded-2xl transition-all duration-300 hover:shadow-lg border border-slate-600/30 cursor-pointer">
+                    <div className="group flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer">
                       <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl blur-sm group-hover:blur-md transition-all duration-300"></div>
-                        <div className="relative w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                        <div className="absolute inset-0 bg-purple-100 rounded-2xl"></div>
+                        <div className="relative w-12 h-12 bg-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
                           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                           </svg>
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white mb-1">Report generated</p>
-                        <p className="text-xs text-slate-400 font-medium truncate">Monthly system report created</p>
+                        <p className="text-sm font-bold text-gray-900 mb-1">Report generated</p>
+                        <p className="text-xs text-gray-600 font-medium truncate">Monthly system report created</p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <span className="text-xs text-slate-500 font-medium bg-slate-800/50 px-3 py-1.5 rounded-full">1 hour ago</span>
+                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-full">1 hour ago</span>
                       </div>
                     </div>
 
-                    <div className="group flex items-center space-x-4 p-4 bg-slate-700/30 hover:bg-slate-700/50 rounded-2xl transition-all duration-300 hover:shadow-lg border border-slate-600/30 cursor-pointer">
+                    <div className="group flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer">
                       <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-2xl blur-sm group-hover:blur-md transition-all duration-300"></div>
-                        <div className="relative w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+                        <div className="absolute inset-0 bg-orange-100 rounded-2xl"></div>
+                        <div className="relative w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
                           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -637,11 +635,11 @@ const DashboardPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white mb-1">System backup completed</p>
-                        <p className="text-xs text-slate-400 font-medium truncate">Daily backup process finished</p>
+                        <p className="text-sm font-bold text-gray-900 mb-1">System backup completed</p>
+                        <p className="text-xs text-gray-600 font-medium truncate">Daily backup process finished</p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <span className="text-xs text-slate-500 font-medium bg-slate-800/50 px-3 py-1.5 rounded-full">2 hours ago</span>
+                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-full">2 hours ago</span>
                       </div>
                     </div>
                   </div>
@@ -650,8 +648,8 @@ const DashboardPage: React.FC = () => {
             </div>
 
             {/* Additional Content to Ensure Scrolling */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl">
-              <h3 className="text-xl font-bold text-white mb-6 flex items-center space-x-3">
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -660,40 +658,40 @@ const DashboardPage: React.FC = () => {
                 <span>System Overview</span>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-slate-700/60 rounded-xl p-4 border border-slate-600/40">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <h4 className="font-semibold text-white text-sm">Server Status</h4>
+                    <h4 className="font-semibold text-gray-900 text-sm">Server Status</h4>
                   </div>
-                  <p className="text-xs text-slate-300">All systems operational and running smoothly</p>
+                  <p className="text-xs text-gray-600">All systems operational and running smoothly</p>
                 </div>
                 
-                <div className="bg-slate-700/60 rounded-xl p-4 border border-slate-600/40">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <h4 className="font-semibold text-white text-sm">Active Sessions</h4>
+                    <h4 className="font-semibold text-gray-900 text-sm">Active Sessions</h4>
                   </div>
-                  <p className="text-xs text-slate-300">24/7 active user sessions across the platform</p>
+                  <p className="text-xs text-gray-600">24/7 active user sessions across the platform</p>
                 </div>
                 
-                <div className="bg-slate-700/60 rounded-xl p-4 border border-slate-600/40">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                       </svg>
                     </div>
-                    <h4 className="font-semibold text-white text-sm">Security</h4>
+                    <h4 className="font-semibold text-gray-900 text-sm">Security</h4>
                   </div>
-                  <p className="text-xs text-slate-300">All security protocols active and up to date</p>
+                  <p className="text-xs text-gray-600">All security protocols active and up to date</p>
                 </div>
               </div>
             </div>
@@ -704,10 +702,10 @@ const DashboardPage: React.FC = () => {
       {/* Utility Modal */}
       {showUtilityModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
-              <h2 className="text-2xl font-bold text-white flex items-center">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
                 <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg mr-3">
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -717,23 +715,23 @@ const DashboardPage: React.FC = () => {
               </h2>
               <button
                 onClick={closeModal}
-                className="w-8 h-8 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl flex items-center justify-center transition-colors duration-200"
+                className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors duration-200"
                 title="Close modal"
               >
-                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex border-b border-slate-700/50">
+            <div className="flex border-b border-gray-200">
               <button
                 onClick={() => setActiveTab('schedule')}
                 className={`flex-1 px-6 py-4 text-sm font-semibold transition-all duration-200 ${
                   activeTab === 'schedule'
-                    ? 'text-amber-400 bg-amber-500/10 border-b-2 border-amber-500'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
+                    ? 'text-amber-600 bg-amber-50 border-b-2 border-amber-500'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
                 Create Schedule
@@ -742,8 +740,8 @@ const DashboardPage: React.FC = () => {
                 onClick={() => setActiveTab('announcement')}
                 className={`flex-1 px-6 py-4 text-sm font-semibold transition-all duration-200 ${
                   activeTab === 'announcement'
-                    ? 'text-amber-400 bg-amber-500/10 border-b-2 border-amber-500'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
+                    ? 'text-amber-600 bg-amber-50 border-b-2 border-amber-500'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
                 Create Announcement
@@ -754,23 +752,23 @@ const DashboardPage: React.FC = () => {
             <div className="p-6 max-h-[60vh] overflow-y-auto">
               {/* Success/Error Messages */}
               {submitSuccess && (
-                <div className="mb-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                  <p className="text-emerald-400 font-medium">{submitSuccess}</p>
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <p className="text-green-700 font-medium">{submitSuccess}</p>
                 </div>
               )}
               
               {submitError && (
-                <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                  <p className="text-red-400 font-medium">{submitError}</p>
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-red-700 font-medium">{submitError}</p>
                 </div>
               )}
 
               {classesError && (
-                <div className="mb-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
-                  <p className="text-orange-400 font-medium">{classesError}</p>
+                <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                  <p className="text-orange-700 font-medium">{classesError}</p>
                   <button 
                     onClick={fetchClasses}
-                    className="mt-2 px-3 py-1 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 text-sm rounded-lg transition-colors duration-200"
+                    className="mt-2 px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-sm rounded-lg transition-colors duration-200"
                   >
                     Retry
                   </button>
@@ -782,14 +780,14 @@ const DashboardPage: React.FC = () => {
                 <form onSubmit={handleScheduleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="classSelect" className="block text-sm font-semibold text-slate-300 mb-2">
+                      <label htmlFor="classSelect" className="block text-sm font-semibold text-gray-700 mb-2">
                         Select Class *
                       </label>
                       <select
                         id="classSelect"
                         value={scheduleForm.class_id}
                         onChange={(e) => setScheduleForm({...scheduleForm, class_id: e.target.value})}
-                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
                         required
                         disabled={loadingClasses || classesError !== ''}
                         aria-label="Select class for schedule"
@@ -809,7 +807,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="roomNumber" className="block text-sm font-semibold text-slate-300 mb-2">
+                      <label htmlFor="roomNumber" className="block text-sm font-semibold text-gray-700 mb-2">
                         Room Number *
                       </label>
                       <input
@@ -817,7 +815,7 @@ const DashboardPage: React.FC = () => {
                         type="text"
                         value={scheduleForm.room_number}
                         onChange={(e) => setScheduleForm({...scheduleForm, room_number: e.target.value})}
-                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
                         placeholder="e.g., Room 101"
                         required
                         aria-label="Enter room number"
@@ -825,7 +823,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="startTime" className="block text-sm font-semibold text-slate-300 mb-2">
+                      <label htmlFor="startTime" className="block text-sm font-semibold text-gray-700 mb-2">
                         Start Time *
                       </label>
                       <input
@@ -833,14 +831,14 @@ const DashboardPage: React.FC = () => {
                         type="datetime-local"
                         value={scheduleForm.start_time}
                         onChange={(e) => setScheduleForm({...scheduleForm, start_time: e.target.value})}
-                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
                         required
                         aria-label="Select start time"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="endTime" className="block text-sm font-semibold text-slate-300 mb-2">
+                      <label htmlFor="endTime" className="block text-sm font-semibold text-gray-700 mb-2">
                         End Time *
                       </label>
                       <input
@@ -848,21 +846,21 @@ const DashboardPage: React.FC = () => {
                         type="datetime-local"
                         value={scheduleForm.end_time}
                         onChange={(e) => setScheduleForm({...scheduleForm, end_time: e.target.value})}
-                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
                         required
                         aria-label="Select end time"
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label htmlFor="statusSelect" className="block text-sm font-semibold text-slate-300 mb-2">
+                      <label htmlFor="statusSelect" className="block text-sm font-semibold text-gray-700 mb-2">
                         Status *
                       </label>
                       <select
                         id="statusSelect"
                         value={scheduleForm.status}
                         onChange={(e) => setScheduleForm({...scheduleForm, status: e.target.value})}
-                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
                         aria-label="Select schedule status"
                       >
                         <option value="Occupied">Occupied</option>
@@ -876,14 +874,14 @@ const DashboardPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-white font-semibold rounded-xl transition-all duration-200"
+                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
+                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? 'Creating...' : 'Create Schedule'}
                     </button>
@@ -895,7 +893,7 @@ const DashboardPage: React.FC = () => {
               {activeTab === 'announcement' && (
                 <form onSubmit={handleAnnouncementSubmit} className="space-y-6">
                   <div>
-                    <label htmlFor="announcementTitle" className="block text-sm font-semibold text-slate-300 mb-2">
+                    <label htmlFor="announcementTitle" className="block text-sm font-semibold text-gray-700 mb-2">
                       Title *
                     </label>
                     <input
@@ -903,7 +901,7 @@ const DashboardPage: React.FC = () => {
                       type="text"
                       value={announcementForm.title}
                       onChange={(e) => setAnnouncementForm({...announcementForm, title: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
                       placeholder="Enter announcement title"
                       required
                       aria-label="Enter announcement title"
@@ -911,7 +909,7 @@ const DashboardPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="announcementContent" className="block text-sm font-semibold text-slate-300 mb-2">
+                    <label htmlFor="announcementContent" className="block text-sm font-semibold text-gray-700 mb-2">
                       Content *
                     </label>
                     <textarea
@@ -919,7 +917,7 @@ const DashboardPage: React.FC = () => {
                       value={announcementForm.content}
                       onChange={(e) => setAnnouncementForm({...announcementForm, content: e.target.value})}
                       rows={6}
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-200 resize-none"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 resize-none"
                       placeholder="Enter announcement content"
                       required
                       aria-label="Enter announcement content"
@@ -932,9 +930,9 @@ const DashboardPage: React.FC = () => {
                       id="is_urgent"
                       checked={announcementForm.is_urgent}
                       onChange={(e) => setAnnouncementForm({...announcementForm, is_urgent: e.target.checked})}
-                      className="w-5 h-5 text-amber-600 bg-slate-700/50 border-slate-600/50 rounded focus:ring-amber-500/50 focus:ring-2"
+                      className="w-5 h-5 text-amber-600 bg-gray-50 border-gray-300 rounded focus:ring-amber-500 focus:ring-2"
                     />
-                    <label htmlFor="is_urgent" className="text-sm font-semibold text-slate-300">
+                    <label htmlFor="is_urgent" className="text-sm font-semibold text-gray-700">
                       Mark as urgent announcement
                     </label>
                   </div>
@@ -943,14 +941,14 @@ const DashboardPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-white font-semibold rounded-xl transition-all duration-200"
+                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
+                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? 'Creating...' : 'Create Announcement'}
                     </button>

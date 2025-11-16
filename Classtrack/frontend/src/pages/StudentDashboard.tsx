@@ -7,21 +7,20 @@ import DynamicHeader from "../components/DynamicHeader";
 import Sidebar from "../components/Sidebar";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
 
-// API configuration - SAME AS ASSIGNMENT PAGE
+// API configuration
 const API_BASE_URL = "http://localhost:8000";
 
-// Create axios instance with auth interceptor - UPDATED
+// Create axios instance with auth interceptor
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  // FIXED: Add configuration to handle redirects better
   maxRedirects: 5,
   timeout: 10000,
 });
 
-// Request interceptor to add auth token - SAME AS ASSIGNMENT PAGE
+// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -35,7 +34,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors - ADDED
+// Response interceptor to handle errors
 apiClient.interceptors.response.use(
   (response) => {
     return response;
@@ -50,7 +49,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-// INTERFACES - UPDATED TO INCLUDE CLASS NAME
+// INTERFACES
 interface Assignment {
   id: number;
   name: string;
@@ -61,6 +60,9 @@ interface Assignment {
   class_name?: string;
   class_code?: string;
   class_subject?: string;
+  due_date?: string;
+  points?: number;
+  assignment_type?: string;
 }
 
 interface Submission {
@@ -70,6 +72,8 @@ interface Submission {
   submitted_at: string;
   time_spent_minutes: number;
   status: string;
+  grade?: number;
+  feedback?: string;
 }
 
 interface ScheduleItem {
@@ -91,6 +95,8 @@ interface Announcement {
   content: string;
   date_posted: string;
   is_urgent: boolean;
+  author_name: string;
+  author_role: string;
 }
 
 interface Class {
@@ -99,12 +105,17 @@ interface Class {
   code: string;
   teacher_id: number | null;
   subject?: string;
+  description?: string;
+  semester?: string;
+  academic_year?: string;
 }
 
 interface SubmissionData {
   assignment_id: number;
   student_id: number;
   time_spent_minutes: number;
+  submission_text?: string;
+  attachment_url?: string;
 }
 
 const StudentDashboard: React.FC = () => {
@@ -112,7 +123,6 @@ const StudentDashboard: React.FC = () => {
   const { user } = useUser();
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -126,17 +136,14 @@ const StudentDashboard: React.FC = () => {
   });
 
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] =
-    useState<Assignment | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
   // Room Report Modal state
   const [showRoomReportModal, setShowRoomReportModal] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const [reportFormErrors, setReportFormErrors] = useState<{
-    [key: string]: string;
-  }>({});
+  const [reportFormErrors, setReportFormErrors] = useState<{ [key: string]: string }>({});
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
 
   // Room report form state
@@ -205,11 +212,21 @@ const StudentDashboard: React.FC = () => {
     total: assignments.length,
     submitted: submissions.length,
     available: assignments.length - submissions.length,
+    pending: assignments.filter(assignment => 
+      !submissions.some(submission => submission.assignment_id === assignment.id)
+    ).length
   };
 
   // Helper function to check if assignment is submitted
   const isAssignmentSubmitted = (assignmentId: number): boolean => {
     return submissions.some(
+      (submission) => submission.assignment_id === assignmentId
+    );
+  };
+
+  // Helper function to get submission details
+  const getSubmissionDetails = (assignmentId: number): Submission | undefined => {
+    return submissions.find(
       (submission) => submission.assignment_id === assignmentId
     );
   };
@@ -222,12 +239,18 @@ const StudentDashboard: React.FC = () => {
         name: classInfo.name,
         code: classInfo.code,
         subject: classInfo.subject || classInfo.name,
+        description: classInfo.description,
+        semester: classInfo.semester,
+        academic_year: classInfo.academic_year
       };
     }
     return {
       name: "Unknown Class",
       code: "UNKNOWN",
       subject: "Unknown Subject",
+      description: "",
+      semester: "",
+      academic_year: ""
     };
   };
 
@@ -351,7 +374,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // VIEW PROFILE FUNCTION - ADDED
+  // VIEW PROFILE FUNCTION
   const handleViewProfile = () => {
     navigate("/profile");
   };
@@ -374,7 +397,9 @@ const StudentDashboard: React.FC = () => {
 
   const loadStudentData = async () => {
     try {
-      // Load classes first, then assignments
+      console.log("🔄 Loading student data...");
+      
+      // Load classes first, then assignments and other data
       await loadStudentClasses();
       await Promise.all([
         loadStudentAssignments(),
@@ -382,16 +407,18 @@ const StudentDashboard: React.FC = () => {
         loadSchedules(),
         loadAnnouncements(),
       ]);
+      
+      console.log("✅ Student data loaded successfully");
     } catch (error) {
-      console.error("Error loading student data:", error);
+      console.error("❌ Error loading student data:", error);
     }
   };
 
-  // Function to load student classes
+  // Function to load student classes from API
   const loadStudentClasses = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, classes: true }));
-      console.log("📚 Loading classes for student...");
+      console.log("📚 Loading classes for student from API...");
 
       let classesData: Class[] = [];
 
@@ -405,25 +432,40 @@ const StudentDashboard: React.FC = () => {
         if (response.status === 200 && Array.isArray(response.data)) {
           classesData = response.data.map((classItem: any) => ({
             id: classItem.id,
-            name:
-              classItem.name || classItem.subject || `Class ${classItem.code}`,
+            name: classItem.name || classItem.subject || `Class ${classItem.code}`,
             code: classItem.code,
             teacher_id: classItem.teacher_id,
             subject: classItem.subject || classItem.name,
+            description: classItem.description || "",
+            semester: classItem.semester || "Spring 2024",
+            academic_year: classItem.academic_year || "2024-2025"
           }));
         } else {
-          // If API returns empty or error, use fallback
+          console.warn("⚠️ Classes API returned non-200 status, using fallback");
           classesData = getFallbackClasses();
         }
       } catch (error: any) {
-        console.warn("⚠️ Classes API failed, using fallback data");
+        console.warn("⚠️ Classes API failed, using fallback data:", error.message);
         classesData = getFallbackClasses();
       }
 
       setClasses(classesData);
+      
+      // Store classes in localStorage for consistency
+      localStorage.setItem("student_classes", JSON.stringify(classesData));
+      
       return classesData;
     } catch (error: any) {
-      console.error("Error loading classes:", error);
+      console.error("❌ Error loading classes:", error);
+      
+      // Try to get classes from localStorage as fallback
+      const savedClasses = localStorage.getItem("student_classes");
+      if (savedClasses) {
+        const fallbackData = JSON.parse(savedClasses);
+        setClasses(fallbackData);
+        return fallbackData;
+      }
+      
       const fallbackData = getFallbackClasses();
       setClasses(fallbackData);
       return fallbackData;
@@ -432,11 +474,11 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // FIXED: Assignment loading with proper class information
+  // Function to load student assignments from API
   const loadStudentAssignments = async (): Promise<Assignment[]> => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
-      console.log("📚 Loading assignments for student...");
+      console.log("📝 Loading assignments for student from API...");
 
       let assignmentsData: Assignment[] = [];
 
@@ -450,9 +492,9 @@ const StudentDashboard: React.FC = () => {
 
         if (response.status === 200 && Array.isArray(response.data)) {
           assignmentsData = response.data.map((assignment: any) => {
-            // Get class information from classes state
+            // Get class information from classes state or assignment data
             const classInfo = getClassInfoForAssignment(assignment.class_id);
-
+            
             return {
               id: assignment.id,
               name: assignment.name,
@@ -460,28 +502,41 @@ const StudentDashboard: React.FC = () => {
               class_id: assignment.class_id,
               creator_id: assignment.creator_id,
               created_at: assignment.created_at,
-              class_name: classInfo.name,
-              class_code: classInfo.code,
-              class_subject: classInfo.subject,
+              class_name: assignment.class_name || classInfo.name,
+              class_code: assignment.class_code || classInfo.code,
+              class_subject: assignment.class_subject || classInfo.subject,
+              due_date: assignment.due_date,
+              points: assignment.points || 100,
+              assignment_type: assignment.assignment_type || "Homework"
             };
           });
         } else {
-          console.warn(
-            "⚠️ Assignments API returned non-200 status, using fallback"
-          );
+          console.warn("⚠️ Assignments API returned non-200 status, using fallback");
           assignmentsData = getFallbackAssignments();
         }
       } catch (apiError: any) {
-        console.warn("⚠️ API call failed:", apiError.message);
+        console.warn("⚠️ Assignments API call failed:", apiError.message);
         assignmentsData = getFallbackAssignments();
       }
 
       console.log("📝 Final assignments with class info:", assignmentsData);
       setAssignments(assignmentsData);
 
+      // Store assignments in localStorage for consistency
+      localStorage.setItem("student_assignments", JSON.stringify(assignmentsData));
+
       return assignmentsData;
     } catch (error: any) {
       console.error("❌ Error loading assignments:", error);
+      
+      // Try to get assignments from localStorage as fallback
+      const savedAssignments = localStorage.getItem("student_assignments");
+      if (savedAssignments) {
+        const fallbackData = JSON.parse(savedAssignments);
+        setAssignments(fallbackData);
+        return fallbackData;
+      }
+      
       const fallbackData = getFallbackAssignments();
       setAssignments(fallbackData);
       return fallbackData;
@@ -490,96 +545,13 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // FIXED: Fallback assignments with EXACT names from your screenshot - NOW 4 ASSIGNMENTS
-  const getFallbackAssignments = (): Assignment[] => {
-    return [
-      {
-        id: 1,
-        name: "CPP",
-        description: "CPP programming basics",
-        class_id: 1,
-        creator_id: 1,
-        created_at: "2025-10-31T16:46:00Z",
-        class_name: "IT-12",
-        class_code: "IT-12",
-        class_subject: "Programming Fundamentals",
-      },
-      {
-        id: 2,
-        name: "Angela",
-        description: "Linguistics Assignment",
-        class_id: 2,
-        creator_id: 1,
-        created_at: "2025-10-31T16:46:00Z",
-        class_name: "ML-10",
-        class_code: "ML-10",
-        class_subject: "Machine Learning",
-      },
-      {
-        id: 3,
-        name: "Jen",
-        description: "Web Development Project",
-        class_id: 3,
-        creator_id: 1,
-        created_at: "2025-10-31T17:04:00Z",
-        class_name: "LOVE-23",
-        class_code: "LOVE-23",
-        class_subject: "Web Development",
-      },
-      {
-        id: 4,
-        name: "Broken",
-        description: "System Analysis Task",
-        class_id: 4,
-        creator_id: 1,
-        created_at: "2025-11-04T15:52:00Z",
-        class_name: "KUPAL-22",
-        class_code: "KUPAL-22",
-        class_subject: "System Analysis",
-      },
-    ];
-  };
-
-  // Fallback classes function - UPDATED FOR 4 CLASSES
-  const getFallbackClasses = (): Class[] => {
-    return [
-      {
-        id: 1,
-        name: "IT-12",
-        code: "IT-12",
-        teacher_id: 1,
-        subject: "Programming Fundamentals",
-      },
-      {
-        id: 2,
-        name: "ML-10",
-        code: "ML-10",
-        teacher_id: 1,
-        subject: "Machine Learning",
-      },
-      {
-        id: 3,
-        name: "LOVE-23",
-        code: "LOVE-23",
-        teacher_id: 1,
-        subject: "Web Development",
-      },
-      {
-        id: 4,
-        name: "KUPAL-22",
-        code: "KUPAL-22",
-        teacher_id: 1,
-        subject: "System Analysis",
-      },
-    ];
-  };
-
+  // Function to load student submissions from API
   const loadStudentSubmissions = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, submissions: true }));
 
       if (user?.role === "student") {
-        console.log("📚 Loading submissions for student...");
+        console.log("📄 Loading submissions for student from API...");
 
         let submissionsData: Submission[] = [];
 
@@ -587,52 +559,221 @@ const StudentDashboard: React.FC = () => {
           const response = await apiClient.get("/submissions/me", {
             validateStatus: (status) => status < 500,
           });
+          
           console.log("✅ Submissions response:", response.data);
-          submissionsData = Array.isArray(response.data) ? response.data : [];
+          
+          if (response.status === 200 && Array.isArray(response.data)) {
+            submissionsData = response.data.map((submission: any) => ({
+              id: submission.id,
+              assignment_id: submission.assignment_id,
+              student_id: submission.student_id,
+              submitted_at: submission.submitted_at,
+              time_spent_minutes: submission.time_spent_minutes || 0,
+              status: submission.status || "submitted",
+              grade: submission.grade,
+              feedback: submission.feedback
+            }));
+          } else {
+            submissionsData = [];
+          }
         } catch (error: any) {
-          console.warn("⚠️ Submissions API failed, using empty array");
+          console.warn("⚠️ Submissions API failed, using empty array:", error.message);
           submissionsData = [];
         }
 
         setSubmissions(submissionsData);
+        
+        // Store submissions in localStorage for consistency
+        localStorage.setItem("student_submissions", JSON.stringify(submissionsData));
       } else {
         setSubmissions([]);
       }
     } catch (error: any) {
-      console.error("Error loading submissions:", error);
+      console.error("❌ Error loading submissions:", error);
+      
+      // Try to get submissions from localStorage as fallback
+      const savedSubmissions = localStorage.getItem("student_submissions");
+      if (savedSubmissions) {
+        const fallbackData = JSON.parse(savedSubmissions);
+        setSubmissions(fallbackData);
+        return;
+      }
+      
       setSubmissions([]);
     } finally {
       setLoadingStates((prev) => ({ ...prev, submissions: false }));
     }
   };
 
+  // Function to load schedules from API
   const loadSchedules = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, schedule: true }));
-      const response = await axios.get(`${API_BASE_URL}/schedules/live`);
-      setSchedule(response.data);
+      console.log("📅 Loading schedules from API...");
+
+      try {
+        const response = await apiClient.get("/schedules/live", {
+          validateStatus: (status) => status < 500,
+        });
+
+        if (response.status === 200 && Array.isArray(response.data)) {
+          setSchedule(response.data);
+        } else {
+          console.warn("⚠️ Schedules API returned non-200 status, using empty array");
+          setSchedule([]);
+        }
+      } catch (error: any) {
+        console.warn("⚠️ Schedules API failed, using empty array:", error.message);
+        setSchedule([]);
+      }
     } catch (error) {
-      console.error("Error loading schedules:", error);
+      console.error("❌ Error loading schedules:", error);
       setSchedule([]);
     } finally {
       setLoadingStates((prev) => ({ ...prev, schedule: false }));
     }
   };
 
+  // Function to load announcements from API
   const loadAnnouncements = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, announcements: true }));
-      const response = await axios.get(`${API_BASE_URL}/announcements/live`);
-      setAnnouncements(response.data);
+      console.log("📢 Loading announcements from API...");
+
+      try {
+        const response = await apiClient.get("/announcements/live", {
+          validateStatus: (status) => status < 500,
+        });
+
+        if (response.status === 200 && Array.isArray(response.data)) {
+          setAnnouncements(response.data);
+        } else {
+          console.warn("⚠️ Announcements API returned non-200 status, using empty array");
+          setAnnouncements([]);
+        }
+      } catch (error: any) {
+        console.warn("⚠️ Announcements API failed, using empty array:", error.message);
+        setAnnouncements([]);
+      }
     } catch (error) {
-      console.error("Error loading announcements:", error);
+      console.error("❌ Error loading announcements:", error);
       setAnnouncements([]);
     } finally {
       setLoadingStates((prev) => ({ ...prev, announcements: false }));
     }
   };
 
-  // Real-time sync
+  // Fallback assignments function - UPDATED WITH EXACT DATA FROM SCREENSHOT
+  const getFallbackAssignments = (): Assignment[] => {
+    const currentClasses = classes.length > 0 ? classes : getFallbackClasses();
+    
+    return [
+      {
+        id: 1,
+        name: "Jen",
+        description: "Kapag umaga aljon kapag gabi si aljona na",
+        class_id: 1,
+        creator_id: 1,
+        created_at: new Date("2025-10-31T17:04:00Z").toISOString(),
+        class_name: currentClasses.find(c => c.id === 1)?.name || "Aljon&Aljona",
+        class_code: currentClasses.find(c => c.id === 1)?.code || "LOVE-25",
+        class_subject: currentClasses.find(c => c.id === 1)?.subject || "Relationship Studies",
+        due_date: new Date("2025-11-15T23:59:00Z").toISOString(),
+        points: 100,
+        assignment_type: "Reflection Paper"
+      },
+      {
+        id: 2,
+        name: "Broken",
+        description: "Comeback na ulit",
+        class_id: 2,
+        creator_id: 1,
+        created_at: new Date("2025-11-04T15:52:00Z").toISOString(),
+        class_name: currentClasses.find(c => c.id === 2)?.name || "Aaron",
+        class_code: currentClasses.find(c => c.id === 2)?.code || "KUPAL-22",
+        class_subject: currentClasses.find(c => c.id === 2)?.subject || "Character Development",
+        due_date: new Date("2025-11-10T23:59:00Z").toISOString(),
+        points: 100,
+        assignment_type: "Personal Essay"
+      },
+      {
+        id: 3,
+        name: "CPP",
+        description: "Create a code write hello world in C++",
+        class_id: 3,
+        creator_id: 1,
+        created_at: new Date("2025-10-31T16:46:00Z").toISOString(),
+        class_name: currentClasses.find(c => c.id === 3)?.name || "Hello world",
+        class_code: currentClasses.find(c => c.id === 3)?.code || "IT-12",
+        class_subject: currentClasses.find(c => c.id === 3)?.subject || "Programming Fundamentals",
+        due_date: new Date("2025-11-05T23:59:00Z").toISOString(),
+        points: 100,
+        assignment_type: "Programming Exercise"
+      },
+      {
+        id: 4,
+        name: "Angela",
+        description: "Mobile Legend Bangbang",
+        class_id: 4,
+        creator_id: 1,
+        created_at: new Date("2025-10-31T16:46:00Z").toISOString(),
+        class_name: currentClasses.find(c => c.id === 4)?.name || "LING",
+        class_code: currentClasses.find(c => c.id === 4)?.code || "ML-10",
+        class_subject: currentClasses.find(c => c.id === 4)?.subject || "Gaming Strategies",
+        due_date: new Date("2025-11-20T23:59:00Z").toISOString(),
+        points: 100,
+        assignment_type: "Game Analysis"
+      }
+    ];
+  };
+
+  // Fallback classes function - UPDATED WITH EXACT DATA FROM SCREENSHOT
+  const getFallbackClasses = (): Class[] => {
+    return [
+      {
+        id: 1,
+        name: "Aljon&Aljona",
+        code: "LOVE-25",
+        teacher_id: 1,
+        subject: "Relationship Studies",
+        description: "Understanding relationships and personal development",
+        semester: "Fall 2024",
+        academic_year: "2024-2025"
+      },
+      {
+        id: 2,
+        name: "Aaron",
+        code: "KUPAL-22",
+        teacher_id: 1,
+        subject: "Character Development",
+        description: "Personal growth and character building",
+        semester: "Fall 2024",
+        academic_year: "2024-2025"
+      },
+      {
+        id: 3,
+        name: "Hello world",
+        code: "IT-12",
+        teacher_id: 1,
+        subject: "Programming Fundamentals",
+        description: "Introduction to programming concepts",
+        semester: "Fall 2024",
+        academic_year: "2024-2025"
+      },
+      {
+        id: 4,
+        name: "LING",
+        code: "ML-10",
+        teacher_id: 1,
+        subject: "Gaming Strategies",
+        description: "Advanced gaming techniques and strategies",
+        semester: "Fall 2024",
+        academic_year: "2024-2025"
+      }
+    ];
+  };
+
+  // Real-time sync for assignments
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "assignments_updated") {
@@ -643,10 +784,12 @@ const StudentDashboard: React.FC = () => {
 
     window.addEventListener("storage", handleStorageChange);
 
+    // Set up periodic refresh for real-time updates
     const refreshInterval = setInterval(() => {
-      console.log("🔄 Student: Periodic assignment refresh");
+      console.log("🔄 Student: Periodic data refresh");
       loadStudentAssignments();
-    }, 10000);
+      loadStudentSubmissions();
+    }, 30000); // Refresh every 30 seconds
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
@@ -688,16 +831,44 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // Format due date for assignments
+  const formatDueDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      const now = new Date();
+      const diffTime = localDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) {
+        return "Overdue";
+      } else if (diffDays === 0) {
+        return "Due today";
+      } else if (diffDays === 1) {
+        return "Due tomorrow";
+      } else if (diffDays <= 7) {
+        return `Due in ${diffDays} days`;
+      } else {
+        return localDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric"
+        });
+      }
+    } catch (error) {
+      return "No due date";
+    }
+  };
+
   const getRoomStatusColor = (status: string) => {
     switch (status) {
       case "Clean":
-        return "bg-green-500/20 text-green-400 border-green-500/30";
+        return "bg-green-100 text-green-700 border-green-200";
       case "Occupied":
-        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+        return "bg-blue-100 text-blue-700 border-blue-200";
       case "Needs Cleaning":
-        return "bg-red-500/20 text-red-400 border-red-500/30";
+        return "bg-red-100 text-red-700 border-red-200";
       default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+        return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
 
@@ -732,113 +903,16 @@ const StudentDashboard: React.FC = () => {
     return fullName;
   };
 
+  // FIXED: Assignment submission function - Now navigates to assignments page
   const handleSubmitAssignment = (assignment: Assignment) => {
-    if (isAssignmentSubmitted(assignment.id)) {
-      alert(
-        "This assignment has already been submitted. You cannot submit it again."
-      );
-      return;
-    }
-
-    setSelectedAssignment(assignment);
-    setShowSubmitModal(true);
-    setFormErrors({});
-  };
-
-  const handleCloseSubmitModal = () => {
-    setShowSubmitModal(false);
-    setSelectedAssignment(null);
-    setFormErrors({});
-    if (timeSpentRef.current) timeSpentRef.current.value = "";
-  };
-
-  const validateSubmissionForm = (): boolean => {
-    const errors: { [key: string]: string } = {};
-
-    const timeSpent = timeSpentRef.current?.value.trim();
-
-    if (!timeSpent) {
-      errors.time_spent_minutes = "Time spent is required";
-    } else {
-      const timeValue = parseInt(timeSpent);
-      if (isNaN(timeValue) || timeValue <= 0) {
-        errors.time_spent_minutes = "Time spent must be a positive number";
-      }
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmitSubmission = async () => {
-    if (!validateSubmissionForm() || !selectedAssignment || !user) {
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-
-      const submissionData: SubmissionData = {
-        assignment_id: selectedAssignment.id,
-        student_id: parseInt(user.id.toString()),
-        time_spent_minutes: parseInt(timeSpentRef.current?.value || "0"),
-      };
-
-      console.log("Submitting assignment with data:", submissionData);
-
-      let newSubmission: Submission;
-
-      try {
-        const response = await apiClient.post("/submissions", submissionData);
-        console.log("✅ Submission successful via API:", response.data);
-
-        newSubmission = {
-          id: response.data.id || Date.now(),
-          assignment_id: selectedAssignment.id,
-          student_id: parseInt(user.id.toString()),
-          submitted_at: new Date().toISOString(),
-          time_spent_minutes: parseInt(timeSpentRef.current?.value || "0"),
-          status: "submitted",
-        };
-      } catch (apiError: any) {
-        console.warn("⚠️ API submission failed, creating local submission");
-        newSubmission = {
-          id: Date.now(),
-          assignment_id: selectedAssignment.id,
-          student_id: parseInt(user.id.toString()),
-          submitted_at: new Date().toISOString(),
-          time_spent_minutes: parseInt(timeSpentRef.current?.value || "0"),
-          status: "submitted",
-        };
-      }
-
-      setSubmissions((prev) => [...prev, newSubmission]);
-      handleCloseSubmitModal();
-      alert("Assignment submitted successfully!");
-    } catch (error: any) {
-      console.error("Error submitting assignment:", error);
-
-      if (error.response?.status === 422 && error.response?.data?.detail) {
-        const apiErrors: { [key: string]: string } = {};
-        error.response.data.detail.forEach((err: any) => {
-          if (err.loc && err.loc.length > 1) {
-            apiErrors[err.loc[1]] = err.msg;
-          }
-        });
-        setFormErrors(apiErrors);
-      } else if (error.response?.status === 409) {
-        setFormErrors({
-          general:
-            "You have already submitted this assignment. View Grades to check status.",
-        });
-      } else {
-        setFormErrors({
-          general: "Failed to submit assignment. Please try again.",
-        });
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Navigate to assignments page instead of showing modal or submitting directly
+    navigate("/student/assignments", { 
+      state: { 
+        selectedAssignment: assignment,
+        assignments: assignments,
+        submissions: submissions
+      } 
+    });
   };
 
   // Room Report Functions
@@ -944,11 +1018,11 @@ const StudentDashboard: React.FC = () => {
         },
       });
 
-      console.log("Room report submitted successfully:", response.data);
+      console.log("✅ Room report submitted successfully:", response.data);
       handleCloseRoomReportModal();
       alert("Room report submitted successfully!");
     } catch (error: any) {
-      console.error("Error submitting room report:", error);
+      console.error("❌ Error submitting room report:", error);
 
       if (error.response?.status === 422 && error.response?.data?.detail) {
         const apiErrors: { [key: string]: string } = {};
@@ -973,11 +1047,11 @@ const StudentDashboard: React.FC = () => {
   // Show loading screen while user data is being fetched
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading your dashboard...</p>
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-gray-600">Loading your dashboard...</p>
+          <p className="text-gray-500 text-sm mt-2">
             Please wait while we fetch your data
           </p>
         </div>
@@ -986,17 +1060,17 @@ const StudentDashboard: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden">
       {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {/* Mobile Header */}
-        <header className="lg:hidden bg-slate-800/95 backdrop-blur-xl border-b border-slate-700/50 p-4 shadow-xl flex items-center justify-between z-20">
+        <header className="lg:hidden bg-white backdrop-blur-xl border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl blur-sm"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-xl blur-sm"></div>
               <img
                 src={plmunLogo}
                 alt="PLMun Logo"
@@ -1004,8 +1078,8 @@ const StudentDashboard: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">Student Portal</h1>
-              <p className="text-xs text-slate-400">
+              <h1 className="text-lg font-bold text-gray-900">Student Portal</h1>
+              <p className="text-xs text-gray-600">
                 ClassTrack Learning Management System
               </p>
             </div>
@@ -1013,7 +1087,7 @@ const StudentDashboard: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 border border-red-500/30 hover:border-red-500/50 cursor-pointer"
+              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
               title="Logout"
             >
               <svg
@@ -1033,11 +1107,11 @@ const StudentDashboard: React.FC = () => {
 
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-slate-700/50 hover:bg-slate-600/50 transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
               title="Toggle menu"
             >
               <svg
-                className="w-5 h-5 text-white"
+                className="w-5 h-5 text-gray-700"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1062,22 +1136,22 @@ const StudentDashboard: React.FC = () => {
         </div>
 
         {/* Status Bar */}
-        <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/30 rounded-xl p-3 mx-4 mb-4 mt-3">
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-400 font-medium">
+                <span className="text-green-600 font-medium">
                   System Active
                 </span>
               </div>
-              <div className="text-slate-400">
+              <div className="text-gray-500">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-blue-400 font-medium">
+              <span className="text-blue-600 font-medium">
                 {user?.role
                   ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                   : "Student"}{" "}
@@ -1088,12 +1162,12 @@ const StudentDashboard: React.FC = () => {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+        <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
             {/* Welcome Section */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl">
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
                   <svg
                     className="w-8 h-8 text-white"
                     fill="none"
@@ -1110,9 +1184,9 @@ const StudentDashboard: React.FC = () => {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-3">
                     Welcome back!
-                    <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
+                    <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-sm">
                       <svg
                         className="w-5 h-5 text-white"
                         fill="none"
@@ -1134,7 +1208,7 @@ const StudentDashboard: React.FC = () => {
                       </svg>
                     </div>
                   </h2>
-                  <p className="text-slate-200 leading-relaxed">
+                  <p className="text-gray-600 leading-relaxed">
                     Stay organized with your schedule, announcements, and
                     assignments. Track your progress and never miss important
                     deadlines.
@@ -1144,10 +1218,10 @@ const StudentDashboard: React.FC = () => {
             </div>
 
             {/* User Profile Card */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl">
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-lg">
+                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-sm">
                     {user?.profile_picture_url &&
                     user.profile_picture_url.trim() !== "" ? (
                       <img
@@ -1176,25 +1250,25 @@ const StudentDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-white mb-1">
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">
                       {user?.first_name && user?.last_name
                         ? `${user.first_name} ${user.last_name}`
                         : user?.username || "User"}
                     </h3>
-                    <p className="text-slate-300 mb-2">
+                    <p className="text-gray-600 mb-2">
                       {user?.username || "user@classtrack.edu"}
                     </p>
-                    <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-sm rounded-full border border-purple-500/30">
+                    <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full border border-purple-200">
                       {user?.role
                         ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                         : "Student"}
                     </span>
                   </div>
                 </div>
-                {/* VIEW PROFILE BUTTON - ADDED */}
+                {/* VIEW PROFILE BUTTON */}
                 <button
                   onClick={handleViewProfile}
-                  className="px-4 py-2 bg-slate-700/80 hover:bg-slate-600/80 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl border border-slate-600/50 flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow border border-gray-300 flex items-center gap-2 cursor-pointer"
                   aria-label="View and edit user profile"
                 >
                   <svg
@@ -1220,10 +1294,10 @@ const StudentDashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {/* Schedule Section - WITH SCROLLING */}
               <div className="lg:col-span-1">
-                <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg h-[400px] flex flex-col">
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
                         <svg
                           className="w-5 h-5 text-white"
                           fill="none"
@@ -1239,13 +1313,13 @@ const StudentDashboard: React.FC = () => {
                           />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-bold text-white">
+                      <h3 className="text-lg font-bold text-gray-900">
                         Today's Schedule
                       </h3>
                     </div>
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-green-400 font-medium">
+                      <span className="text-xs text-green-600 font-medium">
                         Live
                       </span>
                     </div>
@@ -1253,7 +1327,7 @@ const StudentDashboard: React.FC = () => {
 
                   <div className="relative flex-1">
                     <div 
-                      className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
+                      className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                       ref={scheduleScrollRef}
                       onScroll={handleScheduleScroll}
                     >
@@ -1262,14 +1336,14 @@ const StudentDashboard: React.FC = () => {
                           {[1, 2, 3].map((i) => (
                             <div
                               key={i}
-                              className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40"
+                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
                             >
                               <div className="flex items-start space-x-3">
-                                <div className="w-10 h-10 bg-slate-400 rounded-xl animate-pulse"></div>
+                                <div className="w-10 h-10 bg-gray-300 rounded-xl animate-pulse"></div>
                                 <div className="flex-1">
-                                  <div className="h-4 bg-slate-400 rounded w-3/4 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-slate-400 rounded w-1/2 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-slate-400 rounded w-2/3 animate-pulse"></div>
+                                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
+                                  <div className="h-3 bg-gray-300 rounded w-1/2 mb-2 animate-pulse"></div>
+                                  <div className="h-3 bg-gray-300 rounded w-2/3 animate-pulse"></div>
                                 </div>
                               </div>
                             </div>
@@ -1279,12 +1353,12 @@ const StudentDashboard: React.FC = () => {
                         schedule.map((item) => (
                           <div
                             key={item.id}
-                            className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40 hover:bg-slate-600/80 transition-all duration-200 shadow-sm cursor-pointer"
+                            className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                           >
                             <div className="flex items-start space-x-3">
-                              <div className="w-10 h-10 bg-blue-500/60 rounded-xl flex items-center justify-center text-lg shadow-sm">
+                              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-lg shadow-sm">
                                 <svg
-                                  className="w-6 h-6 text-white"
+                                  className="w-6 h-6 text-blue-600"
                                   fill="none"
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
@@ -1298,18 +1372,18 @@ const StudentDashboard: React.FC = () => {
                                 </svg>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-white text-sm mb-1 truncate">
+                                <h4 className="font-semibold text-gray-900 text-sm mb-1 truncate">
                                   {item.class_name}
                                 </h4>
-                                <p className="text-xs text-slate-300 mb-1">
+                                <p className="text-xs text-gray-600 mb-1">
                                   {formatTeacherName(item.teacher_full_name)} |{" "}
                                   {item.room_number}
                                 </p>
-                                <p className="text-xs text-slate-400 mb-2">
+                                <p className="text-xs text-gray-500 mb-2">
                                   {item.class_code}
                                 </p>
                                 <div className="flex items-center justify-between">
-                                  <p className="text-sm font-medium text-white">
+                                  <p className="text-sm font-medium text-gray-900">
                                     {formatTime(item.start_time)} -{" "}
                                     {formatTime(item.end_time)}
                                   </p>
@@ -1328,7 +1402,7 @@ const StudentDashboard: React.FC = () => {
                       ) : (
                         <div className="text-center py-8">
                           <svg
-                            className="w-12 h-12 text-slate-500 mx-auto mb-4"
+                            className="w-12 h-12 text-gray-400 mx-auto mb-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1340,7 +1414,7 @@ const StudentDashboard: React.FC = () => {
                               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                             />
                           </svg>
-                          <p className="text-slate-400">
+                          <p className="text-gray-500">
                             No schedule for today
                           </p>
                         </div>
@@ -1350,9 +1424,9 @@ const StudentDashboard: React.FC = () => {
                     {/* Scroll Indicator for Schedule - Auto hides when scrolled */}
                     {schedule.length > 3 && showScheduleScrollIndicator && (
                       <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
-                        <div className="flex items-center space-x-1 bg-slate-800/90 rounded-full px-3 py-1 border border-slate-600/60 backdrop-blur-sm">
+                        <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
                           <svg
-                            className="w-3 h-3 text-blue-400 animate-bounce"
+                            className="w-3 h-3 text-blue-500 animate-bounce"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1364,7 +1438,7 @@ const StudentDashboard: React.FC = () => {
                               d="M19 14l-7 7m0 0l-7-7m7 7V3"
                             />
                           </svg>
-                          <span className="text-xs text-slate-300">
+                          <span className="text-xs text-gray-600">
                             Scroll for more
                           </span>
                         </div>
@@ -1376,10 +1450,10 @@ const StudentDashboard: React.FC = () => {
 
               {/* Announcements Section - WITH SCROLLING */}
               <div className="lg:col-span-1">
-                <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg h-[400px] flex flex-col">
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md">
+                      <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-sm">
                         <svg
                           className="w-5 h-5 text-white"
                           fill="none"
@@ -1395,14 +1469,14 @@ const StudentDashboard: React.FC = () => {
                           />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-bold text-white">
+                      <h3 className="text-lg font-bold text-gray-900">
                         Announcements
                       </h3>
                     </div>
                     {announcements.filter((a) => a.is_urgent).length > 0 && (
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs text-orange-400 font-medium">
+                        <span className="text-xs text-orange-600 font-medium">
                           {announcements.filter((a) => a.is_urgent).length}{" "}
                           Urgent
                         </span>
@@ -1412,7 +1486,7 @@ const StudentDashboard: React.FC = () => {
 
                   <div className="relative flex-1">
                     <div 
-                      className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
+                      className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                       ref={announcementsScrollRef}
                       onScroll={handleAnnouncementsScroll}
                     >
@@ -1421,15 +1495,15 @@ const StudentDashboard: React.FC = () => {
                           {[1, 2, 3].map((i) => (
                             <div
                               key={i}
-                              className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40"
+                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
                             >
                               <div className="flex items-start space-x-3">
-                                <div className="w-3 h-3 bg-slate-400 rounded-full mt-2 animate-pulse"></div>
+                                <div className="w-3 h-3 bg-gray-300 rounded-full mt-2 animate-pulse"></div>
                                 <div className="flex-1">
-                                  <div className="h-4 bg-slate-400 rounded w-3/4 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-slate-400 rounded w-full mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-slate-400 rounded w-2/3 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-slate-400 rounded w-1/3 animate-pulse"></div>
+                                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
+                                  <div className="h-3 bg-gray-300 rounded w-full mb-2 animate-pulse"></div>
+                                  <div className="h-3 bg-gray-300 rounded w-2/3 mb-2 animate-pulse"></div>
+                                  <div className="h-3 bg-gray-300 rounded w-1/3 animate-pulse"></div>
                                 </div>
                               </div>
                             </div>
@@ -1439,37 +1513,44 @@ const StudentDashboard: React.FC = () => {
                         announcements.map((announcement) => (
                           <div
                             key={announcement.id}
-                            className={`bg-slate-600/60 rounded-xl p-4 border transition-all duration-200 hover:bg-slate-600/80 shadow-sm cursor-pointer ${
+                            className={`bg-gray-50 rounded-xl p-4 border transition-all duration-200 hover:bg-gray-100 shadow-sm cursor-pointer ${
                               announcement.is_urgent
-                                ? "border-orange-400/50 ring-1 ring-orange-400/20"
-                                : "border-slate-500/40"
+                                ? "border-orange-300 ring-1 ring-orange-100"
+                                : "border-gray-200"
                             }`}
                           >
                             <div className="flex items-start space-x-3">
                               <div
                                 className={`w-3 h-3 rounded-full mt-2 ${
                                   announcement.is_urgent
-                                    ? "bg-orange-400"
-                                    : "bg-blue-400"
+                                    ? "bg-orange-500"
+                                    : "bg-blue-500"
                                 }`}
                               ></div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-semibold text-white text-sm leading-tight">
+                                  <h4 className="font-semibold text-gray-900 text-sm leading-tight">
                                     {announcement.title}
                                   </h4>
                                   {announcement.is_urgent && (
-                                    <span className="px-2 py-1 text-xs rounded-full border ml-2 flex-shrink-0 bg-orange-500/20 border-orange-500/30 text-orange-400">
+                                    <span className="px-2 py-1 text-xs rounded-full border ml-2 flex-shrink-0 bg-orange-100 border-orange-200 text-orange-700">
                                       🚨 URGENT
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-sm text-slate-200 mb-3 leading-relaxed">
+                                <p className="text-sm text-gray-700 mb-3 leading-relaxed">
                                   {announcement.content}
                                 </p>
-                                <p className="text-xs text-slate-400">
-                                  {formatDate(announcement.date_posted)}
-                                </p>
+                                <div className="flex justify-between items-center">
+                                  <p className="text-xs text-gray-500">
+                                    {formatDate(announcement.date_posted)}
+                                  </p>
+                                  {announcement.author_name && (
+                                    <p className="text-xs text-gray-500">
+                                      By: {announcement.author_name}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1477,7 +1558,7 @@ const StudentDashboard: React.FC = () => {
                       ) : (
                         <div className="text-center py-8">
                           <svg
-                            className="w-12 h-12 text-slate-500 mx-auto mb-4"
+                            className="w-12 h-12 text-gray-400 mx-auto mb-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1489,7 +1570,7 @@ const StudentDashboard: React.FC = () => {
                               d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                             />
                           </svg>
-                          <p className="text-slate-400">No announcements</p>
+                          <p className="text-gray-500">No announcements</p>
                         </div>
                       )}
                     </div>
@@ -1497,9 +1578,9 @@ const StudentDashboard: React.FC = () => {
                     {/* Scroll Indicator for Announcements - Auto hides when scrolled */}
                     {announcements.length > 3 && showAnnouncementsScrollIndicator && (
                       <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
-                        <div className="flex items-center space-x-1 bg-slate-800/90 rounded-full px-3 py-1 border border-slate-600/60 backdrop-blur-sm">
+                        <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
                           <svg
-                            className="w-3 h-3 text-orange-400 animate-bounce"
+                            className="w-3 h-3 text-orange-500 animate-bounce"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1511,7 +1592,7 @@ const StudentDashboard: React.FC = () => {
                               d="M19 14l-7 7m0 0l-7-7m7 7V3"
                             />
                           </svg>
-                          <span className="text-xs text-slate-300">
+                          <span className="text-xs text-gray-600">
                             Scroll for more
                           </span>
                         </div>
@@ -1521,12 +1602,12 @@ const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Assignments Section - WITH SCROLLING INDICATOR */}
+              {/* Assignments Section - CLEANER DESIGN */}
               <div className="lg:col-span-2 xl:col-span-1">
-                <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg h-[400px] flex flex-col">
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-md">
+                      <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-sm">
                         <svg
                           className="w-5 h-5 text-white"
                           fill="none"
@@ -1542,138 +1623,128 @@ const StudentDashboard: React.FC = () => {
                           />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-bold text-white">
+                      <h3 className="text-lg font-bold text-gray-900">
                         My Assignments
                       </h3>
                     </div>
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-xs text-blue-400 font-medium">
+                      <span className="text-xs text-blue-600 font-medium">
                         {assignmentStats.total} Total
                       </span>
                     </div>
                   </div>
 
-                  {/* Assignment Statistics - Compact Version */}
-                  <div className="mb-4 bg-slate-600/60 rounded-xl p-3 border border-slate-500/40 shadow-sm">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <p className="text-lg font-bold text-white">
-                          {assignmentStats.available}
-                        </p>
-                        <p className="text-xs text-slate-300">Available</p>
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold text-white">
-                          {assignmentStats.total}
-                        </p>
-                        <p className="text-xs text-slate-300">Total</p>
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold text-white">
-                          {assignmentStats.submitted}
-                        </p>
-                        <p className="text-xs text-slate-300">Submitted</p>
-                      </div>
+                  {/* Assignment Statistics - Clean Design */}
+                  <div className="mb-4 grid grid-cols-4 gap-2">
+                    <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-200">
+                      <p className="text-lg font-bold text-blue-600">{assignmentStats.total}</p>
+                      <p className="text-xs text-blue-700">Total</p>
+                    </div>
+                    <div className="bg-green-50 rounded-xl p-3 text-center border border-green-200">
+                      <p className="text-lg font-bold text-green-600">{assignmentStats.submitted}</p>
+                      <p className="text-xs text-green-700">Submitted</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-xl p-3 text-center border border-orange-200">
+                      <p className="text-lg font-bold text-orange-600">{assignmentStats.available}</p>
+                      <p className="text-xs text-orange-700">Available</p>
+                    </div>
+                    <div className="bg-purple-50 rounded-xl p-3 text-center border border-purple-200">
+                      <p className="text-lg font-bold text-purple-600">{assignmentStats.pending}</p>
+                      <p className="text-xs text-purple-700">Pending</p>
                     </div>
                   </div>
 
                   {/* Scrollable Assignments Area */}
                   <div className="relative flex-1">
                     <div 
-                      className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
+                      className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                       ref={assignmentsScrollRef}
                       onScroll={handleAssignmentsScroll}
                     >
                       {loadingStates.assignments ? (
                         <div className="space-y-3">
-                          {[1, 2, 3].map((i) => (
+                          {[1, 2, 3, 4].map((i) => (
                             <div
                               key={i}
-                              className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40"
+                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
                             >
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex-1">
-                                  <div className="h-4 bg-slate-400 rounded w-3/4 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-slate-400 rounded w-1/2 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-slate-400 rounded w-full mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-slate-400 rounded w-2/3 animate-pulse"></div>
+                                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
+                                  <div className="h-3 bg-gray-300 rounded w-1/2 mb-2 animate-pulse"></div>
+                                  <div className="h-3 bg-gray-300 rounded w-full mb-2 animate-pulse"></div>
                                 </div>
-                                <div className="w-16 h-6 bg-slate-400 rounded-full ml-2 animate-pulse"></div>
+                                <div className="w-16 h-6 bg-gray-300 rounded-full ml-2 animate-pulse"></div>
                               </div>
-                              <div className="h-10 bg-slate-400 rounded-xl w-full animate-pulse"></div>
+                              <div className="h-8 bg-gray-300 rounded-xl w-full animate-pulse"></div>
                             </div>
                           ))}
                         </div>
                       ) : assignments.length > 0 ? (
                         assignments.map((assignment) => {
-                          const isSubmitted = isAssignmentSubmitted(
-                            assignment.id
-                          );
+                          const isSubmitted = isAssignmentSubmitted(assignment.id);
 
                           return (
                             <div
                               key={assignment.id}
-                              className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40 hover:bg-slate-600/80 transition-all duration-200 shadow-sm cursor-pointer"
+                              className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm"
                             >
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex-1 min-w-0">
-                                  {/* CLASS NAME DISPLAY - FIXED */}
+                                  {/* CLASS NAME DISPLAY - Cleaner */}
                                   <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-xs font-medium text-blue-400 bg-blue-500/20 px-2 py-1 rounded-full border border-blue-500/30">
-                                      {assignment.class_name}
+                                    <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full border border-blue-200">
+                                      {assignment.class_code}
                                     </span>
                                   </div>
 
-                                  {/* Assignment name - EXACT NAMES FROM SCREENSHOT */}
-                                  <h4 className="font-semibold text-white text-sm mb-2">
+                                  {/* Assignment name - Clean Design */}
+                                  <h4 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-1">
                                     {assignment.name}
                                   </h4>
 
-                                  {/* Assignment description */}
-                                  <p className="text-sm text-slate-200 leading-relaxed">
-                                    {assignment.description ||
-                                      "No description provided"}
+                                  {/* Assignment description - Cleaner */}
+                                  <p className="text-sm text-gray-600 leading-relaxed mb-2 line-clamp-2">
+                                    {assignment.description || "No description provided"}
                                   </p>
+
+                                  {/* Assignment details - Minimal */}
+                                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                                    <span>Created: {formatDate(assignment.created_at)}</span>
+                                    {assignment.due_date && (
+                                      <span className={`font-medium ${
+                                        new Date(assignment.due_date) < new Date() 
+                                          ? "text-red-600"
+                                          : "text-green-600"
+                                      }`}>
+                                        {formatDueDate(assignment.due_date)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <span
                                   className={`px-2 py-1 text-xs rounded-full border ml-2 flex-shrink-0 ${
                                     isSubmitted
-                                      ? "bg-green-500/20 text-green-400 border-green-500/30"
-                                      : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                      ? "bg-green-100 text-green-700 border-green-200"
+                                      : "bg-blue-100 text-blue-700 border-blue-200"
                                   }`}
                                 >
                                   {isSubmitted ? "Submitted" : "Active"}
                                 </span>
                               </div>
 
-                              <div className="flex items-center justify-between text-xs mb-3">
-                                <div className="flex items-center space-x-3">
-                                  <span className="text-slate-300">
-                                    Created: {formatDate(assignment.created_at)}
-                                  </span>
-                                  {isSubmitted && (
-                                    <span className="text-green-400">
-                                      ✓ Submitted
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
+                              {/* FIXED: Button now navigates to assignments page */}
                               <button
-                                onClick={() =>
-                                  handleSubmitAssignment(assignment)
-                                }
+                                onClick={() => handleSubmitAssignment(assignment)}
                                 disabled={isSubmitted}
-                                className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-md cursor-pointer ${
+                                className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer ${
                                   isSubmitted
-                                    ? "bg-gray-500/50 text-gray-300 cursor-not-allowed"
-                                    : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg"
                                 }`}
                               >
-                                {isSubmitted
-                                  ? "Already Submitted"
-                                  : "Submit Assignment"}
+                                {isSubmitted ? "Submitted" : "Submit Assignment"}
                               </button>
                             </div>
                           );
@@ -1681,7 +1752,7 @@ const StudentDashboard: React.FC = () => {
                       ) : (
                         <div className="text-center py-8">
                           <svg
-                            className="w-12 h-12 text-slate-500 mx-auto mb-4"
+                            className="w-12 h-12 text-gray-400 mx-auto mb-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1693,7 +1764,7 @@ const StudentDashboard: React.FC = () => {
                               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                             />
                           </svg>
-                          <p className="text-slate-400">
+                          <p className="text-gray-500">
                             No assignments available
                           </p>
                         </div>
@@ -1703,9 +1774,9 @@ const StudentDashboard: React.FC = () => {
                     {/* Scroll Indicator for Assignments - Auto hides when scrolled */}
                     {assignments.length > 2 && showAssignmentsScrollIndicator && (
                       <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
-                        <div className="flex items-center space-x-1 bg-slate-800/90 rounded-full px-3 py-1 border border-slate-600/60 backdrop-blur-sm">
+                        <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
                           <svg
-                            className="w-3 h-3 text-green-400 animate-bounce"
+                            className="w-3 h-3 text-green-500 animate-bounce"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1717,7 +1788,7 @@ const StudentDashboard: React.FC = () => {
                               d="M19 14l-7 7m0 0l-7-7m7 7V3"
                             />
                           </svg>
-                          <span className="text-xs text-slate-300">
+                          <span className="text-xs text-gray-600">
                             Scroll for more
                           </span>
                         </div>
@@ -1729,9 +1800,9 @@ const StudentDashboard: React.FC = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg">
-              <h3 className="text-lg font-bold text-white mb-6 flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+              <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
                   <svg
                     className="w-4 h-4 text-white"
                     fill="none"
@@ -1753,7 +1824,7 @@ const StudentDashboard: React.FC = () => {
                 {/* Blue - Submit Assignment */}
                 <button
                   onClick={() => navigate("/student/assignments")}
-                  className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                  className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
                 >
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
@@ -1772,17 +1843,17 @@ const StudentDashboard: React.FC = () => {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <p className="text-white font-semibold text-sm">
+                    <p className="text-gray-900 font-semibold text-sm">
                       Submit Assignment
                     </p>
-                    <p className="text-xs text-slate-300">Upload your work</p>
+                    <p className="text-xs text-gray-600">Upload your work</p>
                   </div>
                 </button>
 
                 {/* Orange - Submit Room Report */}
                 <button
                   onClick={() => setShowRoomReportModal(true)}
-                  className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                  className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
                   aria-label="Submit room condition report"
                 >
                   <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -1802,10 +1873,10 @@ const StudentDashboard: React.FC = () => {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <p className="text-white font-semibold text-sm">
+                    <p className="text-gray-900 font-semibold text-sm">
                       Submit Room Report
                     </p>
-                    <p className="text-xs text-slate-300">
+                    <p className="text-xs text-gray-600">
                       Report classroom issues
                     </p>
                   </div>
@@ -1814,7 +1885,7 @@ const StudentDashboard: React.FC = () => {
                 {/* Green - View Grades */}
                 <button
                   onClick={() => navigate("/student/grades")}
-                  className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                  className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
                 >
                   <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
@@ -1833,10 +1904,10 @@ const StudentDashboard: React.FC = () => {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <p className="text-white font-semibold text-sm">
+                    <p className="text-gray-900 font-semibold text-sm">
                       View Grades
                     </p>
-                    <p className="text-xs text-slate-300">
+                    <p className="text-xs text-gray-600">
                       Check your progress
                     </p>
                   </div>
@@ -1845,7 +1916,7 @@ const StudentDashboard: React.FC = () => {
                 {/* Violet - View Schedule */}
                 <button
                   onClick={() => navigate("/student/schedule")}
-                  className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                  className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
                 >
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
@@ -1864,10 +1935,10 @@ const StudentDashboard: React.FC = () => {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <p className="text-white font-semibold text-sm">
+                    <p className="text-gray-900 font-semibold text-sm">
                       View Schedule
                     </p>
-                    <p className="text-xs text-slate-300">
+                    <p className="text-xs text-gray-600">
                       See upcoming events
                     </p>
                   </div>
@@ -1878,119 +1949,14 @@ const StudentDashboard: React.FC = () => {
         </main>
       </div>
 
-      {/* Submit Assignment Modal */}
-      {showSubmitModal && selectedAssignment && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-700">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white">
-                  Submit Assignment
-                </h3>
-                <button
-                  onClick={handleCloseSubmitModal}
-                  className="p-2 hover:bg-slate-700 rounded-lg transition-colors duration-200 cursor-pointer"
-                  aria-label="Close assignment submission modal"
-                >
-                  <svg
-                    className="w-5 h-5 text-slate-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {/* Assignment Info */}
-              <div className="mb-6 p-4 bg-slate-700/50 rounded-xl border border-slate-600/50">
-                <h4 className="font-semibold text-white text-sm mb-2">
-                  {selectedAssignment.name}
-                </h4>
-                <p className="text-xs text-slate-300 mb-1">
-                  {selectedAssignment.class_name} (
-                  {selectedAssignment.class_code})
-                </p>
-                <p className="text-sm text-slate-200">
-                  {selectedAssignment.description || "No description provided"}
-                </p>
-              </div>
-
-              {/* General Error Message */}
-              {formErrors.general && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-xl">
-                  <p className="text-red-400 text-sm">{formErrors.general}</p>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Time Spent (minutes) <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    ref={timeSpentRef}
-                    type="number"
-                    min="1"
-                    className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-text ${
-                      formErrors.time_spent_minutes
-                        ? "border-red-500"
-                        : "border-slate-600"
-                    }`}
-                    placeholder="Enter time spent in minutes"
-                  />
-                  {formErrors.time_spent_minutes && (
-                    <p className="mt-1 text-sm text-red-400">
-                      {formErrors.time_spent_minutes}
-                    </p>
-                  )}
-                  <p className="mt-1 text-xs text-slate-400">
-                    This data helps track your learning progress and engagement.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-slate-700">
-                <button
-                  onClick={handleCloseSubmitModal}
-                  disabled={isSubmitting}
-                  className="px-6 py-3 bg-slate-700/80 hover:bg-slate-600/80 text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitSubmission}
-                  disabled={isSubmitting}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
-                >
-                  {isSubmitting && (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  )}
-                  {isSubmitting ? "Submitting..." : "Submit Assignment"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Room Report Modal */}
       {showRoomReportModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-700">
+          <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md">
+                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
                       className="w-4 h-4 text-white"
                       fill="none"
@@ -2010,11 +1976,11 @@ const StudentDashboard: React.FC = () => {
                 </h3>
                 <button
                   onClick={handleCloseRoomReportModal}
-                  className="p-2 hover:bg-slate-700 rounded-lg transition-colors duration-200 cursor-pointer"
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
                   aria-label="Close room report modal"
                 >
                   <svg
-                    className="w-5 h-5 text-slate-400"
+                    className="w-5 h-5 text-gray-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -2034,8 +2000,8 @@ const StudentDashboard: React.FC = () => {
             <div className="p-6">
               {/* General Error Message */}
               {reportFormErrors.general && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-xl">
-                  <p className="text-red-400 text-sm">
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-red-700 text-sm">
                     {reportFormErrors.general}
                   </p>
                 </div>
@@ -2044,8 +2010,8 @@ const StudentDashboard: React.FC = () => {
               <form className="space-y-6">
                 {/* Class Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Class/Room <span className="text-red-400">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Class/Room <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={reportFormData.classId}
@@ -2055,10 +2021,10 @@ const StudentDashboard: React.FC = () => {
                         classId: e.target.value,
                       }))
                     }
-                    className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer ${
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer ${
                       reportFormErrors.class_id
                         ? "border-red-500"
-                        : "border-slate-600"
+                        : "border-gray-300"
                     }`}
                     aria-label="Select class or room for report"
                     aria-required="true"
@@ -2071,7 +2037,7 @@ const StudentDashboard: React.FC = () => {
                     ))}
                   </select>
                   {reportFormErrors.class_id && (
-                    <p className="mt-1 text-sm text-red-400">
+                    <p className="mt-1 text-sm text-red-600">
                       {reportFormErrors.class_id}
                     </p>
                   )}
@@ -2080,9 +2046,9 @@ const StudentDashboard: React.FC = () => {
                 {/* Cleanliness Status */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
                       Room Cleanliness Before Use{" "}
-                      <span className="text-red-400">*</span>
+                      <span className="text-red-500">*</span>
                     </label>
                     <div className="space-y-2">
                       <label className="flex items-center space-x-3 cursor-pointer">
@@ -2097,9 +2063,9 @@ const StudentDashboard: React.FC = () => {
                               isCleanBefore: e.target.value,
                             }))
                           }
-                          className="w-4 h-4 text-orange-500 bg-slate-700 border-slate-600 focus:ring-orange-500 cursor-pointer"
+                          className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
                         />
-                        <span className="text-white">Clean</span>
+                        <span className="text-gray-900">Clean</span>
                       </label>
                       <label className="flex items-center space-x-3 cursor-pointer">
                         <input
@@ -2113,22 +2079,22 @@ const StudentDashboard: React.FC = () => {
                               isCleanBefore: e.target.value,
                             }))
                           }
-                          className="w-4 h-4 text-orange-500 bg-slate-700 border-slate-600 focus:ring-orange-500 cursor-pointer"
+                          className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
                         />
-                        <span className="text-white">Not Clean</span>
+                        <span className="text-gray-900">Not Clean</span>
                       </label>
                     </div>
                     {reportFormErrors.is_clean_before && (
-                      <p className="mt-1 text-sm text-red-400">
+                      <p className="mt-1 text-sm text-red-600">
                         {reportFormErrors.is_clean_before}
                       </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
                       Room Cleanliness After Use{" "}
-                      <span className="text-red-400">*</span>
+                      <span className="text-red-500">*</span>
                     </label>
                     <div className="space-y-2">
                       <label className="flex items-center space-x-3 cursor-pointer">
@@ -2143,9 +2109,9 @@ const StudentDashboard: React.FC = () => {
                               isCleanAfter: e.target.value,
                             }))
                           }
-                          className="w-4 h-4 text-orange-500 bg-slate-700 border-slate-600 focus:ring-orange-500 cursor-pointer"
+                          className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
                         />
-                        <span className="text-white">Clean</span>
+                        <span className="text-gray-900">Clean</span>
                       </label>
                       <label className="flex items-center space-x-3 cursor-pointer">
                         <input
@@ -2159,13 +2125,13 @@ const StudentDashboard: React.FC = () => {
                               isCleanAfter: e.target.value,
                             }))
                           }
-                          className="w-4 h-4 text-orange-500 bg-slate-700 border-slate-600 focus:ring-orange-500 cursor-pointer"
+                          className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
                         />
-                        <span className="text-white">Not Clean</span>
+                        <span className="text-gray-900">Not Clean</span>
                       </label>
                     </div>
                     {reportFormErrors.is_clean_after && (
-                      <p className="mt-1 text-sm text-red-400">
+                      <p className="mt-1 text-sm text-red-600">
                         {reportFormErrors.is_clean_after}
                       </p>
                     )}
@@ -2174,8 +2140,8 @@ const StudentDashboard: React.FC = () => {
 
                 {/* Report Description */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Report Description <span className="text-red-400">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Report Description <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={reportFormData.reportText}
@@ -2186,15 +2152,15 @@ const StudentDashboard: React.FC = () => {
                       }))
                     }
                     rows={4}
-                    className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-text ${
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-text ${
                       reportFormErrors.report_text
                         ? "border-red-500"
-                        : "border-slate-600"
+                        : "border-gray-300"
                     }`}
                     placeholder="Describe the classroom condition, any issues found, or observations..."
                   />
                   {reportFormErrors.report_text && (
-                    <p className="mt-1 text-sm text-red-400">
+                    <p className="mt-1 text-sm text-red-600">
                       {reportFormErrors.report_text}
                     </p>
                   )}
@@ -2202,10 +2168,10 @@ const StudentDashboard: React.FC = () => {
 
                 {/* Photo Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Photo Evidence (Optional)
                   </label>
-                  <div className="border-2 border-dashed border-slate-600 rounded-xl p-6 text-center hover:border-orange-500 transition-colors duration-200 cursor-pointer">
+                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-orange-500 transition-colors duration-200 cursor-pointer">
                     <input
                       ref={photoInputRef}
                       type="file"
@@ -2217,7 +2183,7 @@ const StudentDashboard: React.FC = () => {
                     <label htmlFor="photo-upload" className="cursor-pointer">
                       <div className="flex flex-col items-center space-y-2">
                         <svg
-                          className="w-8 h-8 text-slate-400"
+                          className="w-8 h-8 text-gray-400"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -2230,23 +2196,23 @@ const StudentDashboard: React.FC = () => {
                             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                           />
                         </svg>
-                        <p className="text-slate-300 text-sm">
+                        <p className="text-gray-600 text-sm">
                           {selectedPhoto
                             ? selectedPhoto.name
                             : "Click to upload photo evidence"}
                         </p>
-                        <p className="text-slate-400 text-xs">
+                        <p className="text-gray-500 text-xs">
                           JPG, PNG, GIF, WebP (Max 10MB)
                         </p>
                       </div>
                     </label>
                   </div>
                   {selectedPhoto && (
-                    <div className="mt-3 p-3 bg-slate-700/50 rounded-xl border border-slate-600">
+                    <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <svg
-                            className="w-5 h-5 text-green-400"
+                            className="w-5 h-5 text-green-500"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -2259,7 +2225,7 @@ const StudentDashboard: React.FC = () => {
                               d="M5 13l4 4L19 7"
                             />
                           </svg>
-                          <span className="text-white text-sm">
+                          <span className="text-gray-900 text-sm">
                             {selectedPhoto.name}
                           </span>
                         </div>
@@ -2270,7 +2236,7 @@ const StudentDashboard: React.FC = () => {
                             if (photoInputRef.current)
                               photoInputRef.current.value = "";
                           }}
-                          className="text-red-400 hover:text-red-300 text-sm cursor-pointer"
+                          className="text-red-600 hover:text-red-700 text-sm cursor-pointer"
                         >
                           Remove
                         </button>
@@ -2278,18 +2244,18 @@ const StudentDashboard: React.FC = () => {
                     </div>
                   )}
                   {reportFormErrors.photo && (
-                    <p className="mt-1 text-sm text-red-400">
+                    <p className="mt-1 text-sm text-red-600">
                       {reportFormErrors.photo}
                     </p>
                   )}
                 </div>
               </form>
 
-              <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-slate-700">
+              <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseRoomReportModal}
                   disabled={isSubmittingReport}
-                  className="px-6 py-3 bg-slate-700/80 hover:bg-slate-600/80 text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Cancel
                 </button>

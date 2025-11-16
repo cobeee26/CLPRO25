@@ -139,10 +139,10 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white backdrop-blur-xl border border-gray-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
-          <h2 className="text-2xl font-bold text-white flex items-center">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center">
             <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg mr-3">
               <svg
                 className="w-4 h-4 text-white"
@@ -162,11 +162,11 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
           </h2>
           <button
             onClick={closeModal}
-            className="w-8 h-8 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl flex items-center justify-center transition-colors duration-200"
+            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors duration-200"
             title="Close modal"
           >
             <svg
-              className="w-5 h-5 text-slate-400"
+              className="w-5 h-5 text-gray-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -185,14 +185,14 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
         <div className="p-6 max-h-[60vh] overflow-y-auto">
           {/* Success/Error Messages */}
           {submitSuccess && (
-            <div className="mb-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-              <p className="text-emerald-400 font-medium">{submitSuccess}</p>
+            <div className="mb-4 p-4 bg-emerald-100 border border-emerald-200 rounded-xl">
+              <p className="text-emerald-700 font-medium">{submitSuccess}</p>
             </div>
           )}
 
           {submitError && (
-            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-              <p className="text-red-400 font-medium">{submitError}</p>
+            <div className="mb-4 p-4 bg-red-100 border border-red-200 rounded-xl">
+              <p className="text-red-700 font-medium">{submitError}</p>
             </div>
           )}
 
@@ -200,7 +200,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
             <div>
               <label
                 htmlFor="announcementTitle"
-                className="block text-sm font-semibold text-slate-300 mb-2"
+                className="block text-sm font-semibold text-gray-700 mb-2"
               >
                 Title *
               </label>
@@ -214,7 +214,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
                     title: e.target.value,
                   })
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                 placeholder="Enter announcement title"
                 required
                 aria-label="Enter announcement title"
@@ -224,7 +224,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
             <div>
               <label
                 htmlFor="announcementContent"
-                className="block text-sm font-semibold text-slate-300 mb-2"
+                className="block text-sm font-semibold text-gray-700 mb-2"
               >
                 Content *
               </label>
@@ -238,7 +238,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
                   })
                 }
                 rows={6}
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 resize-none"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 resize-none"
                 placeholder="Enter announcement content"
                 required
                 aria-label="Enter announcement content"
@@ -256,11 +256,11 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
                     is_urgent: e.target.checked,
                   })
                 }
-                className="w-5 h-5 text-orange-600 bg-slate-700/50 border-slate-600/50 rounded focus:ring-orange-500/50 focus:ring-2"
+                className="w-5 h-5 text-orange-600 bg-gray-50 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
               />
               <label
                 htmlFor="is_urgent"
-                className="text-sm font-semibold text-slate-300"
+                className="text-sm font-semibold text-gray-700"
               >
                 Mark as urgent announcement
               </label>
@@ -270,14 +270,14 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
               <button
                 type="button"
                 onClick={closeModal}
-                className="px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-white font-semibold rounded-xl transition-all duration-200"
+                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? "Creating..." : "Create Announcement"}
               </button>
@@ -648,10 +648,10 @@ const TeacherDashboard: React.FC = () => {
 
   const getEngagementBadge = (score: number) => {
     if (score >= 8.5)
-      return "bg-green-500/20 text-green-400 border-green-500/30";
+      return "bg-green-100 text-green-800 border-green-200";
     if (score >= 7.0)
-      return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-    return "bg-red-500/20 text-red-400 border-red-500/30";
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    return "bg-red-100 text-red-800 border-red-200";
   };
 
   const getTimeAgo = (dateString: string) => {
@@ -674,11 +674,11 @@ const TeacherDashboard: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading your dashboard...</p>
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-gray-700">Loading your dashboard...</p>
+          <p className="text-gray-500 text-sm mt-2">
             Please wait while we fetch your data
           </p>
         </div>
@@ -687,9 +687,9 @@ const TeacherDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex relative">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex relative">
       {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/50 p-4 lg:hidden h-16">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center space-x-3">
             <div className="relative">
@@ -701,8 +701,8 @@ const TeacherDashboard: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">Teacher Portal</h1>
-              <p className="text-xs text-slate-400">ClassTrack Dashboard</p>
+              <h1 className="text-lg font-bold text-gray-900">Teacher Portal</h1>
+              <p className="text-xs text-gray-600">ClassTrack Dashboard</p>
             </div>
           </div>
 
@@ -714,7 +714,7 @@ const TeacherDashboard: React.FC = () => {
                 localStorage.removeItem("userId");
                 window.location.href = "/login";
               }}
-              className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 border border-red-500/30 hover:border-red-500/50 cursor-pointer"
+              className="p-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
               style={{ cursor: "pointer" }}
               title="Logout"
             >
@@ -735,13 +735,13 @@ const TeacherDashboard: React.FC = () => {
 
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-slate-700/50 hover:bg-slate-600/50 transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
               style={{ cursor: "pointer" }}
               title="Toggle menu"
             >
               {sidebarOpen ? (
                 <svg
-                  className="w-5 h-5 text-white"
+                  className="w-5 h-5 text-gray-700"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -755,7 +755,7 @@ const TeacherDashboard: React.FC = () => {
                 </svg>
               ) : (
                 <svg
-                  className="w-5 h-5 text-white"
+                  className="w-5 h-5 text-gray-700"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -785,7 +785,7 @@ const TeacherDashboard: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         {/* Fixed Desktop Header - SOLID BACKGROUND */}
-        <div className="hidden lg:block fixed top-0 right-0 left-64 z-30 bg-slate-900 border-b border-slate-700/50">
+        <div className="hidden lg:block fixed top-0 right-0 left-64 z-30 bg-white border-b border-gray-200">
           <DynamicHeader
             title="Teacher Portal"
             subtitle="ClassTrack Teaching Management System"
@@ -795,22 +795,22 @@ const TeacherDashboard: React.FC = () => {
         {/* Main Content Container */}
         <div className="flex-1 flex flex-col mt-16 lg:mt-20">
           {/* Status Bar */}
-          <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/30 rounded-xl p-3 mx-4 mb-4 mt-4 lg:mt-6">
+          <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-4 lg:mt-6">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-green-400 font-medium">
+                  <span className="text-green-600 font-medium">
                     System Active
                   </span>
                 </div>
-                <div className="text-slate-400">
+                <div className="text-gray-600">
                   Last updated: {new Date().toLocaleTimeString()}
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-blue-400 font-medium">
+                <span className="text-blue-600 font-medium">
                   {user?.role
                     ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                     : "Teacher"}{" "}
@@ -821,10 +821,10 @@ const TeacherDashboard: React.FC = () => {
           </div>
 
           {/* Main Content */}
-          <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 pb-6">
+          <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
               {/* Welcome Section */}
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl">
+              <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-xl">
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                     <svg
@@ -848,7 +848,7 @@ const TeacherDashboard: React.FC = () => {
                     </svg>
                   </div>
                   <div className="flex-1 text-center md:text-left">
-                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-3 flex items-center justify-center md:justify-start gap-3">
+                    <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3 flex items-center justify-center md:justify-start gap-3">
                       Welcome back!
                       <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
                         <svg
@@ -866,7 +866,7 @@ const TeacherDashboard: React.FC = () => {
                         </svg>
                       </div>
                     </h2>
-                    <p className="text-slate-200 leading-relaxed text-sm md:text-base">
+                    <p className="text-gray-700 leading-relaxed text-sm md:text-base">
                       Manage your classes, create assignments, and gain insights
                       into student engagement. Everything you need to teach
                       effectively.
@@ -876,7 +876,7 @@ const TeacherDashboard: React.FC = () => {
               </div>
 
               {/* User Profile Card */}
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl">
+              <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-xl">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-lg">
@@ -916,15 +916,15 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-center sm:text-left">
-                      <h3 className="text-xl font-bold text-white mb-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">
                         {user?.first_name && user?.last_name
                           ? `${user.first_name} ${user.last_name}`
                           : user?.username || "User"}
                       </h3>
-                      <p className="text-slate-300 mb-2">
+                      <p className="text-gray-600 mb-2">
                         {user?.username || "user@classtrack.edu"}
                       </p>
-                      <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-sm rounded-full border border-purple-500/30">
+                      <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full border border-purple-200">
                         {user?.role
                           ? user.role.charAt(0).toUpperCase() +
                             user.role.slice(1)
@@ -934,7 +934,7 @@ const TeacherDashboard: React.FC = () => {
                   </div>
                   <button
                     onClick={() => navigate("/profile")}
-                    className="px-4 py-2 bg-slate-700/80 hover:bg-slate-600/80 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl border border-slate-600/50 flex items-center gap-2 cursor-pointer"
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl border border-gray-200 flex items-center gap-2 cursor-pointer"
                     style={{ cursor: "pointer" }}
                   >
                     <svg
@@ -961,7 +961,7 @@ const TeacherDashboard: React.FC = () => {
                 <div className="xl:col-span-2 space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* My Classes Card */}
-                    <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg">
+                    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
@@ -979,7 +979,7 @@ const TeacherDashboard: React.FC = () => {
                               />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-bold text-white">
+                          <h3 className="text-lg font-bold text-gray-900">
                             My Classes
                           </h3>
                         </div>
@@ -995,7 +995,7 @@ const TeacherDashboard: React.FC = () => {
                       {/* Classes List with Scroll Container */}
                       <div className="relative">
                         <div 
-                          className="space-y-3 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-500 scrollbar-track-slate-700/60 pr-2"
+                          className="space-y-3 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
                           ref={classesScrollRef}
                           onScroll={handleClassesScroll}
                         >
@@ -1004,24 +1004,24 @@ const TeacherDashboard: React.FC = () => {
                               {[1, 2, 3].map((item) => (
                                 <div
                                   key={item}
-                                  className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40"
+                                  className="bg-gray-50 rounded-xl p-4 border border-gray-200"
                                 >
                                   <div className="flex items-center justify-between mb-3">
-                                    <div className="h-4 bg-slate-400 rounded w-3/4 animate-pulse"></div>
-                                    <div className="w-16 h-6 bg-slate-400 rounded-full animate-pulse"></div>
+                                    <div className="h-4 bg-gray-300 rounded w-3/4 animate-pulse"></div>
+                                    <div className="w-16 h-6 bg-gray-300 rounded-full animate-pulse"></div>
                                   </div>
                                   <div className="flex items-center justify-between">
-                                    <div className="h-3 bg-slate-400 rounded w-1/2 animate-pulse"></div>
-                                    <div className="h-3 bg-slate-400 rounded w-12 animate-pulse"></div>
+                                    <div className="h-3 bg-gray-300 rounded w-1/2 animate-pulse"></div>
+                                    <div className="h-3 bg-gray-300 rounded w-12 animate-pulse"></div>
                                   </div>
                                 </div>
                               ))}
                             </div>
                           ) : classes.length === 0 ? (
                             <div className="text-center py-8">
-                              <div className="w-16 h-16 bg-slate-700/60 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                 <svg
-                                  className="w-8 h-8 text-slate-400"
+                                  className="w-8 h-8 text-gray-400"
                                   fill="none"
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
@@ -1034,10 +1034,10 @@ const TeacherDashboard: React.FC = () => {
                                   />
                                 </svg>
                               </div>
-                              <h4 className="text-lg font-semibold text-white mb-2">
+                              <h4 className="text-lg font-semibold text-gray-900 mb-2">
                                 No Classes Yet
                               </h4>
-                              <p className="text-slate-400 mb-4">
+                              <p className="text-gray-600 mb-4">
                                 You haven't been assigned to any classes yet.
                               </p>
                               <button
@@ -1051,19 +1051,19 @@ const TeacherDashboard: React.FC = () => {
                             classes.slice(0, 4).map((classItem) => (
                               <div
                                 key={classItem.id}
-                                className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40 hover:bg-slate-600/80 transition-all duration-200 shadow-sm cursor-pointer"
+                                className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                                 style={{ cursor: "pointer" }}
                               >
                                 <div className="flex items-center justify-between mb-3">
-                                  <h4 className="font-semibold text-white text-sm">
+                                  <h4 className="font-semibold text-gray-900 text-sm">
                                     {classItem.name}
                                   </h4>
-                                  <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full border border-blue-500/30">
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full border border-blue-200">
                                     {classItem.code}
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-300">
+                                  <span className="text-gray-600">
                                     {
                                       assignments.filter(
                                         (a) => a.class_id === classItem.id
@@ -1071,7 +1071,7 @@ const TeacherDashboard: React.FC = () => {
                                     }{" "}
                                     assignments
                                   </span>
-                                  <span className="text-green-400 font-medium">
+                                  <span className="text-green-600 font-medium">
                                     Active
                                   </span>
                                 </div>
@@ -1083,9 +1083,9 @@ const TeacherDashboard: React.FC = () => {
                         {/* Scroll Indicator - Only show if there are more than 3 classes AND user hasn't scrolled */}
                         {classes.length > 3 && showClassesScrollIndicator && (
                           <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                            <div className="flex items-center space-x-1 bg-slate-800/90 rounded-full px-3 py-1 border border-slate-600/60 backdrop-blur-sm">
+                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
                               <svg
-                                className="w-3 h-3 text-blue-400 animate-bounce"
+                                className="w-3 h-3 text-blue-500 animate-bounce"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -1097,7 +1097,7 @@ const TeacherDashboard: React.FC = () => {
                                   d="M19 14l-7 7m0 0l-7-7m7 7V3"
                                 />
                               </svg>
-                              <span className="text-xs text-slate-300">
+                              <span className="text-xs text-gray-600">
                                 Scroll for more
                               </span>
                             </div>
@@ -1106,7 +1106,7 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </div>
                     {/* Recent Assignments Card */}
-                    <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg">
+                    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-md">
@@ -1124,7 +1124,7 @@ const TeacherDashboard: React.FC = () => {
                               />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-bold text-white">
+                          <h3 className="text-lg font-bold text-gray-900">
                             Recent Assignments
                           </h3>
                         </div>
@@ -1141,9 +1141,9 @@ const TeacherDashboard: React.FC = () => {
                       <div className="space-y-3 max-h-80 overflow-y-auto">
                         {assignments.length === 0 ? (
                           <div className="text-center py-6">
-                            <div className="w-12 h-12 bg-slate-700/60 rounded-xl flex items-center justify-center mx-auto mb-3">
+                            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
                               <svg
-                                className="w-6 h-6 text-slate-400"
+                                className="w-6 h-6 text-gray-400"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -1156,10 +1156,10 @@ const TeacherDashboard: React.FC = () => {
                                 />
                               </svg>
                             </div>
-                            <h5 className="font-medium text-white text-sm mb-1">
+                            <h5 className="font-medium text-gray-900 text-sm mb-1">
                               No Assignments Yet
                             </h5>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-gray-600">
                               Create your first assignment to get started
                             </p>
                           </div>
@@ -1167,19 +1167,19 @@ const TeacherDashboard: React.FC = () => {
                           assignments.slice(0, 4).map((assignment) => (
                             <div
                               key={assignment.id}
-                              className="bg-slate-600/60 rounded-xl p-3 border border-slate-500/40 hover:bg-slate-600/80 transition-all duration-200 shadow-sm cursor-pointer"
+                              className="bg-gray-50 rounded-xl p-3 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                               style={{ cursor: "pointer" }}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex-1 min-w-0">
-                                  <h5 className="font-medium text-white text-sm truncate">
+                                  <h5 className="font-medium text-gray-900 text-sm truncate">
                                     {assignment.name}
                                   </h5>
-                                  <p className="text-xs text-slate-300">
+                                  <p className="text-xs text-gray-600">
                                     {formatDate(assignment.created_at)}
                                   </p>
                                 </div>
-                                <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30 ml-2 flex-shrink-0">
+                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200 ml-2 flex-shrink-0">
                                   Active
                                 </span>
                               </div>
@@ -1191,7 +1191,7 @@ const TeacherDashboard: React.FC = () => {
                   </div>
 
                   {/* Student Engagement Insights */}
-                  <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg">
+                  <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
@@ -1209,13 +1209,13 @@ const TeacherDashboard: React.FC = () => {
                             />
                           </svg>
                         </div>
-                        <h3 className="text-lg font-bold text-white">
+                        <h3 className="text-lg font-bold text-gray-900">
                           Student Engagement Insights
                         </h3>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs text-blue-400 font-medium">
+                        <span className="text-xs text-blue-600 font-medium">
                           AI Powered
                         </span>
                       </div>
@@ -1226,15 +1226,15 @@ const TeacherDashboard: React.FC = () => {
                       {engagementInsights.slice(0, 4).map((insight) => (
                         <div
                           key={insight.id}
-                          className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40 hover:bg-slate-600/80 transition-all duration-200 shadow-sm cursor-pointer"
+                          className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                           style={{ cursor: "pointer" }}
                         >
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-white text-sm mb-1 truncate">
+                              <h4 className="font-semibold text-gray-900 text-sm mb-1 truncate">
                                 {insight.assignment_name}
                               </h4>
-                              <p className="text-xs text-slate-300 truncate">
+                              <p className="text-xs text-gray-600 truncate">
                                 {insight.class_name}
                               </p>
                             </div>
@@ -1248,25 +1248,25 @@ const TeacherDashboard: React.FC = () => {
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 mb-3">
-                            <div className="bg-slate-500/40 rounded-lg p-2 border border-slate-400/30 shadow-sm">
-                              <div className="text-slate-300 text-xs mb-1">
+                            <div className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                              <div className="text-gray-600 text-xs mb-1">
                                 Submissions
                               </div>
-                              <div className="text-white font-bold text-sm">
+                              <div className="text-gray-900 font-bold text-sm">
                                 {insight.total_submissions}
                               </div>
                             </div>
-                            <div className="bg-slate-500/40 rounded-lg p-2 border border-slate-400/30 shadow-sm">
-                              <div className="text-slate-300 text-xs mb-1">
+                            <div className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                              <div className="text-gray-600 text-xs mb-1">
                                 Avg. Time
                               </div>
-                              <div className="text-white font-bold text-sm">
+                              <div className="text-gray-900 font-bold text-sm">
                                 {insight.average_time_spent}m
                               </div>
                             </div>
                           </div>
 
-                          <div className="text-xs text-slate-400">
+                          <div className="text-xs text-gray-500">
                             Updated: {getTimeAgo(insight.last_updated)}
                           </div>
                         </div>
@@ -1276,7 +1276,7 @@ const TeacherDashboard: React.FC = () => {
                 </div>
                 {/* Right Column - Announcements */}
                 <div className="xl:col-span-1">
-                  <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg">
+                  <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md">
@@ -1294,14 +1294,14 @@ const TeacherDashboard: React.FC = () => {
                             />
                           </svg>
                         </div>
-                        <h3 className="text-lg font-bold text-white">
+                        <h3 className="text-lg font-bold text-gray-900">
                           Announcements
                         </h3>
                       </div>
                       {announcements.filter((a) => a.is_urgent).length > 0 && (
                         <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                          <span className="text-xs text-orange-400 font-medium">
+                          <span className="text-xs text-orange-600 font-medium">
                             {announcements.filter((a) => a.is_urgent).length}{" "}
                             Urgent
                           </span>
@@ -1312,7 +1312,7 @@ const TeacherDashboard: React.FC = () => {
                     <div className="relative">
                       {/* Scrollable Container - Fixed height for exactly 2 announcements */}
                       <div 
-                        className="space-y-3 h-[220px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-500 scrollbar-track-slate-700/60 pr-2"
+                        className="space-y-3 h-[220px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
                         ref={announcementsScrollRef}
                         onScroll={handleAnnouncementsScroll}
                       >
@@ -1321,14 +1321,14 @@ const TeacherDashboard: React.FC = () => {
                             {[1, 2].map((i) => (
                               <div
                                 key={i}
-                                className="bg-slate-600/60 rounded-xl p-4 border border-slate-500/40"
+                                className="bg-gray-50 rounded-xl p-4 border border-gray-200"
                               >
                                 <div className="flex items-start space-x-3">
-                                  <div className="w-3 h-3 rounded-full mt-1 bg-slate-400 animate-pulse"></div>
+                                  <div className="w-3 h-3 rounded-full mt-1 bg-gray-300 animate-pulse"></div>
                                   <div className="flex-1">
-                                    <div className="h-4 bg-slate-400 rounded w-3/4 mb-2 animate-pulse"></div>
-                                    <div className="h-3 bg-slate-400 rounded w-full mb-2 animate-pulse"></div>
-                                    <div className="h-3 bg-slate-400 rounded w-1/2 animate-pulse"></div>
+                                    <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
+                                    <div className="h-3 bg-gray-300 rounded w-full mb-2 animate-pulse"></div>
+                                    <div className="h-3 bg-gray-300 rounded w-1/2 animate-pulse"></div>
                                   </div>
                                 </div>
                               </div>
@@ -1338,36 +1338,36 @@ const TeacherDashboard: React.FC = () => {
                           announcements.map((announcement) => (
                             <div
                               key={announcement.id}
-                              className={`bg-slate-600/60 rounded-xl p-4 border transition-all duration-200 hover:bg-slate-600/80 shadow-sm cursor-pointer ${
+                              className={`bg-gray-50 rounded-xl p-4 border transition-all duration-200 hover:bg-gray-100 shadow-sm cursor-pointer ${
                                 announcement.is_urgent
-                                  ? "border-orange-400/50 ring-1 ring-orange-400/20"
-                                  : "border-slate-500/40"
+                                  ? "border-orange-300 ring-1 ring-orange-100"
+                                  : "border-gray-200"
                               }`}
                             >
                               <div className="flex items-start space-x-3">
                                 <div
                                   className={`w-3 h-3 rounded-full mt-2 ${
                                     announcement.is_urgent
-                                      ? "bg-orange-400"
-                                      : "bg-blue-400"
+                                      ? "bg-orange-500"
+                                      : "bg-blue-500"
                                   }`}
                                 ></div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-start justify-between mb-2">
-                                    <h4 className="font-semibold text-white text-sm leading-tight">
+                                    <h4 className="font-semibold text-gray-900 text-sm leading-tight">
                                       {announcement.title}
                                     </h4>
                                     {announcement.is_urgent && (
-                                      <span className="px-2 py-1 text-xs rounded-full border ml-2 flex-shrink-0 bg-orange-500/20 border-orange-500/30 text-orange-400">
+                                      <span className="px-2 py-1 text-xs rounded-full border ml-2 flex-shrink-0 bg-orange-100 border-orange-200 text-orange-700">
                                         🚨 URGENT
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-sm text-slate-200 mb-3 leading-relaxed">
+                                  <p className="text-sm text-gray-700 mb-3 leading-relaxed">
                                     {announcement.content}
                                   </p>
                                   {/* FIXED: Added date and time display like StudentDashboard */}
-                                  <p className="text-xs text-slate-400">
+                                  <p className="text-xs text-gray-500">
                                     {formatDate(announcement.date_posted)}
                                   </p>
                                 </div>
@@ -1377,7 +1377,7 @@ const TeacherDashboard: React.FC = () => {
                         ) : (
                           <div className="text-center py-8">
                             <svg
-                              className="w-12 h-12 text-slate-500 mx-auto mb-3"
+                              className="w-12 h-12 text-gray-400 mx-auto mb-3"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -1389,10 +1389,10 @@ const TeacherDashboard: React.FC = () => {
                                 d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                               />
                             </svg>
-                            <h5 className="font-medium text-white text-sm mb-1">
+                            <h5 className="font-medium text-gray-900 text-sm mb-1">
                               No Announcements
                             </h5>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-gray-600">
                               No announcements to display
                             </p>
                           </div>
@@ -1402,13 +1402,13 @@ const TeacherDashboard: React.FC = () => {
                       {/* Scroll indicator - only show if more than 2 announcements AND user hasn't scrolled */}
                       {announcements.length > 2 && showAnnouncementsScrollIndicator && (
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                          <div className="flex items-center space-x-1 bg-slate-800/90 rounded-full px-3 py-1 border border-slate-600/60 backdrop-blur-sm">
+                          <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
                             <svg
-                              className="w-3 h-3 text-orange-400 animate-bounce"
+                              className="w-3 h-3 text-orange-500 animate-bounce"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
-                            >
+                              >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -1416,7 +1416,7 @@ const TeacherDashboard: React.FC = () => {
                                 d="M19 14l-7 7m0 0l-7-7m7 7V3"
                               />
                             </svg>
-                            <span className="text-xs text-slate-300">
+                            <span className="text-xs text-gray-600">
                               Scroll for more
                             </span>
                           </div>
@@ -1428,8 +1428,8 @@ const TeacherDashboard: React.FC = () => {
               </div>
 
               {/* Quick Actions */}
-              <div className="bg-slate-700/60 rounded-2xl p-6 border border-slate-600/40 shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-6 flex items-center space-x-3">
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center space-x-3">
                   <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
                     <svg
                       className="w-4 h-4 text-white"
@@ -1450,7 +1450,7 @@ const TeacherDashboard: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <button
                     onClick={() => navigate("/teacher/assignments")}
-                    className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                    className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
                     style={{ cursor: "pointer" }}
                   >
                     <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -1469,17 +1469,17 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-white font-semibold text-sm">
+                      <p className="text-gray-900 font-semibold text-sm">
                         Manage Assignments
                       </p>
-                      <p className="text-xs text-slate-300">
+                      <p className="text-xs text-gray-600">
                         Create and manage tasks
                       </p>
                     </div>
                   </button>
                   <button
                     onClick={() => setShowAnnouncementModal(true)}
-                    className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                    className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
                     style={{ cursor: "pointer" }}
                   >
                     <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -1498,17 +1498,17 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-white font-semibold text-sm">
+                      <p className="text-gray-900 font-semibold text-sm">
                         Post Announcements
                       </p>
-                      <p className="text-xs text-slate-300">
+                      <p className="text-xs text-gray-600">
                         Share updates with students
                       </p>
                     </div>
                   </button>
                   <button
                     onClick={() => navigate("/teacher/classes")}
-                    className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                    className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
                     style={{ cursor: "pointer" }}
                   >
                     <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -1527,17 +1527,17 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-white font-semibold text-sm">
+                      <p className="text-gray-900 font-semibold text-sm">
                         Manage Students
                       </p>
-                      <p className="text-xs text-slate-300">
+                      <p className="text-xs text-gray-600">
                         Student administration
                       </p>
                     </div>
                   </button>
                   <button
                     onClick={handleViewReports}
-                    className="flex items-center space-x-4 p-4 bg-slate-600/60 hover:bg-slate-600/80 rounded-xl border border-slate-500/40 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                    className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
                     style={{ cursor: "pointer" }}
                   >
                     <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -1556,10 +1556,10 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-white font-semibold text-sm">
+                      <p className="text-gray-900 font-semibold text-sm">
                         View Reports
                       </p>
-                      <p className="text-xs text-slate-300">
+                      <p className="text-xs text-gray-600">
                         Analytics and insights
                       </p>
                     </div>

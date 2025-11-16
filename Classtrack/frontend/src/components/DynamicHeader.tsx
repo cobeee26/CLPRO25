@@ -62,7 +62,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
       case "admin":
         return (
           <svg
-            className="w-4 h-4 text-white"
+            className="w-4 h-4 text-gray-700"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -78,7 +78,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
       case "teacher":
         return (
           <svg
-            className="w-4 h-4 text-white"
+            className="w-4 h-4 text-gray-700"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -100,7 +100,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
       case "student":
         return (
           <svg
-            className="w-4 h-4 text-white"
+            className="w-4 h-4 text-gray-700"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -122,7 +122,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
       default:
         return (
           <svg
-            className="w-4 h-4 text-white"
+            className="w-4 h-4 text-gray-700"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -163,7 +163,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
         name: 'User',
         role: 'User',
         avatar: 'U',
-        avatarGradient: 'from-gray-500 to-gray-600'
+        avatarGradient: 'from-gray-400 to-gray-500'
       };
     }
 
@@ -177,28 +177,28 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
           name: 'Admin User',
           role: 'Administrator',
           avatar: 'A',
-          avatarGradient: 'from-purple-500 to-pink-500'
+          avatarGradient: 'from-purple-400 to-pink-500'
         };
       case 'teacher':
         return {
           name: fullName,
           role: 'Teacher',
           avatar: 'T',
-          avatarGradient: 'from-red-500 to-red-600'
+          avatarGradient: 'from-red-400 to-red-500'
         };
       case 'student':
         return {
           name: fullName,
           role: 'Student',
           avatar: 'S',
-          avatarGradient: 'from-blue-500 to-blue-600'
+          avatarGradient: 'from-blue-400 to-blue-500'
         };
       default:
         return {
           name: fullName,
           role: 'User',
           avatar: 'U',
-          avatarGradient: 'from-gray-500 to-gray-600'
+          avatarGradient: 'from-gray-400 to-gray-500'
         };
     }
   };
@@ -220,18 +220,18 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
 
     switch (userRole) {
       case "admin":
-        return "from-blue-500 to-purple-600";
+        return "from-purple-400 to-pink-500";
       case "teacher":
-        return "from-red-500 to-red-600";
+        return "from-red-400 to-red-500";
       case "student":
-        return "from-blue-500 to-blue-600";
+        return "from-blue-400 to-blue-500";
       default:
-        return "from-gray-500 to-gray-600";
+        return "from-gray-400 to-gray-500";
     }
   };
 
   return (
-    <header className="w-full bg-slate-900 border-b border-slate-700/50 shadow-2xl sticky top-0 z-40 h-16 lg:h-20">
+    <header className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40 h-16 lg:h-20">
       <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 h-full">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center py-3 lg:py-4 space-y-2 lg:space-y-0 h-full">
           {/* Left Section - Hamburger Menu, Logo and Title */}
@@ -240,7 +240,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
             {showMenuToggle && (
               <button
                 onClick={onMenuToggle}
-                className="lg:hidden p-2 rounded-lg text-white/80 hover:text-white hover:bg-slate-700/50 transition-all duration-200 border border-slate-600/50"
+                className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200 border border-gray-300"
                 aria-label="Toggle menu"
               >
                 {sidebarOpen ? (
@@ -258,42 +258,42 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
             )}
 
             <div className="relative group/logo">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl lg:rounded-2xl blur-lg opacity-30 group-hover/logo:opacity-50 transition-opacity duration-300"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-xl lg:rounded-2xl blur-lg opacity-20 group-hover/logo:opacity-30 transition-opacity duration-300"></div>
               <img src={plmunLogo} alt="PLMUN Logo" className="relative h-8 w-auto sm:h-10 lg:h-12 group-hover/logo:scale-105 transition-transform duration-300" />
             </div>
             <div className="space-y-1">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
                 {title}
               </h1>
-              <p className="text-slate-300 text-xs sm:text-sm lg:text-base font-medium">{subtitle}</p>
+              <p className="text-gray-600 text-xs sm:text-sm lg:text-base font-medium">{subtitle}</p>
             </div>
           </div>
 
           {/* Right Section - Dynamic Status and User Profile */}
           <div className="flex items-center space-x-4 lg:space-x-6">
             {/* Dynamic Status Indicator */}
-            <div className={`flex items-center space-x-2 bg-slate-800/50 backdrop-blur-sm rounded-full px-3 py-2 border border-slate-600/50 transition-all duration-300`}>
+            <div className={`flex items-center space-x-2 bg-gray-50 backdrop-blur-sm rounded-full px-3 py-2 border border-gray-200 transition-all duration-300`}>
               <div className="relative">
-                <div className={`w-2 h-2 bg-${getStatusColor()}-400 rounded-full ${isSystemActive ? 'animate-pulse' : 'animate-pulse'}`}></div>
+                <div className={`w-2 h-2 bg-${getStatusColor()}-500 rounded-full ${isSystemActive ? 'animate-pulse' : 'animate-pulse'}`}></div>
                 {isSystemActive && (
-                  <div className={`absolute inset-0 w-2 h-2 bg-${getStatusColor()}-400 rounded-full animate-ping opacity-75`}></div>
+                  <div className={`absolute inset-0 w-2 h-2 bg-${getStatusColor()}-500 rounded-full animate-ping opacity-75`}></div>
                 )}
               </div>
               <div className="flex flex-col">
-                <span className={`text-sm text-${getStatusColor()}-300 font-medium`}>
+                <span className={`text-sm text-${getStatusColor()}-600 font-medium`}>
                   {getStatusText()}
                 </span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-gray-500">
                   {getTimeAgo()}
                 </span>
               </div>
             </div>
             
             {/* Enhanced User Profile - Role-based display */}
-            <div className="flex items-center space-x-3 lg:space-x-4 bg-slate-800/50 backdrop-blur-sm rounded-2xl px-4 py-2 border border-slate-600/50 hover:bg-slate-700/50 transition-all duration-300 group">
+            <div className="flex items-center space-x-3 lg:space-x-4 bg-gray-50 backdrop-blur-sm rounded-2xl px-4 py-2 border border-gray-200 hover:bg-gray-100 transition-all duration-300 group">
               <div className="text-right space-y-1">
-                <p className="text-sm lg:text-base font-semibold text-white group-hover:text-blue-100 transition-colors">{userInfo.name}</p>
-                <p className="text-xs lg:text-sm text-slate-300 group-hover:text-slate-200 transition-colors">{userInfo.role}</p>
+                <p className="text-sm lg:text-base font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">{userInfo.name}</p>
+                <p className="text-xs lg:text-sm text-gray-600 group-hover:text-gray-500 transition-colors">{userInfo.role}</p>
               </div>
               <div className="relative group/avatar">
                 <div className={`absolute inset-0 bg-gradient-to-r ${getRoleAvatarGradient()} rounded-full blur-md opacity-50 group-hover/avatar:opacity-75 transition-opacity duration-300`}></div>
@@ -334,7 +334,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
                   </div>
                 </div>
                 {/* Dynamic status indicator */}
-                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-${getStatusColor()}-400 rounded-full border-2 border-slate-900 ${isSystemActive ? 'animate-pulse' : 'animate-pulse'}`}></div>
+                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-${getStatusColor()}-500 rounded-full border-2 border-white ${isSystemActive ? 'animate-pulse' : 'animate-pulse'}`}></div>
               </div>
             </div>
 

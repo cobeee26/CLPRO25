@@ -1,6 +1,10 @@
+# Project Setup and Run Guide
 
+## Clone the Repository
+## Open Git Bash in Terminal then paste there 
+git clone https://github.com/cobeee26/CLPRO25.git
+cd CLPRO25
 
-#Project Setup and Run Guide
 #Backend Setup (Python + FastAPI)
 # 1. Create and activate virtual environment
 python -m venv venv

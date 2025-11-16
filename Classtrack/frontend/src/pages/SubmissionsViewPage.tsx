@@ -382,16 +382,16 @@ const SubmissionsViewPage: React.FC = () => {
   };
 
   const getEngagementScoreColor = (score: number) => {
-    if (score >= 8.5) return 'text-green-400';
-    if (score >= 7.0) return 'text-yellow-400';
-    return 'text-red-400';
+    if (score >= 8.5) return 'text-green-600';
+    if (score >= 7.0) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
   const getGradeColor = (grade: number) => {
-    if (grade >= 90) return 'bg-green-500/20 text-green-400 border-green-500/30';
-    if (grade >= 80) return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-    if (grade >= 70) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-    return 'bg-red-500/20 text-red-400 border-red-500/30';
+    if (grade >= 90) return 'bg-green-100 text-green-800 border-green-200';
+    if (grade >= 80) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (grade >= 70) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    return 'bg-red-100 text-red-800 border-red-200';
   };
 
   const calculateAIScore = (timeSpent: number): number => {
@@ -406,10 +406,10 @@ const SubmissionsViewPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">
             {user?.role === 'student' ? 'Loading grades...' : 'Loading submissions...'}
           </p>
         </div>
@@ -418,7 +418,7 @@ const SubmissionsViewPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex">
       {/* Fixed Sidebar - Always fixed position */}
       <div className={`fixed inset-y-0 left-0 z-50 w-64 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition duration-300 ease-in-out`}>
         <Sidebar 
@@ -439,12 +439,12 @@ const SubmissionsViewPage: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         
         {/* Fixed Header Container - Hindi nag-scroll */}
-        <div className="fixed top-0 left-0 right-0 z-30 lg:left-64 bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/50">
+        <div className="fixed top-0 left-0 right-0 z-30 lg:left-64 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
           {/* Mobile Header */}
           <header className="lg:hidden p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl blur-sm"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-xl blur-sm"></div>
                 <img
                   src={plmunLogo}
                   alt="PLMun Logo"
@@ -452,10 +452,10 @@ const SubmissionsViewPage: React.FC = () => {
                 />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-white">
+                <h1 className="text-lg font-bold text-gray-900">
                   {user?.role === 'student' ? "My Grades" : "Digital Grading"}
                 </h1>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-gray-600">
                   {user?.role === 'student' 
                     ? "View your assignment grades and performance" 
                     : `${assignment?.name || 'Assignment'} - ${classInfo?.name || 'Class'}`
@@ -467,7 +467,7 @@ const SubmissionsViewPage: React.FC = () => {
               {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 border border-red-500/30 hover:border-red-500/50 cursor-pointer"
+                className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
                 title="Logout"
               >
                 <svg
@@ -488,11 +488,11 @@ const SubmissionsViewPage: React.FC = () => {
               {/* Menu Button */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-xl bg-slate-700/50 hover:bg-slate-600/50 transition-colors cursor-pointer"
+                className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                 title="Toggle menu"
               >
                 <svg
-                  className="w-5 h-5 text-white"
+                  className="w-5 h-5 text-gray-700"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -528,24 +528,24 @@ const SubmissionsViewPage: React.FC = () => {
         <main className="flex-1 overflow-auto pt-16 lg:pt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Assignment Info Card */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-xl mb-8">
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm mb-8">
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-white mb-2">{assignment?.name}</h2>
-                    <p className="text-slate-300 mb-4">{assignment?.description || 'No description provided'}</p>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">{assignment?.name}</h2>
+                    <p className="text-gray-600 mb-4">{assignment?.description || 'No description provided'}</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-slate-700/50 rounded-xl p-4">
-                        <div className="text-slate-400 text-sm mb-1">Class</div>
-                        <div className="text-white font-semibold">{classInfo?.name}</div>
-                        <div className="text-slate-400 text-xs">{classInfo?.code}</div>
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="text-gray-500 text-sm mb-1">Class</div>
+                        <div className="text-gray-900 font-semibold">{classInfo?.name}</div>
+                        <div className="text-gray-500 text-xs">{classInfo?.code}</div>
                       </div>
-                      <div className="bg-slate-700/50 rounded-xl p-4">
-                        <div className="text-slate-400 text-sm mb-1">Total Submissions</div>
-                        <div className="text-white font-semibold text-lg">{submissions.length}</div>
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="text-gray-500 text-sm mb-1">Total Submissions</div>
+                        <div className="text-gray-900 font-semibold text-lg">{submissions.length}</div>
                       </div>
-                      <div className="bg-slate-700/50 rounded-xl p-4">
-                        <div className="text-slate-400 text-sm mb-1">Avg. Engagement</div>
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="text-gray-500 text-sm mb-1">Avg. Engagement</div>
                         <div className={`font-semibold text-lg ${getEngagementScoreColor(engagementInsight?.engagement_score || 0)}`}>
                           {engagementInsight?.engagement_score?.toFixed(1) || '0.0'}/10
                         </div>
@@ -557,67 +557,67 @@ const SubmissionsViewPage: React.FC = () => {
             </div>
 
             {/* Submissions Table */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-700/50">
-                <h3 className="text-lg font-bold text-white">Student Submissions</h3>
-                <p className="text-sm text-slate-400">Grade student submissions and view engagement metrics</p>
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-bold text-gray-900">Student Submissions</h3>
+                <p className="text-sm text-gray-600">Grade student submissions and view engagement metrics</p>
               </div>
               
               {submissions.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-slate-700/60 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
-                  <h4 className="text-lg font-semibold text-white mb-2">No Submissions Yet</h4>
-                  <p className="text-slate-400">Students haven't submitted this assignment yet.</p>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Submissions Yet</h4>
+                  <p className="text-gray-500">Students haven't submitted this assignment yet.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-slate-700/60">
+                    <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Student
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Time Spent
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           AI Engagement Score
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Submitted At
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Current Grade
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-700/50">
+                    <tbody className="divide-y divide-gray-200">
                       {submissions.map((submission) => {
                         const aiScore = calculateAIScore(submission.time_spent_minutes);
                         return (
-                          <tr key={submission.id} className="hover:bg-slate-700/30 transition-colors duration-200">
+                          <tr key={submission.id} className="hover:bg-gray-50 transition-colors duration-200">
                             <td className="px-6 py-4">
                               <div className="flex items-center">
-                                <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-xl flex items-center justify-center shadow-sm mr-4">
+                                <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm mr-4">
                                   <span className="text-sm font-bold text-white">
                                     {submission.student_name.charAt(0).toUpperCase()}
                                   </span>
                                 </div>
                                 <div>
-                                  <div className="text-sm font-semibold text-white">{submission.student_name}</div>
-                                  <div className="text-xs text-slate-400">ID: {submission.student_id}</div>
+                                  <div className="text-sm font-semibold text-gray-900">{submission.student_name}</div>
+                                  <div className="text-xs text-gray-500">ID: {submission.student_id}</div>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-sm text-white font-medium">
+                              <div className="text-sm text-gray-900 font-medium">
                                 {submission.time_spent_minutes} minutes
                               </div>
                             </td>
@@ -627,7 +627,7 @@ const SubmissionsViewPage: React.FC = () => {
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-sm text-slate-300">
+                              <div className="text-sm text-gray-600">
                                 {formatDate(submission.submitted_at)}
                               </div>
                             </td>
@@ -637,7 +637,7 @@ const SubmissionsViewPage: React.FC = () => {
                                   {submission.grade}%
                                 </span>
                               ) : (
-                                <span className="px-3 py-1 bg-slate-500/20 text-slate-400 text-xs rounded-full border border-slate-500/30">
+                                <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded-full border border-gray-300">
                                   Not Graded
                                 </span>
                               )}
@@ -646,7 +646,7 @@ const SubmissionsViewPage: React.FC = () => {
                               {submission.is_graded ? (
                                 <button
                                   onClick={() => setEditingGrade(prev => ({ ...prev, [submission.id]: submission.grade! }))}
-                                  className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium transition-all duration-200 border border-blue-500/30 hover:border-blue-500/50"
+                                  className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300"
                                   disabled={isSaving}
                                 >
                                   Edit Grade
@@ -654,7 +654,7 @@ const SubmissionsViewPage: React.FC = () => {
                               ) : (
                                 <button
                                   onClick={() => setEditingGrade(prev => ({ ...prev, [submission.id]: 0 }))}
-                                  className="px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-medium transition-all duration-200 border border-green-500/30 hover:border-green-500/50"
+                                  className="px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs font-medium transition-all duration-200 border border-green-200 hover:border-green-300"
                                   disabled={isSaving}
                                 >
                                   Grade
@@ -672,17 +672,17 @@ const SubmissionsViewPage: React.FC = () => {
 
             {/* Grade Input Section */}
             {Object.keys(editingGrade).length > 0 && (
-              <div className="mt-8 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-xl">
+              <div className="mt-8 bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm">
                 <div className="p-6">
-                  <h4 className="text-lg font-semibold text-white mb-4">Grade Submissions</h4>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Grade Submissions</h4>
                   <div className="space-y-4">
                     {Object.entries(editingGrade).map(([submissionId, grade]) => {
                       const submission = submissions.find(s => s.id === parseInt(submissionId));
                       return (
-                        <div key={submissionId} className="flex items-center space-x-4 p-4 bg-slate-700/50 rounded-xl">
+                        <div key={submissionId} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">
                           <div className="flex-1">
-                            <div className="text-sm font-medium text-white">{submission?.student_name}</div>
-                            <div className="text-xs text-slate-400">
+                            <div className="text-sm font-medium text-gray-900">{submission?.student_name}</div>
+                            <div className="text-xs text-gray-500">
                               Time: {submission?.time_spent_minutes} minutes | 
                               AI Score: {calculateAIScore(submission?.time_spent_minutes || 0).toFixed(1)}/10
                             </div>
@@ -696,15 +696,15 @@ const SubmissionsViewPage: React.FC = () => {
                                 step="0.1"
                                 value={grade}
                                 onChange={(e) => handleGradeChange(parseInt(submissionId), parseFloat(e.target.value) || 0)}
-                                className="w-20 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="Grade"
                                 disabled={isSaving}
                               />
-                              <span className="text-slate-400 text-sm">%</span>
+                              <span className="text-gray-500 text-sm">%</span>
                             </div>
                             <button
                               onClick={() => handleSaveGrade(parseInt(submissionId))}
-                              className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-sm font-medium transition-all duration-200 border border-green-500/30 hover:border-green-500/50 disabled:opacity-50"
+                              className="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-all duration-200 border border-green-200 hover:border-green-300 disabled:opacity-50"
                               disabled={isSaving}
                             >
                               {isSaving ? 'Saving...' : 'Save'}
@@ -715,7 +715,7 @@ const SubmissionsViewPage: React.FC = () => {
                                 delete newState[parseInt(submissionId)];
                                 return newState;
                               })}
-                              className="px-4 py-2 bg-slate-500/20 hover:bg-slate-500/30 text-slate-400 rounded-lg text-sm font-medium transition-all duration-200 border border-slate-500/30 hover:border-slate-500/50"
+                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 border border-gray-200 hover:border-gray-300"
                               disabled={isSaving}
                             >
                               Cancel

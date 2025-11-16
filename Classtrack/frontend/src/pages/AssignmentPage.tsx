@@ -426,6 +426,26 @@ const AssignmentPage: React.FC = () => {
     setShowDeleteModal(true);
   };
 
+  // NEW: Teacher assignment management function
+  const handleManageAssignment = (assignment: Assignment) => {
+    navigate(`/teacher/assignments/${assignment.id}`);
+  };
+
+  // NEW: Updated view submissions function
+  const handleViewSubmissions = (assignment: Assignment) => {
+    navigate(`/teacher/assignments/${assignment.id}/submissions`);
+  };
+
+  // NEW: Updated function for students to view assignment details
+  const handleViewAssignment = (assignment: Assignment) => {
+    navigate(`/student/assignments/${assignment.id}`);
+  };
+
+  // NEW: Updated function for students to submit work
+  const handleSubmitWork = (assignment: Assignment) => {
+    navigate(`/student/assignments/${assignment.id}/submit`);
+  };
+
   // FIXED: IMPROVED DELETE WITH PROPER SYNC
   const confirmDeleteAssignment = async () => {
     if (!assignmentToDelete) return;
@@ -472,20 +492,6 @@ const AssignmentPage: React.FC = () => {
     if (nameRef.current) nameRef.current.value = '';
     if (descriptionRef.current) descriptionRef.current.value = '';
     if (classRef.current) classRef.current.value = '';
-  };
-
-  const handleViewSubmissions = (assignment: Assignment) => {
-    navigate(`/teacher/assignments/${assignment.id}/submissions`);
-  };
-
-  // Function for students to view assignment details
-  const handleViewAssignment = (assignment: Assignment) => {
-    navigate(`/student/assignments/${assignment.id}`);
-  };
-
-  // Function for students to submit work
-  const handleSubmitWork = (assignment: Assignment) => {
-    navigate(`/student/assignments/${assignment.id}/submit`);
   };
 
   const validateForm = (): boolean => {
@@ -626,27 +632,27 @@ const AssignmentPage: React.FC = () => {
   // Rest of the component remains the same...
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading assignments...</p>
+          <p className="text-gray-600">Loading assignments...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden">
       {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {/* Mobile Header */}
-        <header className="lg:hidden bg-slate-800/95 backdrop-blur-xl border-b border-slate-700/50 p-4 shadow-xl flex items-center justify-between z-20">
+        <header className="lg:hidden bg-white backdrop-blur-xl border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl blur-sm"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-xl blur-sm"></div>
               <img 
                 src={plmunLogo} 
                 alt="PLMun Logo" 
@@ -654,10 +660,10 @@ const AssignmentPage: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">
+              <h1 className="text-lg font-bold text-gray-900">
                 {user?.role === 'student' ? "My Assignments" : "Manage Assignments"}
               </h1>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-gray-600">
                 {user?.role === 'student' ? "View your assigned tasks" : "Create and manage assignments"}
               </p>
             </div>
@@ -666,7 +672,7 @@ const AssignmentPage: React.FC = () => {
             {/* Logout Button */}
             <button 
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
+              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300"
               title="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -677,10 +683,10 @@ const AssignmentPage: React.FC = () => {
             {/* Menu Button */}
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
               title="Toggle menu"
             >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -697,22 +703,22 @@ const AssignmentPage: React.FC = () => {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+        <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {/* Error Display */}
             {error && (
-              <div className="mb-6 bg-red-500/20 border border-red-500/30 rounded-xl p-4">
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
                 <div className="flex items-center">
-                  <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                   <div>
-                    <h3 className="text-sm font-semibold text-red-400">Error Loading Data</h3>
-                    <p className="text-sm text-slate-300 mt-1">{error}</p>
+                    <h3 className="text-sm font-semibold text-red-700">Error Loading Data</h3>
+                    <p className="text-sm text-gray-600 mt-1">{error}</p>
                   </div>
                   <button
                     onClick={loadAssignmentData}
-                    className="ml-auto px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm transition-colors"
+                    className="ml-auto px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm transition-colors"
                   >
                     Retry
                   </button>
@@ -721,19 +727,19 @@ const AssignmentPage: React.FC = () => {
             )}
 
             {/* Page Header */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl mb-6">
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-sm">
                     <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
                       {user?.role === 'student' ? 'My Assignments' : 'Assignment Management'}
                     </h2>
-                    <p className="text-slate-200 leading-relaxed">
+                    <p className="text-gray-600 leading-relaxed">
                       {user?.role === 'student' 
                         ? `You have ${assignments.length} assigned tasks. Track your progress and deadlines.`
                         : 'Create, edit, and manage assignments for your classes. Students will see these assignments immediately.'
@@ -756,12 +762,12 @@ const AssignmentPage: React.FC = () => {
             </div>
 
             {/* Assignments Table */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-700/50">
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-white">All Assignments</h3>
-                    <p className="text-sm text-slate-300">
+                    <h3 className="text-lg font-bold text-gray-900">All Assignments</h3>
+                    <p className="text-sm text-gray-600">
                       {user?.role === 'student' 
                         ? `Showing ${assignments.length} of your assigned tasks` 
                         : 'Manage your class assignments - Students see these immediately'
@@ -769,8 +775,8 @@ const AssignmentPage: React.FC = () => {
                     </p>
                   </div>
                   {user?.role === 'student' && assignments.length > 0 && (
-                    <div className="bg-green-500/20 border border-green-500/30 rounded-lg px-3 py-1">
-                      <span className="text-green-400 text-sm font-medium">
+                    <div className="bg-green-100 border border-green-200 rounded-lg px-3 py-1">
+                      <span className="text-green-700 text-sm font-medium">
                         {assignments.length} Active
                       </span>
                     </div>
@@ -780,39 +786,39 @@ const AssignmentPage: React.FC = () => {
               
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-700/60">
+                  <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Assignment Name
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Class
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Created
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-700/50">
+                  <tbody className="divide-y divide-gray-200">
                     {assignments.length > 0 ? (
                       assignments.map((assignment) => (
-                        <tr key={assignment.id} className="hover:bg-slate-700/30 transition-colors duration-200">
+                        <tr key={assignment.id} className="hover:bg-gray-50 transition-colors duration-200">
                           <td className="px-4 lg:px-6 py-4">
                             <div className="flex items-center">
-                              <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-xl flex items-center justify-center shadow-sm mr-4">
+                              <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm mr-4">
                                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="text-sm font-semibold text-white truncate">{assignment.name}</div>
-                                <div className="text-xs text-slate-400 truncate">
+                                <div className="text-sm font-semibold text-gray-900 truncate">{assignment.name}</div>
+                                <div className="text-xs text-gray-500 truncate">
                                   {assignment.description || 'No description provided'}
                                 </div>
                               </div>
@@ -820,28 +826,40 @@ const AssignmentPage: React.FC = () => {
                           </td>
                           <td className="px-4 lg:px-6 py-4">
                             <div>
-                              <div className="text-sm font-medium text-white">
+                              <div className="text-sm font-medium text-gray-900">
                                 {assignment.class_name || getClassName(assignment.class_id)}
                               </div>
-                              <div className="text-xs text-slate-400">
+                              <div className="text-xs text-gray-500">
                                 {assignment.class_code || getClassCode(assignment.class_id)}
                               </div>
                             </div>
                           </td>
                           <td className="px-4 lg:px-6 py-4">
-                            <div className="text-sm text-slate-300 whitespace-nowrap">{formatDate(assignment.created_at)}</div>
+                            <div className="text-sm text-gray-600 whitespace-nowrap">{formatDate(assignment.created_at)}</div>
                           </td>
                           <td className="px-4 lg:px-6 py-4">
-                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30 whitespace-nowrap">
+                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200 whitespace-nowrap">
                               Active
                             </span>
                           </td>
                           <td className="px-4 lg:px-6 py-4">
                             {user?.role === 'teacher' ? (
                               <div className="flex items-center justify-end space-x-2">
+                                {/* NEW: Manage Assignment Button */}
+                                <button
+                                  onClick={() => handleManageAssignment(assignment)}
+                                  className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all duration-200 border border-purple-200 hover:border-purple-300"
+                                  title="Manage Assignment"
+                                  aria-label="Manage Assignment"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  </svg>
+                                </button>
                                 <button
                                   onClick={() => handleViewSubmissions(assignment)}
-                                  className="p-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg transition-all duration-200 border border-green-500/30 hover:border-green-500/50"
+                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300"
                                   title="View Submissions"
                                   aria-label="View Submissions"
                                 >
@@ -851,7 +869,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleEditAssignment(assignment)}
-                                  className="p-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all duration-200 border border-blue-500/30 hover:border-blue-500/50"
+                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300"
                                   title="Edit Assignment"
                                   aria-label="Edit Assignment"
                                 >
@@ -861,7 +879,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleDeleteAssignment(assignment)}
-                                  className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
+                                  className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200 border border-red-200 hover:border-red-300"
                                   title="Delete Assignment"
                                   aria-label="Delete Assignment"
                                 >
@@ -874,7 +892,7 @@ const AssignmentPage: React.FC = () => {
                               <div className="flex items-center justify-end space-x-2">
                                 <button
                                   onClick={() => handleViewAssignment(assignment)}
-                                  className="p-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all duration-200 border border-blue-500/30 hover:border-blue-500/50"
+                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300"
                                   title="View Assignment"
                                   aria-label="View Assignment"
                                 >
@@ -885,7 +903,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleSubmitWork(assignment)}
-                                  className="p-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg transition-all duration-200 border border-green-500/30 hover:border-green-500/50"
+                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300"
                                   title="Submit Work"
                                   aria-label="Submit Work"
                                 >
@@ -901,13 +919,13 @@ const AssignmentPage: React.FC = () => {
                     ) : (
                       <tr>
                         <td colSpan={5} className="px-6 py-12 text-center">
-                          <div className="w-16 h-16 bg-slate-700/60 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-semibold text-white mb-2">No assignments yet</h3>
-                          <p className="text-slate-400 mb-4">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No assignments yet</h3>
+                          <p className="text-gray-500 mb-4">
                             {user?.role === 'student' 
                               ? 'You currently have no assigned tasks. Check back later for new assignments.'
                               : 'Create your first assignment to get started - Students will see it immediately'
@@ -935,18 +953,18 @@ const AssignmentPage: React.FC = () => {
       {/* Create/Edit Assignment Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-700">
+          <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white">
+                <h3 className="text-xl font-bold text-gray-900">
                   {editingAssignment ? 'Edit Assignment' : 'Create New Assignment'}
                 </h3>
                 <button
                   onClick={handleCloseModal}
-                  className="p-2 hover:bg-slate-700 rounded-lg transition-colors duration-200"
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                   aria-label="Close modal"
                 >
-                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -956,15 +974,15 @@ const AssignmentPage: React.FC = () => {
             <div className="p-6">
               {/* General Error Message */}
               {formErrors.general && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-xl">
-                  <p className="text-red-400 text-sm">{formErrors.general}</p>
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-red-700 text-sm">{formErrors.general}</p>
                 </div>
               )}
 
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="assignment-name" className="block text-sm font-medium text-slate-300 mb-2">
-                    Assignment Name <span className="text-red-400">*</span>
+                  <label htmlFor="assignment-name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Assignment Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="assignment-name"
@@ -972,28 +990,28 @@ const AssignmentPage: React.FC = () => {
                     ref={nameRef}
                     type="text"
                     autoComplete="off"
-                    className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                      formErrors.name ? 'border-red-500' : 'border-slate-600'
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                      formErrors.name ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter assignment name"
                     defaultValue={editingAssignment?.name || ''}
                   />
                   {formErrors.name && (
-                    <p className="mt-1 text-sm text-red-400">{formErrors.name}</p>
+                    <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>
                   )}
                 </div>
                 
                 <div>
-                  <label htmlFor="assignment-class" className="block text-sm font-medium text-slate-300 mb-2">
-                    Class <span className="text-red-400">*</span>
+                  <label htmlFor="assignment-class" className="block text-sm font-medium text-gray-700 mb-2">
+                    Class <span className="text-red-500">*</span>
                   </label>
                   <select 
                     id="assignment-class"
                     name="assignment-class"
                     ref={classRef}
                     autoComplete="off"
-                    className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                      formErrors.class_id ? 'border-red-500' : 'border-slate-600'
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                      formErrors.class_id ? 'border-red-500' : 'border-gray-300'
                     }`}
                     defaultValue={editingAssignment?.class_id || ''}
                     disabled={classes.length === 0}
@@ -1008,17 +1026,17 @@ const AssignmentPage: React.FC = () => {
                     ))}
                   </select>
                   {formErrors.class_id && (
-                    <p className="mt-1 text-sm text-red-400">{formErrors.class_id}</p>
+                    <p className="mt-1 text-sm text-red-600">{formErrors.class_id}</p>
                   )}
                   {classes.length === 0 && (
-                    <p className="mt-1 text-sm text-yellow-400">
+                    <p className="mt-1 text-sm text-yellow-600">
                       You need to be assigned to at least one class to create assignments.
                     </p>
                   )}
                 </div>
                 
                 <div>
-                  <label htmlFor="assignment-description" className="block text-sm font-medium text-slate-300 mb-2">
+                  <label htmlFor="assignment-description" className="block text-sm font-medium text-gray-700 mb-2">
                     Description
                   </label>
                   <textarea
@@ -1027,21 +1045,21 @@ const AssignmentPage: React.FC = () => {
                     ref={descriptionRef}
                     rows={4}
                     autoComplete="off"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
                     placeholder="Enter assignment description (optional)"
                     defaultValue={editingAssignment?.description || ''}
                   />
                   {formErrors.description && (
-                    <p className="mt-1 text-sm text-red-400">{formErrors.description}</p>
+                    <p className="mt-1 text-sm text-red-600">{formErrors.description}</p>
                   )}
                 </div>
               </div>
               
-              <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-slate-700">
+              <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseModal}
                   disabled={isSubmitting}
-                  className="px-6 py-3 bg-slate-700/80 hover:bg-slate-600/80 text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -1074,18 +1092,18 @@ const AssignmentPage: React.FC = () => {
             }
           }}
         >
-          <div className="bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300">
+          <div className="bg-white/95 backdrop-blur-xl border border-gray-300 rounded-2xl shadow-xl max-w-md w-full mx-4 transform transition-all duration-300">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-700/50">
+            <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Confirm Deletion</h3>
-                  <p className="text-sm text-slate-400">This action cannot be undone</p>
+                  <h3 className="text-lg font-bold text-gray-900">Confirm Deletion</h3>
+                  <p className="text-sm text-gray-600">This action cannot be undone</p>
                 </div>
               </div>
             </div>
@@ -1093,34 +1111,34 @@ const AssignmentPage: React.FC = () => {
             {/* Modal Content */}
             <div className="px-6 py-4">
               <div className="mb-4">
-                <div className="bg-slate-700/50 rounded-xl p-4 mb-4">
+                <div className="bg-gray-50 rounded-xl p-4 mb-4">
                   <div className="flex items-center space-x-3 mb-2">
-                    <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-white">{assignmentToDelete.name}</div>
-                      <div className="text-xs text-slate-400">
+                      <div className="text-sm font-semibold text-gray-900">{assignmentToDelete.name}</div>
+                      <div className="text-xs text-gray-500">
                         {assignmentToDelete.class_name || getClassName(assignmentToDelete.class_id)}
                       </div>
                     </div>
                   </div>
                   {assignmentToDelete.description && (
-                    <p className="text-xs text-slate-300 mt-2">{assignmentToDelete.description}</p>
+                    <p className="text-xs text-gray-600 mt-2">{assignmentToDelete.description}</p>
                   )}
                 </div>
               </div>
 
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
                 <div className="flex items-start space-x-3">
-                  <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                   <div>
-                    <h4 className="text-sm font-semibold text-red-400 mb-1">Warning</h4>
-                    <p className="text-sm text-slate-300">
+                    <h4 className="text-sm font-semibold text-red-700 mb-1">Warning</h4>
+                    <p className="text-sm text-gray-600">
                       Are you sure you want to delete this assignment? This will also delete <strong>all related submissions</strong> and cannot be undone.
                     </p>
                   </div>
@@ -1129,22 +1147,22 @@ const AssignmentPage: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-700/50 flex items-center justify-end space-x-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end space-x-3">
               <button
                 onClick={cancelDeleteAssignment}
                 disabled={isDeleting}
-                className="px-4 py-2 bg-slate-600/50 hover:bg-slate-600/70 text-slate-300 hover:text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteAssignment}
                 disabled={isDeleting}
-                className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 rounded-xl font-medium transition-all duration-200 border border-red-500/30 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 hover:text-red-800 rounded-xl font-medium transition-all duration-200 border border-red-200 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 {isDeleting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
                     <span>Deleting...</span>
                   </>
                 ) : (
