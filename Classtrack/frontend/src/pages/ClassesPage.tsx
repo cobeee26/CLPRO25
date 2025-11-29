@@ -520,7 +520,7 @@ const ClassesPage: React.FC = () => {
                   <div className="pt-2">
                     <button
                       onClick={() => setIsModalOpen(true)}
-                      className="w-full group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3 lg:py-4 px-4 lg:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl shadow-lg text-base lg:text-base border-2 border-emerald-400/50"
+                      className="w-full group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3 lg:py-4 px-4 lg:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl shadow-lg text-base lg:text-base border-2 border-emerald-400/50 cursor-pointer"
                       title="Create new class"
                       aria-label="Create new class"
                     >
@@ -541,7 +541,7 @@ const ClassesPage: React.FC = () => {
                 {/* Admin Metrics */}
                 {user?.role === 'admin' && (
                   <>
-                    <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-pointer">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -555,7 +555,7 @@ const ClassesPage: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 lg:p-4 border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 lg:p-4 border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100 transition-all duration-300 group cursor-pointer">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -569,7 +569,7 @@ const ClassesPage: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 lg:p-4 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-100 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 lg:p-4 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-100 transition-all duration-300 group cursor-pointer">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -583,7 +583,7 @@ const ClassesPage: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-3 lg:p-4 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-100 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-3 lg:p-4 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-100 transition-all duration-300 group cursor-pointer">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg shadow-lg group-hover:shadow-orange-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -602,7 +602,7 @@ const ClassesPage: React.FC = () => {
                 {/* Teacher Metrics */}
                 {user?.role === 'teacher' && (
                   <>
-                    <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-pointer">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -616,7 +616,7 @@ const ClassesPage: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 lg:p-4 border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100 transition-all duration-300 group">
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 lg:p-4 border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100 transition-all duration-300 group cursor-pointer">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -761,7 +761,7 @@ const ClassesPage: React.FC = () => {
                                   {user?.role === 'teacher' && (
                                     <button
                                       onClick={() => handleViewRoster(classItem)}
-                                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 text-green-700 hover:text-green-800 rounded-lg transition-all duration-300 text-xs border border-green-200 font-medium"
+                                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 text-green-700 hover:text-green-800 rounded-lg transition-all duration-300 text-xs border border-green-200 font-medium cursor-pointer"
                                       title={`View roster for ${classItem.name}`}
                                       aria-label={`View student roster for ${classItem.name}`}
                                     >
@@ -880,7 +880,7 @@ const ClassesPage: React.FC = () => {
                               <td className="px-6 lg:px-8 py-5 whitespace-nowrap">
                                 <div className="flex items-center space-x-3">
                                   <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
-                                    <svg className="w-4 h-4 lg:w-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4 lg:w-5 lg:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                     </svg>
                                   </div>
@@ -902,7 +902,7 @@ const ClassesPage: React.FC = () => {
                                   {user?.role === 'teacher' && (
                                     <button
                                       onClick={() => handleViewRoster(classItem)}
-                                      className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 text-green-700 hover:text-green-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/20 border border-green-200"
+                                      className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 text-green-700 hover:text-green-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/20 border border-green-200 cursor-pointer"
                                       title={`View roster for ${classItem.name}`}
                                       aria-label={`View student roster for ${classItem.name}`}
                                     >
@@ -918,7 +918,7 @@ const ClassesPage: React.FC = () => {
                                     <>
                                       <button
                                         onClick={() => openEditModal(classItem)}
-                                        className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 hover:from-blue-200 hover:to-indigo-200 text-blue-700 hover:text-blue-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 border border-blue-200"
+                                        className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 hover:from-blue-200 hover:to-indigo-200 text-blue-700 hover:text-blue-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 border border-blue-200 cursor-pointer"
                                         title={`Edit ${classItem.name}`}
                                         aria-label={`Edit class ${classItem.name}`}
                                       >
@@ -929,7 +929,7 @@ const ClassesPage: React.FC = () => {
                                       </button>
                                       <button
                                         onClick={() => openDeleteModal(classItem)}
-                                        className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-red-100 to-pink-100 hover:from-red-200 hover:to-pink-200 text-red-700 hover:text-red-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/20 border border-red-200"
+                                        className="inline-flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-red-100 to-pink-100 hover:from-red-200 hover:to-pink-200 text-red-700 hover:text-red-800 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/20 border border-red-200 cursor-pointer"
                                         title={`Delete ${classItem.name}`}
                                         aria-label={`Delete class ${classItem.name}`}
                                       >
@@ -1023,7 +1023,7 @@ const ClassesPage: React.FC = () => {
                   id="teacherSelect"
                   value={formData.teacher_id || ''}
                   onChange={(e) => setFormData({ ...formData, teacher_id: e.target.value ? parseInt(e.target.value) : undefined })}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-pointer"
                   aria-label="Select a teacher"
                 >
                   <option value="">Select a teacher (optional)</option>
@@ -1039,7 +1039,7 @@ const ClassesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
+                  className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors cursor-pointer"
                   title="Cancel class creation"
                   aria-label="Cancel creating new class"
                 >
@@ -1048,7 +1048,7 @@ const ClassesPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={formLoading}
-                  className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                   title={formLoading ? "Creating class..." : "Create new class"}
                   aria-label={formLoading ? "Creating class, please wait" : "Create new class"}
                 >
@@ -1127,7 +1127,7 @@ const ClassesPage: React.FC = () => {
                   id="editTeacherSelect"
                   value={editFormData.teacher_id || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, teacher_id: e.target.value ? parseInt(e.target.value) : undefined })}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-pointer"
                   aria-label="Select a teacher for editing"
                 >
                   <option value="">Select a teacher (optional)</option>
@@ -1143,7 +1143,7 @@ const ClassesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
+                  className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors cursor-pointer"
                   title="Cancel editing"
                   aria-label="Cancel editing class"
                 >
@@ -1152,7 +1152,7 @@ const ClassesPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={editFormLoading}
-                  className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                   title={editFormLoading ? "Updating class..." : "Update class"}
                   aria-label={editFormLoading ? "Updating class, please wait" : "Update class"}
                 >
@@ -1167,7 +1167,7 @@ const ClassesPage: React.FC = () => {
       {/* Delete Class Modal */}
       {isDeleteModalOpen && deletingClass && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-300 shadow-xl">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md border border-gray-300 shadow-xl cursor-pointer">
             <h3 className="text-xl font-semibold text-gray-900 mb-6">Delete Class</h3>
             
             {deleteError && (
@@ -1205,7 +1205,7 @@ const ClassesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
+                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors cursor-pointer"
                 title="Cancel deletion"
                 aria-label="Cancel class deletion"
               >
@@ -1214,7 +1214,7 @@ const ClassesPage: React.FC = () => {
               <button
                 onClick={handleDeleteClass}
                 disabled={deleteLoading}
-                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                 title={deleteLoading ? "Deleting class..." : "Delete class"}
                 aria-label={deleteLoading ? "Deleting class, please wait" : "Delete class"}
               >
@@ -1308,7 +1308,7 @@ const ClassesPage: React.FC = () => {
             <div className="mt-6 flex justify-end">
               <button
                 onClick={handleCloseRosterModal}
-                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
+                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors cursor-pointer"
                 title="Close roster"
                 aria-label="Close student roster"
               >

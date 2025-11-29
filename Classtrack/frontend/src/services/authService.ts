@@ -129,6 +129,43 @@ export interface AssignmentResponse {
   created_at: string;
 }
 
+// Student-specific interfaces
+export interface StudentClass {
+  id: number;
+  name: string;
+  code: string;
+  teacher_id: number;
+  teacher_name: string;
+  description?: string;
+  created_at: string;
+}
+
+export interface StudentAssignment {
+  id: number;
+  name: string;
+  description?: string;
+  class_id: number;
+  class_name: string;
+  class_code?: string;
+  teacher_name: string;
+  creator_id: number;
+  created_at: string;
+}
+
+export interface SubmissionCreate {
+  assignment_id: number;
+  time_spent_minutes: number;
+}
+
+export interface SubmissionResponse {
+  id: number;
+  assignment_id: number;
+  student_id: number;
+  grade?: number;
+  time_spent_minutes: number;
+  submitted_at: string;
+}
+
 // FastAPI OAuth2 login function - COMPLETELY REWRITTEN for correct form data format
 export const loginUser = async (username: string, password: string): Promise<string> => {
   try {
@@ -268,23 +305,6 @@ export const getTeacherClasses = async (): Promise<{classes: Class[], metrics: {
   }
 };
 
-// Get classes for the current student (Student-specific endpoint)
-export const getStudentClasses = async (): Promise<Class[]> => {
-  try {
-    // Use student-specific endpoint
-    const response = await apiClient.get('/students/me/classes');
-    return response.data;
-  } catch (error: any) {
-    console.error('Failed to fetch student classes:', error);
-    if (error.response?.status === 403) {
-      // If student endpoint doesn't exist, return empty array or mock data
-      console.log('Student endpoint not available, returning empty classes...');
-      return [];
-    }
-    throw error;
-  }
-};
-
 // Get student roster for a specific class (Teacher-specific endpoint)
 export const getClassRoster = async (classId: number): Promise<any[]> => {
   try {
@@ -333,6 +353,108 @@ export const getTeacherAssignments = async (): Promise<AssignmentResponse[]> => 
     console.error('Failed to fetch teacher assignments:', error);
     if (error.response?.status === 403) {
       console.log('Teacher assignments endpoint not available, returning empty array...');
+      return [];
+    }
+    throw error;
+  }
+};
+
+// STUDENT-SPECIFIC API FUNCTIONS
+
+// Get student schedule from the /students/me/schedule endpoint
+export const getStudentSchedule = async (): Promise<ScheduleEnrichedResponse[]> => {
+  try {
+    const response = await apiClient.get('/students/me/schedule');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching student schedule:', error);
+    if (error.response?.status === 403) {
+      console.log('Student schedule endpoint not available, returning empty array...');
+      return [];
+    }
+    throw error;
+  }
+};
+
+// Get all classes for students (from the /classes/student/ endpoint)
+export const getStudentClassesAll = async (): Promise<StudentClass[]> => {
+  try {
+    const response = await apiClient.get('/classes/student/');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching student classes:', error);
+    if (error.response?.status === 403) {
+      console.log('Student classes endpoint not available, trying enrolled classes endpoint...');
+      // Fallback to enrolled classes endpoint
+      try {
+        const response = await apiClient.get('/students/me/classes');
+        return response.data;
+      } catch (enrolledError) {
+        console.error('Failed to fetch enrolled classes:', enrolledError);
+        return [];
+      }
+    }
+    throw error;
+  }
+};
+
+// Get all assignments for students (from the /assignments/student/ endpoint)
+export const getStudentAssignmentsAll = async (): Promise<StudentAssignment[]> => {
+  try {
+    const response = await apiClient.get('/assignments/student/');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching student assignments:', error);
+    if (error.response?.status === 403) {
+      console.log('Student assignments endpoint not available, trying student assignments endpoint...');
+      // Fallback to student assignments endpoint
+      try {
+        const response = await apiClient.get('/students/me/assignments');
+        return response.data;
+      } catch (studentError) {
+        console.error('Failed to fetch student assignments:', studentError);
+        return [];
+      }
+    }
+    throw error;
+  }
+};
+
+// Get enrolled classes for the current student
+export const getStudentEnrolledClasses = async (): Promise<StudentClass[]> => {
+  try {
+    const response = await apiClient.get('/students/me/classes');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching enrolled classes:', error);
+    if (error.response?.status === 403) {
+      console.log('Enrolled classes endpoint not available, returning empty array...');
+      return [];
+    }
+    throw error;
+  }
+};
+
+// Create assignment submission
+export const createSubmission = async (submissionData: SubmissionCreate): Promise<SubmissionResponse> => {
+  try {
+    const response = await apiClient.post('/submissions/', submissionData);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error creating submission:', error);
+    throw error;
+  }
+};
+
+// Get submissions for the current student
+export const getStudentSubmissions = async (): Promise<SubmissionResponse[]> => {
+  try {
+    const response = await apiClient.get('/students/me/submissions');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching student submissions:', error);
+    if (error.response?.status === 404) {
+      console.log('Submissions endpoint not available, returning empty array...');
       return [];
     }
     throw error;
@@ -514,7 +636,6 @@ export const deleteUserByAdmin = async (userId: number): Promise<{ message: stri
     throw new Error('User deletion failed. Please try again.');
   }
 };
-
 
 // Create class by admin from the protected backend endpoint
 export const createClassByAdmin = async (classData: ClassCreate): Promise<Class> => {
@@ -1037,6 +1158,7 @@ export const deleteClassByAdmin = async (classId: number): Promise<{ message: st
   }
 };
 
+// Main auth service object with all methods
 export const authService = {
   // Login user - Updated to use the correct endpoint
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
@@ -1289,18 +1411,8 @@ export const authService = {
     }
   },
 
-  async getStudentSchedule(): Promise<ScheduleResponse[]> {
-    try {
-      const response = await apiClient.get('/students/me/schedule');
-      return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch student schedule:', error);
-      if (error.response?.status === 403) {
-        console.log('Student schedule endpoint not available, returning empty array...');
-        return [];
-      }
-      throw error;
-    }
+  async getStudentSchedule(): Promise<ScheduleEnrichedResponse[]> {
+    return getStudentSchedule();
   },
 
   async getStudentGrades(): Promise<any[]> {
@@ -1315,6 +1427,27 @@ export const authService = {
       }
       throw error;
     }
+  },
+
+  // NEW STUDENT-SPECIFIC METHODS
+  async getStudentClassesAll(): Promise<StudentClass[]> {
+    return getStudentClassesAll();
+  },
+
+  async getStudentAssignmentsAll(): Promise<StudentAssignment[]> {
+    return getStudentAssignmentsAll();
+  },
+
+  async getStudentEnrolledClasses(): Promise<StudentClass[]> {
+    return getStudentEnrolledClasses();
+  },
+
+  async createSubmission(submissionData: SubmissionCreate): Promise<SubmissionResponse> {
+    return createSubmission(submissionData);
+  },
+
+  async getStudentSubmissions(): Promise<SubmissionResponse[]> {
+    return getStudentSubmissions();
   }
 };
 

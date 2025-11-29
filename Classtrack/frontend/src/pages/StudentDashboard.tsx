@@ -43,8 +43,15 @@ apiClient.interceptors.response.use(
     console.error(
       "🚨 API Response Error:",
       error.response?.status,
+      error.response?.data,
       error.message
     );
+    
+    // Handle 422 errors specifically
+    if (error.response?.status === 422) {
+      console.error("📋 Validation Errors:", error.response.data.detail);
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -63,6 +70,7 @@ interface Assignment {
   due_date?: string;
   points?: number;
   assignment_type?: string;
+  teacher_name?: string;
 }
 
 interface Submission {
@@ -108,6 +116,7 @@ interface Class {
   description?: string;
   semester?: string;
   academic_year?: string;
+  teacher_name?: string;
 }
 
 interface SubmissionData {
@@ -116,6 +125,14 @@ interface SubmissionData {
   time_spent_minutes: number;
   submission_text?: string;
   attachment_url?: string;
+}
+
+interface RoomReportData {
+  class_id: string;
+  is_clean_before: string;
+  is_clean_after: string;
+  report_text: string;
+  photo?: File | null;
 }
 
 const StudentDashboard: React.FC = () => {
@@ -147,11 +164,11 @@ const StudentDashboard: React.FC = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
 
   // Room report form state
-  const [reportFormData, setReportFormData] = useState({
-    classId: "",
-    isCleanBefore: "",
-    isCleanAfter: "",
-    reportText: "",
+  const [reportFormData, setReportFormData] = useState<RoomReportData>({
+    class_id: "",
+    is_clean_before: "",
+    is_clean_after: "",
+    report_text: "",
   });
 
   // Sidebar state
@@ -229,29 +246,6 @@ const StudentDashboard: React.FC = () => {
     return submissions.find(
       (submission) => submission.assignment_id === assignmentId
     );
-  };
-
-  // Helper function to get class information for assignment
-  const getClassInfoForAssignment = (classId: number) => {
-    const classInfo = classes.find((c) => c.id === classId);
-    if (classInfo) {
-      return {
-        name: classInfo.name,
-        code: classInfo.code,
-        subject: classInfo.subject || classInfo.name,
-        description: classInfo.description,
-        semester: classInfo.semester,
-        academic_year: classInfo.academic_year
-      };
-    }
-    return {
-      name: "Unknown Class",
-      code: "UNKNOWN",
-      subject: "Unknown Subject",
-      description: "",
-      semester: "",
-      academic_year: ""
-    };
   };
 
   // Helper function to construct full image URL
@@ -420,55 +414,36 @@ const StudentDashboard: React.FC = () => {
       setLoadingStates((prev) => ({ ...prev, classes: true }));
       console.log("📚 Loading classes for student from API...");
 
-      let classesData: Class[] = [];
-
       try {
-        const response = await apiClient.get("/classes/student", {
-          validateStatus: (status) => status < 500,
-        });
-
+        const response = await apiClient.get("/classes/student");
         console.log("✅ Classes API response:", response.data);
 
         if (response.status === 200 && Array.isArray(response.data)) {
-          classesData = response.data.map((classItem: any) => ({
+          const classesData = response.data.map((classItem: any) => ({
             id: classItem.id,
-            name: classItem.name || classItem.subject || `Class ${classItem.code}`,
+            name: classItem.name || `Class ${classItem.code}`,
             code: classItem.code,
             teacher_id: classItem.teacher_id,
             subject: classItem.subject || classItem.name,
             description: classItem.description || "",
             semester: classItem.semester || "Spring 2024",
-            academic_year: classItem.academic_year || "2024-2025"
+            academic_year: classItem.academic_year || "2024-2025",
+            teacher_name: classItem.teacher_name || "Unknown Teacher"
           }));
+          
+          setClasses(classesData);
+          localStorage.setItem("student_classes", JSON.stringify(classesData));
         } else {
-          console.warn("⚠️ Classes API returned non-200 status, using fallback");
-          classesData = getFallbackClasses();
+          console.warn("⚠️ Classes API returned unexpected response");
+          setClasses([]);
         }
       } catch (error: any) {
-        console.warn("⚠️ Classes API failed, using fallback data:", error.message);
-        classesData = getFallbackClasses();
+        console.error("❌ Error loading classes from API:", error.message);
+        setClasses([]);
       }
-
-      setClasses(classesData);
-      
-      // Store classes in localStorage for consistency
-      localStorage.setItem("student_classes", JSON.stringify(classesData));
-      
-      return classesData;
     } catch (error: any) {
       console.error("❌ Error loading classes:", error);
-      
-      // Try to get classes from localStorage as fallback
-      const savedClasses = localStorage.getItem("student_classes");
-      if (savedClasses) {
-        const fallbackData = JSON.parse(savedClasses);
-        setClasses(fallbackData);
-        return fallbackData;
-      }
-      
-      const fallbackData = getFallbackClasses();
-      setClasses(fallbackData);
-      return fallbackData;
+      setClasses([]);
     } finally {
       setLoadingStates((prev) => ({ ...prev, classes: false }));
     }
@@ -480,66 +455,45 @@ const StudentDashboard: React.FC = () => {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
       console.log("📝 Loading assignments for student from API...");
 
-      let assignmentsData: Assignment[] = [];
-
       try {
-        const response = await apiClient.get("/assignments/student", {
-          validateStatus: (status) => status < 500,
-        });
-
-        console.log("✅ Assignments API response status:", response.status);
-        console.log("✅ Assignments raw data:", response.data);
+        const response = await apiClient.get("/assignments/student/");
+        console.log("✅ Assignments API response:", response.data);
 
         if (response.status === 200 && Array.isArray(response.data)) {
-          assignmentsData = response.data.map((assignment: any) => {
-            // Get class information from classes state or assignment data
-            const classInfo = getClassInfoForAssignment(assignment.class_id);
-            
-            return {
-              id: assignment.id,
-              name: assignment.name,
-              description: assignment.description,
-              class_id: assignment.class_id,
-              creator_id: assignment.creator_id,
-              created_at: assignment.created_at,
-              class_name: assignment.class_name || classInfo.name,
-              class_code: assignment.class_code || classInfo.code,
-              class_subject: assignment.class_subject || classInfo.subject,
-              due_date: assignment.due_date,
-              points: assignment.points || 100,
-              assignment_type: assignment.assignment_type || "Homework"
-            };
-          });
+          const assignmentsData = response.data.map((assignment: any) => ({
+            id: assignment.id,
+            name: assignment.name,
+            description: assignment.description,
+            class_id: assignment.class_id,
+            creator_id: assignment.creator_id,
+            created_at: assignment.created_at,
+            class_name: assignment.class_name,
+            class_code: assignment.class_code,
+            class_subject: assignment.class_subject,
+            teacher_name: assignment.teacher_name,
+            due_date: assignment.due_date,
+            points: assignment.points || 100,
+            assignment_type: assignment.assignment_type || "Homework"
+          }));
+          
+          console.log("📝 Final assignments from API:", assignmentsData);
+          setAssignments(assignmentsData);
+          localStorage.setItem("student_assignments", JSON.stringify(assignmentsData));
+          return assignmentsData;
         } else {
-          console.warn("⚠️ Assignments API returned non-200 status, using fallback");
-          assignmentsData = getFallbackAssignments();
+          console.warn("⚠️ Assignments API returned unexpected response");
+          setAssignments([]);
+          return [];
         }
-      } catch (apiError: any) {
-        console.warn("⚠️ Assignments API call failed:", apiError.message);
-        assignmentsData = getFallbackAssignments();
+      } catch (error: any) {
+        console.error("❌ Error loading assignments from API:", error.message);
+        setAssignments([]);
+        return [];
       }
-
-      console.log("📝 Final assignments with class info:", assignmentsData);
-      setAssignments(assignmentsData);
-
-      // Store assignments in localStorage for consistency
-      localStorage.setItem("student_assignments", JSON.stringify(assignmentsData));
-
-      return assignmentsData;
     } catch (error: any) {
       console.error("❌ Error loading assignments:", error);
-      
-      // Try to get assignments from localStorage as fallback
-      const savedAssignments = localStorage.getItem("student_assignments");
-      if (savedAssignments) {
-        const fallbackData = JSON.parse(savedAssignments);
-        setAssignments(fallbackData);
-        return fallbackData;
-      }
-      
-      const fallbackData = getFallbackAssignments();
-      setAssignments(fallbackData);
-      return fallbackData;
+      setAssignments([]);
+      return [];
     } finally {
       setLoadingStates((prev) => ({ ...prev, assignments: false }));
     }
@@ -553,52 +507,45 @@ const StudentDashboard: React.FC = () => {
       if (user?.role === "student") {
         console.log("📄 Loading submissions for student from API...");
 
-        let submissionsData: Submission[] = [];
-
         try {
-          const response = await apiClient.get("/submissions/me", {
-            validateStatus: (status) => status < 500,
-          });
-          
-          console.log("✅ Submissions response:", response.data);
-          
-          if (response.status === 200 && Array.isArray(response.data)) {
-            submissionsData = response.data.map((submission: any) => ({
-              id: submission.id,
-              assignment_id: submission.assignment_id,
-              student_id: submission.student_id,
-              submitted_at: submission.submitted_at,
-              time_spent_minutes: submission.time_spent_minutes || 0,
-              status: submission.status || "submitted",
-              grade: submission.grade,
-              feedback: submission.feedback
-            }));
+          const response = await apiClient.get("/submissions/me");
+          console.log("✅ Submissions API response:", response.data);
+
+          if (response.status === 200) {
+            const responseData = response.data;
+            const submissionsArray = Array.isArray(responseData) ? responseData : 
+                                   (responseData.submissions || responseData.data || []);
+            
+            if (Array.isArray(submissionsArray)) {
+              const submissionsData = submissionsArray.map((submission: any) => ({
+                id: submission.id,
+                assignment_id: submission.assignment_id,
+                student_id: submission.student_id,
+                submitted_at: submission.submitted_at,
+                time_spent_minutes: submission.time_spent_minutes || 0,
+                status: submission.status || "submitted",
+                grade: submission.grade,
+                feedback: submission.feedback
+              }));
+              
+              setSubmissions(submissionsData);
+              localStorage.setItem("student_submissions", JSON.stringify(submissionsData));
+            } else {
+              setSubmissions([]);
+            }
           } else {
-            submissionsData = [];
+            console.warn("⚠️ Submissions API returned unexpected response");
+            setSubmissions([]);
           }
         } catch (error: any) {
-          console.warn("⚠️ Submissions API failed, using empty array:", error.message);
-          submissionsData = [];
+          console.error("❌ Error loading submissions from API:", error.message);
+          setSubmissions([]);
         }
-
-        setSubmissions(submissionsData);
-        
-        // Store submissions in localStorage for consistency
-        localStorage.setItem("student_submissions", JSON.stringify(submissionsData));
       } else {
         setSubmissions([]);
       }
     } catch (error: any) {
       console.error("❌ Error loading submissions:", error);
-      
-      // Try to get submissions from localStorage as fallback
-      const savedSubmissions = localStorage.getItem("student_submissions");
-      if (savedSubmissions) {
-        const fallbackData = JSON.parse(savedSubmissions);
-        setSubmissions(fallbackData);
-        return;
-      }
-      
       setSubmissions([]);
     } finally {
       setLoadingStates((prev) => ({ ...prev, submissions: false }));
@@ -612,18 +559,25 @@ const StudentDashboard: React.FC = () => {
       console.log("📅 Loading schedules from API...");
 
       try {
-        const response = await apiClient.get("/schedules/live", {
-          validateStatus: (status) => status < 500,
-        });
+        const response = await apiClient.get("/schedules/live");
+        console.log("✅ Schedules API response:", response.data);
 
-        if (response.status === 200 && Array.isArray(response.data)) {
-          setSchedule(response.data);
+        if (response.status === 200) {
+          const responseData = response.data;
+          const schedulesArray = Array.isArray(responseData) ? responseData : 
+                               (responseData.schedules || responseData.data || []);
+          
+          if (Array.isArray(schedulesArray)) {
+            setSchedule(schedulesArray);
+          } else {
+            setSchedule([]);
+          }
         } else {
-          console.warn("⚠️ Schedules API returned non-200 status, using empty array");
+          console.warn("⚠️ Schedules API returned unexpected response");
           setSchedule([]);
         }
       } catch (error: any) {
-        console.warn("⚠️ Schedules API failed, using empty array:", error.message);
+        console.error("❌ Error loading schedules from API:", error.message);
         setSchedule([]);
       }
     } catch (error) {
@@ -641,18 +595,25 @@ const StudentDashboard: React.FC = () => {
       console.log("📢 Loading announcements from API...");
 
       try {
-        const response = await apiClient.get("/announcements/live", {
-          validateStatus: (status) => status < 500,
-        });
+        const response = await apiClient.get("/announcements/live");
+        console.log("✅ Announcements API response:", response.data);
 
-        if (response.status === 200 && Array.isArray(response.data)) {
-          setAnnouncements(response.data);
+        if (response.status === 200) {
+          const responseData = response.data;
+          const announcementsArray = Array.isArray(responseData) ? responseData : 
+                                   (responseData.announcements || responseData.data || []);
+          
+          if (Array.isArray(announcementsArray)) {
+            setAnnouncements(announcementsArray);
+          } else {
+            setAnnouncements([]);
+          }
         } else {
-          console.warn("⚠️ Announcements API returned non-200 status, using empty array");
+          console.warn("⚠️ Announcements API returned unexpected response");
           setAnnouncements([]);
         }
       } catch (error: any) {
-        console.warn("⚠️ Announcements API failed, using empty array:", error.message);
+        console.error("❌ Error loading announcements from API:", error.message);
         setAnnouncements([]);
       }
     } catch (error) {
@@ -661,116 +622,6 @@ const StudentDashboard: React.FC = () => {
     } finally {
       setLoadingStates((prev) => ({ ...prev, announcements: false }));
     }
-  };
-
-  // Fallback assignments function - UPDATED WITH EXACT DATA FROM SCREENSHOT
-  const getFallbackAssignments = (): Assignment[] => {
-    const currentClasses = classes.length > 0 ? classes : getFallbackClasses();
-    
-    return [
-      {
-        id: 1,
-        name: "Jen",
-        description: "Kapag umaga aljon kapag gabi si aljona na",
-        class_id: 1,
-        creator_id: 1,
-        created_at: new Date("2025-10-31T17:04:00Z").toISOString(),
-        class_name: currentClasses.find(c => c.id === 1)?.name || "Aljon&Aljona",
-        class_code: currentClasses.find(c => c.id === 1)?.code || "LOVE-25",
-        class_subject: currentClasses.find(c => c.id === 1)?.subject || "Relationship Studies",
-        due_date: new Date("2025-11-15T23:59:00Z").toISOString(),
-        points: 100,
-        assignment_type: "Reflection Paper"
-      },
-      {
-        id: 2,
-        name: "Broken",
-        description: "Comeback na ulit",
-        class_id: 2,
-        creator_id: 1,
-        created_at: new Date("2025-11-04T15:52:00Z").toISOString(),
-        class_name: currentClasses.find(c => c.id === 2)?.name || "Aaron",
-        class_code: currentClasses.find(c => c.id === 2)?.code || "KUPAL-22",
-        class_subject: currentClasses.find(c => c.id === 2)?.subject || "Character Development",
-        due_date: new Date("2025-11-10T23:59:00Z").toISOString(),
-        points: 100,
-        assignment_type: "Personal Essay"
-      },
-      {
-        id: 3,
-        name: "CPP",
-        description: "Create a code write hello world in C++",
-        class_id: 3,
-        creator_id: 1,
-        created_at: new Date("2025-10-31T16:46:00Z").toISOString(),
-        class_name: currentClasses.find(c => c.id === 3)?.name || "Hello world",
-        class_code: currentClasses.find(c => c.id === 3)?.code || "IT-12",
-        class_subject: currentClasses.find(c => c.id === 3)?.subject || "Programming Fundamentals",
-        due_date: new Date("2025-11-05T23:59:00Z").toISOString(),
-        points: 100,
-        assignment_type: "Programming Exercise"
-      },
-      {
-        id: 4,
-        name: "Angela",
-        description: "Mobile Legend Bangbang",
-        class_id: 4,
-        creator_id: 1,
-        created_at: new Date("2025-10-31T16:46:00Z").toISOString(),
-        class_name: currentClasses.find(c => c.id === 4)?.name || "LING",
-        class_code: currentClasses.find(c => c.id === 4)?.code || "ML-10",
-        class_subject: currentClasses.find(c => c.id === 4)?.subject || "Gaming Strategies",
-        due_date: new Date("2025-11-20T23:59:00Z").toISOString(),
-        points: 100,
-        assignment_type: "Game Analysis"
-      }
-    ];
-  };
-
-  // Fallback classes function - UPDATED WITH EXACT DATA FROM SCREENSHOT
-  const getFallbackClasses = (): Class[] => {
-    return [
-      {
-        id: 1,
-        name: "Aljon&Aljona",
-        code: "LOVE-25",
-        teacher_id: 1,
-        subject: "Relationship Studies",
-        description: "Understanding relationships and personal development",
-        semester: "Fall 2024",
-        academic_year: "2024-2025"
-      },
-      {
-        id: 2,
-        name: "Aaron",
-        code: "KUPAL-22",
-        teacher_id: 1,
-        subject: "Character Development",
-        description: "Personal growth and character building",
-        semester: "Fall 2024",
-        academic_year: "2024-2025"
-      },
-      {
-        id: 3,
-        name: "Hello world",
-        code: "IT-12",
-        teacher_id: 1,
-        subject: "Programming Fundamentals",
-        description: "Introduction to programming concepts",
-        semester: "Fall 2024",
-        academic_year: "2024-2025"
-      },
-      {
-        id: 4,
-        name: "LING",
-        code: "ML-10",
-        teacher_id: 1,
-        subject: "Gaming Strategies",
-        description: "Advanced gaming techniques and strategies",
-        semester: "Fall 2024",
-        academic_year: "2024-2025"
-      }
-    ];
   };
 
   // Real-time sync for assignments
@@ -797,7 +648,7 @@ const StudentDashboard: React.FC = () => {
     };
   }, []);
 
-  // FIXED: Time formatting functions to handle AM/PM correctly
+  // Time formatting functions
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -903,7 +754,7 @@ const StudentDashboard: React.FC = () => {
     return fullName;
   };
 
-  // FIXED: Assignment submission function - Now navigates to assignments page
+  // Assignment submission function - navigates to assignments page
   const handleSubmitAssignment = (assignment: Assignment) => {
     // Navigate to assignments page instead of showing modal or submitting directly
     navigate("/student/assignments", { 
@@ -921,10 +772,10 @@ const StudentDashboard: React.FC = () => {
     setReportFormErrors({});
     setSelectedPhoto(null);
     setReportFormData({
-      classId: "",
-      isCleanBefore: "",
-      isCleanAfter: "",
-      reportText: "",
+      class_id: "",
+      is_clean_before: "",
+      is_clean_after: "",
+      report_text: "",
     });
     if (classIdRef.current) classIdRef.current.value = "";
     if (reportTextRef.current) reportTextRef.current.value = "";
@@ -964,35 +815,35 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // Validation function
   const validateRoomReportForm = (): boolean => {
     const errors: { [key: string]: string } = {};
 
-    const { classId, isCleanBefore, isCleanAfter, reportText } = reportFormData;
+    const { class_id, is_clean_before, is_clean_after, report_text } = reportFormData;
 
-    if (!classId) {
+    if (!class_id || class_id.trim() === "") {
       errors.class_id = "Please select a class/room";
     }
 
-    if (!isCleanBefore) {
-      errors.is_clean_before =
-        "Please indicate if the room was clean before use";
+    if (!is_clean_before || is_clean_before.trim() === "") {
+      errors.is_clean_before = "Please indicate if the room was clean before use";
     }
 
-    if (!isCleanAfter) {
+    if (!is_clean_after || is_clean_after.trim() === "") {
       errors.is_clean_after = "Please indicate if the room was clean after use";
     }
 
-    if (!reportText.trim()) {
+    if (!report_text || report_text.trim() === "") {
       errors.report_text = "Please provide a description of the report";
-    } else if (reportText.trim().length < 10) {
-      errors.report_text =
-        "Please provide a more detailed description (at least 10 characters)";
+    } else if (report_text.trim().length < 10) {
+      errors.report_text = "Please provide a more detailed description (at least 10 characters)";
     }
 
     setReportFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  // Room report submission
   const handleSubmitRoomReport = async () => {
     if (!validateRoomReportForm() || !user) {
       return;
@@ -1002,15 +853,26 @@ const StudentDashboard: React.FC = () => {
       setIsSubmittingReport(true);
       setReportFormErrors({});
 
+      // Create proper FormData with correct field names
       const formData = new FormData();
-      formData.append("class_id", reportFormData.classId);
-      formData.append("is_clean_before", reportFormData.isCleanBefore);
-      formData.append("is_clean_after", reportFormData.isCleanAfter);
-      formData.append("report_text", reportFormData.reportText);
+      
+      // Convert string values to proper types expected by API
+      formData.append("class_id", reportFormData.class_id);
+      formData.append("is_clean_before", reportFormData.is_clean_before === "true" ? "true" : "false");
+      formData.append("is_clean_after", reportFormData.is_clean_after === "true" ? "true" : "false");
+      formData.append("report_text", reportFormData.report_text);
 
       if (selectedPhoto) {
         formData.append("photo", selectedPhoto);
       }
+
+      console.log("📤 Submitting room report with data:", {
+        class_id: reportFormData.class_id,
+        is_clean_before: reportFormData.is_clean_before,
+        is_clean_after: reportFormData.is_clean_after,
+        report_text: reportFormData.report_text,
+        has_photo: !!selectedPhoto
+      });
 
       const response = await apiClient.post("/reports", formData, {
         headers: {
@@ -1024,17 +886,35 @@ const StudentDashboard: React.FC = () => {
     } catch (error: any) {
       console.error("❌ Error submitting room report:", error);
 
-      if (error.response?.status === 422 && error.response?.data?.detail) {
+      // Better error handling for 422 responses
+      if (error.response?.status === 422) {
         const apiErrors: { [key: string]: string } = {};
-        error.response.data.detail.forEach((err: any) => {
-          if (err.loc && err.loc.length > 1) {
-            apiErrors[err.loc[1]] = err.msg;
-          }
-        });
+        
+        if (Array.isArray(error.response.data?.detail)) {
+          // Handle Pydantic validation errors
+          error.response.data.detail.forEach((err: any) => {
+            if (err.loc && err.loc.length > 1) {
+              const fieldName = err.loc[err.loc.length - 1];
+              apiErrors[fieldName] = err.msg;
+            }
+          });
+        } else if (typeof error.response.data?.detail === 'object') {
+          // Handle object-style validation errors
+          Object.keys(error.response.data.detail).forEach(field => {
+            apiErrors[field] = error.response.data.detail[field];
+          });
+        } else if (error.response.data?.detail) {
+          // Handle string error message
+          apiErrors.general = error.response.data.detail;
+        } else {
+          apiErrors.general = "Validation failed. Please check your input.";
+        }
+        
         setReportFormErrors(apiErrors);
       } else {
         const errorMessage =
           error.response?.data?.detail ||
+          error.response?.data?.message ||
           error.message ||
           "Failed to submit room report. Please try again.";
         setReportFormErrors({ general: errorMessage });
@@ -1697,6 +1577,11 @@ const StudentDashboard: React.FC = () => {
                                     <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full border border-blue-200">
                                       {assignment.class_code}
                                     </span>
+                                    {assignment.teacher_name && (
+                                      <span className="text-xs text-gray-500">
+                                        by {assignment.teacher_name}
+                                      </span>
+                                    )}
                                   </div>
 
                                   {/* Assignment name - Clean Design */}
@@ -1734,7 +1619,7 @@ const StudentDashboard: React.FC = () => {
                                 </span>
                               </div>
 
-                              {/* FIXED: Button now navigates to assignments page */}
+                              {/* Button navigates to assignments page */}
                               <button
                                 onClick={() => handleSubmitAssignment(assignment)}
                                 disabled={isSubmitted}
@@ -2014,11 +1899,11 @@ const StudentDashboard: React.FC = () => {
                     Class/Room <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={reportFormData.classId}
+                    value={reportFormData.class_id}
                     onChange={(e) =>
                       setReportFormData((prev) => ({
                         ...prev,
-                        classId: e.target.value,
+                        class_id: e.target.value,
                       }))
                     }
                     className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer ${
@@ -2056,11 +1941,11 @@ const StudentDashboard: React.FC = () => {
                           type="radio"
                           name="is_clean_before"
                           value="true"
-                          checked={reportFormData.isCleanBefore === "true"}
+                          checked={reportFormData.is_clean_before === "true"}
                           onChange={(e) =>
                             setReportFormData((prev) => ({
                               ...prev,
-                              isCleanBefore: e.target.value,
+                              is_clean_before: e.target.value,
                             }))
                           }
                           className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
@@ -2072,11 +1957,11 @@ const StudentDashboard: React.FC = () => {
                           type="radio"
                           name="is_clean_before"
                           value="false"
-                          checked={reportFormData.isCleanBefore === "false"}
+                          checked={reportFormData.is_clean_before === "false"}
                           onChange={(e) =>
                             setReportFormData((prev) => ({
                               ...prev,
-                              isCleanBefore: e.target.value,
+                              is_clean_before: e.target.value,
                             }))
                           }
                           className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
@@ -2102,11 +1987,11 @@ const StudentDashboard: React.FC = () => {
                           type="radio"
                           name="is_clean_after"
                           value="true"
-                          checked={reportFormData.isCleanAfter === "true"}
+                          checked={reportFormData.is_clean_after === "true"}
                           onChange={(e) =>
                             setReportFormData((prev) => ({
                               ...prev,
-                              isCleanAfter: e.target.value,
+                              is_clean_after: e.target.value,
                             }))
                           }
                           className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
@@ -2118,11 +2003,11 @@ const StudentDashboard: React.FC = () => {
                           type="radio"
                           name="is_clean_after"
                           value="false"
-                          checked={reportFormData.isCleanAfter === "false"}
+                          checked={reportFormData.is_clean_after === "false"}
                           onChange={(e) =>
                             setReportFormData((prev) => ({
                               ...prev,
-                              isCleanAfter: e.target.value,
+                              is_clean_after: e.target.value,
                             }))
                           }
                           className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
@@ -2144,11 +2029,11 @@ const StudentDashboard: React.FC = () => {
                     Report Description <span className="text-red-500">*</span>
                   </label>
                   <textarea
-                    value={reportFormData.reportText}
+                    value={reportFormData.report_text}
                     onChange={(e) =>
                       setReportFormData((prev) => ({
                         ...prev,
-                        reportText: e.target.value,
+                        report_text: e.target.value,
                       }))
                     }
                     rows={4}

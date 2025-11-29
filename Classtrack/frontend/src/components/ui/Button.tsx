@@ -15,7 +15,7 @@ export interface ButtonProps {
   rounded?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
   as?: React.ElementType;
   to?: string;
-  [key: string]: any; // For additional props like 'to' for Link
+  [key: string]: any; 
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -35,7 +35,7 @@ const Button: React.FC<ButtonProps> = ({
   ...rest
 }) => {
   // Base styles
-  const baseStyles = 'font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2';
+  const baseStyles = 'font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2';
   
   // Variant styles
   const variantStyles = {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { authService, getAllClasses, getTeacherClasses, getStudentClasses } from '../services/authService';
+import { authService, getAllClasses, getTeacherClasses, getStudentSchedule } from '../services/authService';
 import type { ScheduleCreate, Class, ScheduleEnrichedResponse, ScheduleResponse } from '../services/authService';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
@@ -22,17 +22,25 @@ const SchedulePage: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleEnrichedResponse | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState<ScheduleEnrichedResponse | null>(null);
-  const [formData, setFormData] = useState<ScheduleCreate>({
+  const [formData, setFormData] = useState({
     class_id: 0,
+    start_date: '',
     start_time: '',
+    start_period: 'AM',
+    end_date: '',
     end_time: '',
+    end_period: 'AM',
     room_number: '',
     status: 'Occupied'
   });
-  const [editFormData, setEditFormData] = useState<ScheduleCreate>({
+  const [editFormData, setEditFormData] = useState({
     class_id: 0,
+    start_date: '',
     start_time: '',
+    start_period: 'AM',
+    end_date: '',
     end_time: '',
+    end_period: 'AM',
     room_number: '',
     status: 'Occupied'
   });
@@ -43,6 +51,68 @@ const SchedulePage: React.FC = () => {
   const [editFormError, setEditFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Timepicker states
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showEditStartTimePicker, setShowEditStartTimePicker] = useState(false);
+  const [showEditEndTimePicker, setShowEditEndTimePicker] = useState(false);
+
+  // Generate time options for the timepicker in 12-hour format
+  const generateTimeOptions = () => {
+    const times = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) { // 30-minute intervals
+        const displayHour = hour % 12 || 12; // Convert 0 to 12, 13 to 1, etc.
+        const period = hour < 12 ? 'AM' : 'PM';
+        const timeString = `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        times.push({ 
+          display: timeString, 
+          value: timeString, // Store 12-hour format for display
+          period,
+          value24: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}` // Store 24-hour for API
+        });
+      }
+    }
+    return times;
+  };
+
+  const timeOptions = generateTimeOptions();
+
+  // Convert 24-hour time to 12-hour format
+  const convertTo12Hour = (time24: string) => {
+    if (!time24) return { time: '', period: 'AM' };
+    
+    const [hours, minutes] = time24.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return {
+      time: `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
+      period
+    };
+  };
+
+  // Convert 12-hour time to 24-hour format
+  const convertTo24Hour = (time12: string, period: string) => {
+    if (!time12) return '';
+    
+    let [hours, minutes] = time12.split(':').map(Number);
+    
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Get display text for time input (12-hour format with AM/PM)
+  const getDisplayTime = (time24: string, period: string) => {
+    if (!time24) return 'Select time';
+    const time12 = convertTo12Hour(time24);
+    return `${time12.time} ${period}`;
+  };
 
   useEffect(() => {
     loadData();
@@ -81,8 +151,7 @@ const SchedulePage: React.FC = () => {
   };
 
   // FIXED: Improved student data loader with proper TypeScript typing
-  const loadStudentData = async (): Promise<{ classesData: Class[], schedulesData: any[] }> => {
-    let classesData: Class[] = [];
+  const loadStudentData = async (): Promise<{ schedulesData: any[] }> => {
     let schedulesData: any[] = [];
 
     try {
@@ -94,14 +163,7 @@ const SchedulePage: React.FC = () => {
       // If unified endpoint returns data, use it
       if (schedulesData.length > 0) {
         console.log('🎯 Student: Using unified schedules data');
-        // Load student classes for filtering
-        try {
-          classesData = await getStudentClasses();
-          console.log('✅ Student classes for filtering:', classesData);
-        } catch (error) {
-          console.warn('⚠️ Could not load student classes for filtering');
-        }
-        return { classesData, schedulesData };
+        return { schedulesData };
       }
     } catch (error) {
       console.warn('⚠️ Student: Unified schedules failed, trying student-specific endpoint');
@@ -136,19 +198,11 @@ const SchedulePage: React.FC = () => {
       
       console.log('✅ Student-specific schedules:', schedulesData);
       
-      // Load student classes
-      try {
-        classesData = await getStudentClasses();
-        console.log('✅ Student classes:', classesData);
-      } catch (error) {
-        console.warn('⚠️ Could not load student classes');
-      }
-      
     } catch (error) {
       console.warn('⚠️ All student endpoints failed, using empty data');
     }
 
-    return { classesData, schedulesData };
+    return { schedulesData };
   };
 
   // FIXED: Unified Data Loading for All Roles with proper TypeScript
@@ -192,24 +246,20 @@ const SchedulePage: React.FC = () => {
       
       console.log('📅 Enriched schedules for display:', enrichedSchedules);
 
-      // For students: Filter to show only THEIR classes
+      // For students: Use the student schedule directly
       let finalSchedules = enrichedSchedules;
       if (user?.role === 'student') {
-        // Get student's enrolled classes first
-        let studentClasses: Class[] = [];
+        // Try to get student schedule directly
         try {
-          studentClasses = await getStudentClasses();
-          console.log('🎓 Student enrolled classes:', studentClasses);
+          const studentScheduleData = await getStudentSchedule();
+          console.log('🎓 Student schedule data:', studentScheduleData);
+          
+          if (studentScheduleData.length > 0) {
+            finalSchedules = studentScheduleData.map(convertToEnrichedSchedule);
+            console.log('🎯 Using direct student schedule:', finalSchedules);
+          }
         } catch (error) {
-          console.warn('⚠️ Could not load student classes');
-        }
-
-        // Filter schedules to only show classes the student is enrolled in
-        if (studentClasses.length > 0) {
-          finalSchedules = enrichedSchedules.filter(schedule => 
-            studentClasses.some(studentClass => studentClass.id === schedule.class_id)
-          );
-          console.log('🎯 Filtered student schedules:', finalSchedules);
+          console.warn('⚠️ Could not load direct student schedule, using filtered schedules');
         }
       }
 
@@ -247,16 +297,58 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Helper function to combine date and time into ISO string
+  const combineDateTime = (date: string, time: string): string => {
+    if (!date || !time) return '';
+    return new Date(`${date}T${time}`).toISOString();
+  };
+
+  // Time selection handlers
+  const handleTimeSelect = (time: string, period: string, type: 'start' | 'end') => {
+    const time24 = convertTo24Hour(time, period);
+    setFormData(prev => ({
+      ...prev,
+      [type === 'start' ? 'start_time' : 'end_time']: time24,
+      [type === 'start' ? 'start_period' : 'end_period']: period
+    }));
+    if (type === 'start') setShowStartTimePicker(false);
+    if (type === 'end') setShowEndTimePicker(false);
+  };
+
+  const handleEditTimeSelect = (time: string, period: string, type: 'start' | 'end') => {
+    const time24 = convertTo24Hour(time, period);
+    setEditFormData(prev => ({
+      ...prev,
+      [type === 'start' ? 'start_time' : 'end_time']: time24,
+      [type === 'start' ? 'start_period' : 'end_period']: period
+    }));
+    if (type === 'start') setShowEditStartTimePicker(false);
+    if (type === 'end') setShowEditEndTimePicker(false);
+  };
+
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('📝 Creating schedule with data:', formData);
+    
+    // Combine date and time into ISO strings
+    const startDateTime = combineDateTime(formData.start_date, formData.start_time);
+    const endDateTime = combineDateTime(formData.end_date, formData.end_time);
+    
+    const scheduleData: ScheduleCreate = {
+      class_id: formData.class_id,
+      start_time: startDateTime,
+      end_time: endDateTime,
+      room_number: formData.room_number,
+      status: formData.status
+    };
+
+    console.log('📝 Creating schedule with data:', scheduleData);
 
     if (!formData.class_id || formData.class_id === 0) {
       setFormError('Please select a valid class');
       return;
     }
 
-    if (!formData.start_time || !formData.end_time || !formData.room_number) {
+    if (!formData.start_date || !formData.start_time || !formData.end_date || !formData.end_time || !formData.room_number) {
       setFormError('Please fill in all required fields');
       return;
     }
@@ -270,13 +362,17 @@ const SchedulePage: React.FC = () => {
     try {
       setFormLoading(true);
       setFormError(null);
-      await authService.createSchedule(formData);
+      await authService.createSchedule(scheduleData);
       setSuccessMessage('Schedule created successfully!');
       setIsModalOpen(false);
       setFormData({
         class_id: 0,
+        start_date: '',
         start_time: '',
+        start_period: 'AM',
+        end_date: '',
         end_time: '',
+        end_period: 'AM',
         room_number: '',
         status: 'Occupied'
       });
@@ -291,10 +387,22 @@ const SchedulePage: React.FC = () => {
 
   const handleEditSchedule = (schedule: ScheduleEnrichedResponse) => {
     setEditingSchedule(schedule);
+    
+    // Parse existing datetime into separate date and time
+    const startDate = new Date(schedule.start_time);
+    const endDate = new Date(schedule.end_time);
+    
+    const startTime12 = convertTo12Hour(startDate.toTimeString().slice(0, 5));
+    const endTime12 = convertTo12Hour(endDate.toTimeString().slice(0, 5));
+    
     setEditFormData({
       class_id: schedule.class_id,
-      start_time: new Date(schedule.start_time).toISOString().slice(0, 16),
-      end_time: new Date(schedule.end_time).toISOString().slice(0, 16),
+      start_date: startDate.toISOString().split('T')[0],
+      start_time: startTime12.time,
+      start_period: startTime12.period,
+      end_date: endDate.toISOString().split('T')[0],
+      end_time: endTime12.time,
+      end_period: endTime12.period,
       room_number: schedule.room_number,
       status: schedule.status
     });
@@ -304,15 +412,28 @@ const SchedulePage: React.FC = () => {
 
   const handleUpdateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSchedule || !editFormData.class_id || !editFormData.start_time || !editFormData.end_time || !editFormData.room_number) {
+    
+    // Combine date and time into ISO strings
+    const startDateTime = combineDateTime(editFormData.start_date, editFormData.start_time);
+    const endDateTime = combineDateTime(editFormData.end_date, editFormData.end_time);
+    
+    if (!editingSchedule || !editFormData.class_id || !editFormData.start_date || !editFormData.start_time || !editFormData.end_date || !editFormData.end_time || !editFormData.room_number) {
       setEditFormError('Please fill in all required fields');
       return;
     }
 
+    const scheduleData: ScheduleCreate = {
+      class_id: editFormData.class_id,
+      start_time: startDateTime,
+      end_time: endDateTime,
+      room_number: editFormData.room_number,
+      status: editFormData.status
+    };
+
     try {
       setEditFormLoading(true);
       setEditFormError(null);
-      await authService.updateSchedule(editingSchedule.id, editFormData);
+      await authService.updateSchedule(editingSchedule.id, scheduleData);
       setSuccessMessage('Schedule updated successfully!');
       setIsEditModalOpen(false);
       setEditingSchedule(null);
@@ -428,7 +549,7 @@ const SchedulePage: React.FC = () => {
                 localStorage.removeItem('userId');
                 window.location.href = '/login';
               }}
-              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300"
+              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
               title="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -437,7 +558,7 @@ const SchedulePage: React.FC = () => {
             </button>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
               title="Toggle menu"
             >
               <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -497,7 +618,7 @@ const SchedulePage: React.FC = () => {
                   <div className="ml-auto pl-3">
                     <button
                       onClick={() => setSuccessMessage(null)}
-                      className="inline-flex text-green-400 hover:text-green-600"
+                      className="inline-flex text-green-400 hover:text-green-600 cursor-pointer"
                       title="Dismiss message"
                     >
                       <span className="sr-only">Dismiss</span>
@@ -527,7 +648,7 @@ const SchedulePage: React.FC = () => {
                     <button
                       onClick={loadData}
                       disabled={loading}
-                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
                       title="Refresh schedules"
                     >
                       <svg className={`-ml-1 mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -538,7 +659,7 @@ const SchedulePage: React.FC = () => {
                     {user?.role !== 'student' && (
                       <button
                         onClick={() => setIsModalOpen(true)}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm"
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm cursor-pointer"
                         title="Create new schedule"
                       >
                         <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -561,7 +682,7 @@ const SchedulePage: React.FC = () => {
                       placeholder={user?.role === 'student' ? "Search classes, teachers, or rooms..." : "Search schedules..."}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 text-gray-900 focus:outline-none focus:placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 sm:text-sm transition-all duration-200"
+                      className="block w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 text-gray-900 focus:outline-none focus:placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 sm:text-sm transition-all duration-200 cursor-text"
                     />
                   </div>
                 </div>
@@ -584,96 +705,112 @@ const SchedulePage: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Class</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Teacher</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Room</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Start Time</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">End Time</th>
-                        <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                        {user?.role !== 'student' && (
-                          <th className="px-4 lg:px-6 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredSchedules.length > 0 ? (
-                        filteredSchedules.map((schedule) => (
-                          <tr key={schedule.id} className="hover:bg-gray-50 transition-colors duration-200">
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">{schedule.class_name}</div>
-                              <div className="text-sm text-gray-500">{schedule.class_code}</div>
-                            </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-700">
-                              {schedule.teacher_name}
-                            </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-700">
-                              {schedule.room_number}
-                            </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-700">
-                              {formatDateTime(schedule.start_time)}
-                            </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-700">
-                              {formatDateTime(schedule.end_time)}
-                            </td>
-                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(schedule.status)}`}>
-                                {schedule.status}
-                              </span>
-                            </td>
-                            {user?.role !== 'student' && (
-                              <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                <button
-                                  onClick={() => handleEditSchedule(schedule)}
-                                  className="text-blue-600 hover:text-blue-800 mr-3 transition-colors duration-200"
-                                  title="Edit schedule"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteSchedule(schedule)}
-                                  className="text-red-600 hover:text-red-800 transition-colors duration-200"
-                                  title="Delete schedule"
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        ))
-                      ) : (
+                  
+                  {/* FIXED: Improved table container with better responsive design */}
+                  <div className="min-w-full overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
-                          <td colSpan={user?.role !== 'student' ? 7 : 6} className="px-6 py-10 text-center">
-                            <div className="flex flex-col items-center">
-                              <svg className="w-10 h-10 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              <h3 className="text-base font-medium text-gray-900 mb-1">No schedules found</h3>
-                              <p className="text-gray-500 mb-3 text-sm">
-                                {searchTerm ? 'No schedules match your search criteria.' : 
-                                 user?.role === 'student' ? 'No schedules assigned to you yet. Please check back later.' : 
-                                 'Get started by creating your first schedule.'}
-                              </p>
-                              {!searchTerm && user?.role !== 'student' && (
-                                <button
-                                  onClick={() => setIsModalOpen(true)}
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm"
-                                  title="Create new schedule"
-                                >
-                                  <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                  </svg>
-                                  Create Schedule
-                                </button>
-                              )}
-                            </div>
-                          </td>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[120px]">Class</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[120px]">Teacher</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[80px]">Room</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[150px]">Start Time</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[150px]">End Time</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[100px]">Status</th>
+                          {user?.role !== 'student' && (
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[120px]">Actions</th>
+                          )}
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredSchedules.length > 0 ? (
+                          filteredSchedules.map((schedule) => (
+                            <tr key={schedule.id} className="hover:bg-gray-50 transition-colors duration-200">
+                              <td className="px-3 py-2 whitespace-nowrap cursor-default">
+                                <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]" title={schedule.class_name}>
+                                  {schedule.class_name}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate max-w-[150px]" title={schedule.class_code}>
+                                  {schedule.class_code}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 cursor-default truncate max-w-[120px]" title={schedule.teacher_name}>
+                                {schedule.teacher_name}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 cursor-default">
+                                {schedule.room_number}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 cursor-default">
+                                {formatDateTime(schedule.start_time)}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 cursor-default">
+                                {formatDateTime(schedule.end_time)}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap cursor-default">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(schedule.status)}`}>
+                                  {schedule.status}
+                                </span>
+                              </td>
+                              {user?.role !== 'student' && (
+                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
+                                  <div className="flex items-center space-x-2">
+                                    <button
+                                      onClick={() => handleEditSchedule(schedule)}
+                                      className="inline-flex items-center px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 rounded-lg border border-blue-200 hover:border-blue-300 transition-all duration-200 cursor-pointer text-xs font-medium"
+                                      title="Edit schedule"
+                                    >
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSchedule(schedule)}
+                                      className="inline-flex items-center px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-lg border border-red-200 hover:border-red-300 transition-all duration-200 cursor-pointer text-xs font-medium"
+                                      title="Delete schedule"
+                                    >
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                      Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={user?.role !== 'student' ? 7 : 6} className="px-6 py-10 text-center cursor-default">
+                              <div className="flex flex-col items-center">
+                                <svg className="w-10 h-10 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <h3 className="text-base font-medium text-gray-900 mb-1">No schedules found</h3>
+                                <p className="text-gray-500 mb-3 text-sm">
+                                  {searchTerm ? 'No schedules match your search criteria.' : 
+                                   user?.role === 'student' ? 'No schedules assigned to you yet. Please check back later.' : 
+                                   'Get started by creating your first schedule.'}
+                                </p>
+                                {!searchTerm && user?.role !== 'student' && (
+                                  <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm cursor-pointer"
+                                    title="Create new schedule"
+                                  >
+                                    <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                    Create Schedule
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
@@ -681,10 +818,10 @@ const SchedulePage: React.FC = () => {
         </main>
       </div>
 
-      {/* Create Schedule Modal - UPDATED WITH WHITE BACKGROUND */}
+      {/* Create Schedule Modal - FIXED TIME DISPLAY */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto border border-gray-300 cursor-auto">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
               <div className="flex items-center justify-between">
@@ -706,7 +843,7 @@ const SchedulePage: React.FC = () => {
               <div className="space-y-4">
                 {/* Class Selection */}
                 <div>
-                  <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Class <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -717,7 +854,7 @@ const SchedulePage: React.FC = () => {
                       console.log('🎯 Class selection changed:', { selectedClassId, selectedClass: classes.find(c => c.id === selectedClassId) });
                       setFormData({ ...formData, class_id: selectedClassId });
                     }}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
                     required
                     title="Select a class"
                   >
@@ -739,41 +876,123 @@ const SchedulePage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Start Time */}
+                {/* Start Date and Time */}
                 <div>
-                  <label htmlFor="start-time" className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Time <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
+                    Start Date & Time <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    id="start-time"
-                    type="datetime-local"
-                    value={formData.start_time}
-                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
-                    required
-                    title="Select start time"
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <input
+                        type="date"
+                        value={formData.start_date}
+                        onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
+                        required
+                        title="Select start date"
+                      />
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={getDisplayTime(formData.start_time, formData.start_period)}
+                        onClick={() => setShowStartTimePicker(!showStartTimePicker)}
+                        readOnly
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
+                        required
+                        title="Select start time"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      
+                      {/* Timepicker Dropdown */}
+                      {showStartTimePicker && (
+                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <div className="p-2">
+                            {timeOptions.map((timeObj) => (
+                              <button
+                                key={`${timeObj.value24}-${timeObj.period}`}
+                                type="button"
+                                onClick={() => handleTimeSelect(timeObj.value, timeObj.period, 'start')}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
+                                  formData.start_time === timeObj.value24 && formData.start_period === timeObj.period 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                {timeObj.display} {timeObj.period}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* End Time */}
+                {/* End Date and Time */}
                 <div>
-                  <label htmlFor="end-time" className="block text-sm font-medium text-gray-700 mb-1">
-                    End Time <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
+                    End Date & Time <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    id="end-time"
-                    type="datetime-local"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
-                    required
-                    title="Select end time"
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <input
+                        type="date"
+                        value={formData.end_date}
+                        onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
+                        required
+                        title="Select end date"
+                      />
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={getDisplayTime(formData.end_time, formData.end_period)}
+                        onClick={() => setShowEndTimePicker(!showEndTimePicker)}
+                        readOnly
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
+                        required
+                        title="Select end time"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      
+                      {/* Timepicker Dropdown */}
+                      {showEndTimePicker && (
+                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <div className="p-2">
+                            {timeOptions.map((timeObj) => (
+                              <button
+                                key={`${timeObj.value24}-${timeObj.period}`}
+                                type="button"
+                                onClick={() => handleTimeSelect(timeObj.value, timeObj.period, 'end')}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
+                                  formData.end_time === timeObj.value24 && formData.end_period === timeObj.period 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                {timeObj.display} {timeObj.period}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Room Number */}
                 <div>
-                  <label htmlFor="room-number" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="room-number" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Room Number <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -782,7 +1001,7 @@ const SchedulePage: React.FC = () => {
                     value={formData.room_number}
                     onChange={(e) => setFormData({ ...formData, room_number: e.target.value })}
                     placeholder="e.g., Room 101, Lab A"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 placeholder-gray-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 placeholder-gray-500 cursor-text"
                     required
                     title="Enter room number"
                   />
@@ -790,14 +1009,14 @@ const SchedulePage: React.FC = () => {
 
                 {/* Status */}
                 <div>
-                  <label htmlFor="status-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="status-select" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Status
                   </label>
                   <select
                     id="status-select"
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
                     title="Select status"
                   >
                     <option value="Occupied" className="text-gray-900">Occupied</option>
@@ -811,8 +1030,12 @@ const SchedulePage: React.FC = () => {
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setShowStartTimePicker(false);
+                    setShowEndTimePicker(false);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
                   disabled={formLoading}
                 >
                   Cancel
@@ -820,7 +1043,7 @@ const SchedulePage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={formLoading}
-                  className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
+                  className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
                 >
                   {formLoading ? 'Creating...' : 'Create Schedule'}
                 </button>
@@ -830,10 +1053,10 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Schedule Modal - UPDATED WITH WHITE BACKGROUND */}
+      {/* Edit Schedule Modal - FIXED TIME DISPLAY */}
       {isEditModalOpen && editingSchedule && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto border border-gray-300 cursor-auto">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
               <h3 className="text-lg font-semibold text-gray-900">Edit Schedule</h3>
             </div>
@@ -845,14 +1068,14 @@ const SchedulePage: React.FC = () => {
               )}
               <form onSubmit={handleUpdateSchedule} className="space-y-4">
                 <div>
-                  <label htmlFor="edit-class-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="edit-class-select" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Class <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="edit-class-select"
                     value={editFormData.class_id}
                     onChange={(e) => setEditFormData({ ...editFormData, class_id: parseInt(e.target.value) })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
                     required
                     title="Select a class"
                   >
@@ -863,36 +1086,123 @@ const SchedulePage: React.FC = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* Start Date and Time */}
                 <div>
-                  <label htmlFor="edit-start-time" className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Time <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
+                    Start Date & Time <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    id="edit-start-time"
-                    type="datetime-local"
-                    value={editFormData.start_time}
-                    onChange={(e) => setEditFormData({ ...editFormData, start_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
-                    required
-                    title="Select start time"
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <input
+                        type="date"
+                        value={editFormData.start_date}
+                        onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
+                        required
+                        title="Select start date"
+                      />
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={getDisplayTime(editFormData.start_time, editFormData.start_period)}
+                        onClick={() => setShowEditStartTimePicker(!showEditStartTimePicker)}
+                        readOnly
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
+                        required
+                        title="Select start time"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      
+                      {/* Timepicker Dropdown */}
+                      {showEditStartTimePicker && (
+                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <div className="p-2">
+                            {timeOptions.map((timeObj) => (
+                              <button
+                                key={`${timeObj.value24}-${timeObj.period}`}
+                                type="button"
+                                onClick={() => handleEditTimeSelect(timeObj.value, timeObj.period, 'start')}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
+                                  editFormData.start_time === timeObj.value24 && editFormData.start_period === timeObj.period 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                {timeObj.display} {timeObj.period}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {/* End Date and Time */}
                 <div>
-                  <label htmlFor="edit-end-time" className="block text-sm font-medium text-gray-700 mb-1">
-                    End Time <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
+                    End Date & Time <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    id="edit-end-time"
-                    type="datetime-local"
-                    value={editFormData.end_time}
-                    onChange={(e) => setEditFormData({ ...editFormData, end_time: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
-                    required
-                    title="Select end time"
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <input
+                        type="date"
+                        value={editFormData.end_date}
+                        onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
+                        required
+                        title="Select end date"
+                      />
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={getDisplayTime(editFormData.end_time, editFormData.end_period)}
+                        onClick={() => setShowEditEndTimePicker(!showEditEndTimePicker)}
+                        readOnly
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
+                        required
+                        title="Select end time"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      
+                      {/* Timepicker Dropdown */}
+                      {showEditEndTimePicker && (
+                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <div className="p-2">
+                            {timeOptions.map((timeObj) => (
+                              <button
+                                key={`${timeObj.value24}-${timeObj.period}`}
+                                type="button"
+                                onClick={() => handleEditTimeSelect(timeObj.value, timeObj.period, 'end')}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
+                                  editFormData.end_time === timeObj.value24 && editFormData.end_period === timeObj.period 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                {timeObj.display} {timeObj.period}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
                 <div>
-                  <label htmlFor="edit-room-number" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="edit-room-number" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Room Number <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -901,20 +1211,20 @@ const SchedulePage: React.FC = () => {
                     value={editFormData.room_number}
                     onChange={(e) => setEditFormData({ ...editFormData, room_number: e.target.value })}
                     placeholder="e.g., Room 101, Lab A"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 placeholder-gray-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 placeholder-gray-500 cursor-text"
                     required
                     title="Enter room number"
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-status-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="edit-status-select" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Status
                   </label>
                   <select
                     id="edit-status-select"
                     value={editFormData.status}
                     onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
                     title="Select status"
                   >
                     <option value="Occupied" className="text-gray-900">Occupied</option>
@@ -925,8 +1235,12 @@ const SchedulePage: React.FC = () => {
                 <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                   <button
                     type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                    onClick={() => {
+                      setIsEditModalOpen(false);
+                      setShowEditStartTimePicker(false);
+                      setShowEditEndTimePicker(false);
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
                     title="Cancel editing"
                   >
                     Cancel
@@ -934,7 +1248,7 @@ const SchedulePage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={editFormLoading}
-                    className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
+                    className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
                     title="Update schedule"
                   >
                     {editFormLoading ? 'Updating...' : 'Update Schedule'}
@@ -946,10 +1260,10 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal - UPDATED WITH WHITE BACKGROUND */}
+      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && deletingSchedule && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300 cursor-auto">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
               <h3 className="text-lg font-semibold text-gray-900">Delete Schedule</h3>
             </div>
@@ -966,7 +1280,7 @@ const SchedulePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsDeleteModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
                   title="Cancel deletion"
                 >
                   Cancel
@@ -974,7 +1288,7 @@ const SchedulePage: React.FC = () => {
                 <button
                   onClick={confirmDeleteSchedule}
                   disabled={deleteLoading}
-                  className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors duration-200"
+                  className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
                   title="Delete schedule"
                 >
                   {deleteLoading ? 'Deleting...' : 'Delete Schedule'}

@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2Pas
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, validator
-from typing import Optional
+from typing import Optional, List
 import enum
 from datetime import datetime, timedelta
 import os
@@ -96,8 +96,6 @@ class UserProfileUpdate(BaseModel):
             raise ValueError('Last name cannot be empty')
         return v.strip() if v else v
 
-
-
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -150,7 +148,6 @@ async def lifespan(app: FastAPI):
             )
             db.add(admin_user)
             print(f"✅ Test Admin user created: admin@classtrack.edu / {plain_password}")
-            print(f"   Hashed password length: {len(admin_hashed_password)} characters")
         
         # Check if test student user already exists
         student_user = get_user_by_username(db, "student@classtrack.edu")
@@ -166,7 +163,21 @@ async def lifespan(app: FastAPI):
             )
             db.add(student_user)
             print(f"✅ Test Student user created: student@classtrack.edu / {plain_password}")
-            print(f"   Hashed password length: {len(student_hashed_password)} characters")
+        
+        # Check if test teacher user already exists
+        teacher_user = get_user_by_username(db, "teacher@classtrack.edu")
+        if not teacher_user:
+            # Create test teacher user with properly hashed password
+            plain_password = "password123"
+            teacher_hashed_password = get_password_hash(plain_password)
+            
+            teacher_user = User(
+                username="teacher@classtrack.edu",
+                hashed_password=teacher_hashed_password,
+                role=UserRole.TEACHER
+            )
+            db.add(teacher_user)
+            print(f"✅ Test Teacher user created: teacher@classtrack.edu / {plain_password}")
         
         # Commit all changes
         db.commit()
@@ -232,7 +243,6 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
         return None
     
     return user
-
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> User:
     """Get the current authenticated user from JWT token"""
@@ -810,6 +820,280 @@ async def delete_existing_assignment(
                 detail=f"Failed to delete assignment: {error_message}"
             )
 
+# FIXED: Student assignments endpoint - ALL STUDENTS CAN SEE ALL ASSIGNMENTS
+@app.get("/assignments/student/", response_model=List[AssignmentResponse])
+async def get_student_assignments_all(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get ALL assignments for ALL students (including from all teachers)
+    
+    Returns ALL assignments from ALL classes.
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student assignments"
+        )
+    
+    try:
+        print(f"📝 Fetching ALL assignments for student: {current_user.username}")
+        
+        # Get ALL assignments with class and teacher information
+        assignments = db.query(Assignment).join(Class).join(User, Class.teacher_id == User.id).all()
+        
+        print(f"✅ Found {len(assignments)} assignments for student")
+        
+        # Convert to response format
+        assignment_responses = []
+        for assignment in assignments:
+            # Get class information
+            class_obj = assignment.class_
+            class_name = class_obj.name if class_obj else f"Class {assignment.class_id}"
+            
+            # Get teacher information
+            teacher_name = "Unknown Teacher"
+            if class_obj and class_obj.teacher:
+                teacher_name = class_obj.teacher.first_name + " " + class_obj.teacher.last_name if class_obj.teacher.first_name and class_obj.teacher.last_name else class_obj.teacher.username
+            elif assignment.creator:
+                teacher_name = assignment.creator.first_name + " " + assignment.creator.last_name if assignment.creator.first_name and assignment.creator.last_name else assignment.creator.username
+            
+            # FIX: Safely handle created_at
+            created_at = getattr(assignment, 'created_at', None)
+            if created_at:
+                created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
+            else:
+                created_at_str = datetime.utcnow().isoformat()
+            
+            assignment_response = AssignmentResponse(
+                id=assignment.id,
+                name=assignment.name,
+                description=assignment.description,
+                class_id=assignment.class_id,
+                class_name=class_name,
+                class_code=class_obj.code if class_obj else None,
+                teacher_name=teacher_name,
+                creator_id=assignment.creator_id,
+                created_at=created_at_str
+            )
+            assignment_responses.append(assignment_response)
+        
+        return assignment_responses
+        
+    except Exception as e:
+        print(f"❌ Error fetching student assignments: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch student assignments: {str(e)}"
+        )
+
+# FIXED: Student classes endpoint - ALL STUDENTS CAN SEE ALL CLASSES
+@app.get("/classes/student/", response_model=List[dict])
+async def get_student_classes_all(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get ALL classes for ALL students with teacher information
+    
+    Returns ALL classes with teacher details.
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student classes"
+        )
+    
+    try:
+        print(f"📚 Fetching ALL classes for student: {current_user.username}")
+        
+        # Get ALL classes with teacher information
+        classes = db.query(Class).join(User, Class.teacher_id == User.id).all()
+        
+        print(f"✅ Found {len(classes)} classes for student")
+        
+        classes_data = []
+        for class_obj in classes:
+            teacher = class_obj.teacher
+            
+            # Get teacher name
+            teacher_name = "Unknown Teacher"
+            if teacher:
+                teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
+            
+            # FIX: Safely handle description attribute
+            description = getattr(class_obj, 'description', None)
+            
+            # FIX: Safely handle created_at attribute - use current time if not available
+            created_at = getattr(class_obj, 'created_at', None)
+            if created_at:
+                created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
+            else:
+                created_at_str = datetime.utcnow().isoformat()
+            
+            class_data = {
+                "id": class_obj.id,
+                "name": class_obj.name,
+                "code": class_obj.code,
+                "teacher_id": class_obj.teacher_id,
+                "teacher_name": teacher_name,
+                "description": description,
+                "created_at": created_at_str
+            }
+            classes_data.append(class_data)
+        
+        print(f"✅ Returning {len(classes_data)} classes for student")
+        return classes_data
+        
+    except Exception as e:
+        print(f"❌ Error fetching student classes: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch student classes: {str(e)}"
+        )
+
+# FIXED: Add the missing /students/me/classes endpoint
+@app.get("/students/me/classes", response_model=List[dict])
+async def get_student_my_classes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get classes for the current student (Student only)
+    
+    Returns classes that the student is enrolled in.
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student classes"
+        )
+    
+    try:
+        print(f"📚 Fetching enrolled classes for student: {current_user.username}")
+        
+        # Get classes the student is enrolled in
+        enrollments = db.query(Enrollment).filter(Enrollment.student_id == current_user.id).all()
+        class_ids = [enrollment.class_id for enrollment in enrollments]
+        
+        if not class_ids:
+            return []
+        
+        # Get classes with teacher information
+        classes = db.query(Class).join(User, Class.teacher_id == User.id).filter(
+            Class.id.in_(class_ids)
+        ).all()
+        
+        print(f"✅ Found {len(classes)} enrolled classes for student")
+        
+        classes_data = []
+        for class_obj in classes:
+            teacher = class_obj.teacher
+            
+            # Get teacher name
+            teacher_name = "Unknown Teacher"
+            if teacher:
+                teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
+            
+            # FIX: Safely handle description attribute
+            description = getattr(class_obj, 'description', None)
+            
+            # FIX: Safely handle created_at attribute
+            created_at = getattr(class_obj, 'created_at', None)
+            if created_at:
+                created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
+            else:
+                created_at_str = datetime.utcnow().isoformat()
+            
+            class_data = {
+                "id": class_obj.id,
+                "name": class_obj.name,
+                "code": class_obj.code,
+                "teacher_id": class_obj.teacher_id,
+                "teacher_name": teacher_name,
+                "description": description,
+                "created_at": created_at_str
+            }
+            classes_data.append(class_data)
+        
+        print(f"✅ Returning {len(classes_data)} enrolled classes for student")
+        return classes_data
+        
+    except Exception as e:
+        print(f"❌ Error fetching student enrolled classes: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch student enrolled classes: {str(e)}"
+        )
+
+# Teacher assignments endpoint
+@app.get("/assignments/teacher/", response_model=List[AssignmentResponse])
+async def get_teacher_assignments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get assignments created by the current teacher
+    
+    Returns assignments created by the teacher with class information.
+    
+    Requires authentication and TEACHER role.
+    """
+    # Check if current user is a teacher
+    if current_user.role != UserRole.TEACHER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view teacher assignments"
+        )
+    
+    try:
+        print(f"📝 Fetching assignments for teacher: {current_user.username}")
+        
+        # Get assignments created by the teacher with class information
+        assignments = db.query(Assignment).join(Class).filter(
+            Assignment.creator_id == current_user.id
+        ).all()
+        
+        print(f"✅ Found {len(assignments)} assignments for teacher")
+        
+        # Convert to response format
+        assignment_responses = []
+        for assignment in assignments:
+            class_obj = assignment.class_
+            class_name = class_obj.name if class_obj else f"Class {assignment.class_id}"
+            
+            assignment_response = AssignmentResponse(
+                id=assignment.id,
+                name=assignment.name,
+                description=assignment.description,
+                class_id=assignment.class_id,
+                class_name=class_name,
+                class_code=class_obj.code if class_obj else None,
+                teacher_name=current_user.first_name + " " + current_user.last_name if current_user.first_name and current_user.last_name else current_user.username,
+                creator_id=assignment.creator_id,
+                created_at=assignment.created_at
+            )
+            assignment_responses.append(assignment_response)
+        
+        return assignment_responses
+        
+    except Exception as e:
+        print(f"❌ Error fetching teacher assignments: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch teacher assignments: {str(e)}"
+        )
+
 # Submission endpoints (Student only)
 
 @app.post("/submissions/", response_model=SubmissionResponse, status_code=status.HTTP_201_CREATED)
@@ -859,6 +1143,145 @@ async def create_new_submission(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while creating the submission. Please try again."
+        )
+
+# STUDENT-SPECIFIC ENDPOINTS - ADD THESE MISSING FUNCTIONS
+
+@app.get("/students/me/submissions", response_model=List[SubmissionResponse])
+async def get_student_submissions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all submissions for the current student
+    
+    Returns:
+        List of submissions made by the student
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student submissions"
+        )
+    
+    try:
+        print(f"📄 Fetching submissions for student: {current_user.username}")
+        
+        # Get all submissions for the student
+        submissions = db.query(Submission).filter(
+            Submission.student_id == current_user.id
+        ).all()
+        
+        print(f"✅ Found {len(submissions)} submissions for student")
+        
+        # Convert to response format
+        submission_responses = []
+        for submission in submissions:
+            # FIX: Safely handle submitted_at
+            submitted_at = getattr(submission, 'submitted_at', None)
+            if submitted_at:
+                submitted_at_str = submitted_at.isoformat() if hasattr(submitted_at, 'isoformat') else str(submitted_at)
+            else:
+                submitted_at_str = datetime.utcnow().isoformat()
+            
+            submission_response = SubmissionResponse(
+                id=submission.id,
+                assignment_id=submission.assignment_id,
+                student_id=submission.student_id,
+                grade=submission.grade,
+                time_spent_minutes=submission.time_spent_minutes,
+                submitted_at=submitted_at_str
+            )
+            submission_responses.append(submission_response)
+        
+        return submission_responses
+        
+    except Exception as e:
+        print(f"❌ Error fetching student submissions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch student submissions: {str(e)}"
+        )
+
+@app.get("/students/me/schedule")
+async def get_student_schedule(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get schedule for the current student
+    
+    Returns:
+        List of schedules for the student's enrolled classes
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student schedule"
+        )
+    
+    try:
+        print(f"📅 Fetching schedule for student: {current_user.username}")
+        
+        # Get classes the student is enrolled in
+        enrollments = db.query(Enrollment).filter(Enrollment.student_id == current_user.id).all()
+        class_ids = [enrollment.class_id for enrollment in enrollments]
+        
+        if not class_ids:
+            return []
+        
+        # Get schedules for those classes
+        schedules = db.query(Schedule).filter(Schedule.class_id.in_(class_ids)).all()
+        
+        # Convert to response format with enriched information
+        schedule_responses = []
+        for schedule in schedules:
+            # Get class information
+            class_obj = db.query(Class).filter(Class.id == schedule.class_id).first()
+            class_name = class_obj.name if class_obj else f"Class {schedule.class_id}"
+            class_code = class_obj.code if class_obj else "N/A"
+            
+            # Get teacher information
+            teacher_name = "Unknown Teacher"
+            if class_obj and class_obj.teacher:
+                teacher = class_obj.teacher
+                teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
+            
+            # FIX: Safely handle created_at
+            created_at = getattr(schedule, 'created_at', None)
+            if created_at:
+                created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
+            else:
+                created_at_str = datetime.utcnow().isoformat()
+            
+            schedule_response = {
+                "id": schedule.id,
+                "class_id": schedule.class_id,
+                "class_name": class_name,
+                "class_code": class_code,
+                "teacher_name": teacher_name,
+                "start_time": schedule.start_time.isoformat() if hasattr(schedule.start_time, 'isoformat') else str(schedule.start_time),
+                "end_time": schedule.end_time.isoformat() if hasattr(schedule.end_time, 'isoformat') else str(schedule.end_time),
+                "room_number": schedule.room_number,
+                "status": schedule.status,
+                "created_at": created_at_str
+            }
+            schedule_responses.append(schedule_response)
+        
+        print(f"✅ Found {len(schedule_responses)} schedule entries for student")
+        return schedule_responses
+        
+    except Exception as e:
+        print(f"❌ Error fetching student schedule: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch student schedule: {str(e)}"
         )
 
 # Insights endpoints (Teacher and Admin only)
@@ -1107,7 +1530,6 @@ async def get_users(db: Session = Depends(get_db), current_user: User = Depends(
     
     users = db.query(User).all()
     return users
-
 
 @app.post("/users/create", response_model=UserResponse)
 async def create_user_by_admin(
@@ -1470,7 +1892,6 @@ async def export_all_classes_data(
     classes = get_all_classes(db)
     return classes
 
-
 # Schedule endpoints
 @app.post("/schedules/", response_model=ScheduleResponse)
 async def create_schedule_endpoint(
@@ -1499,7 +1920,6 @@ async def create_schedule_endpoint(
             detail=f"Failed to create schedule: {str(e)}"
         )
 
-
 @app.get("/schedules/", response_model=list[ScheduleResponse])
 async def get_schedules_endpoint(
     skip: int = 0,
@@ -1525,7 +1945,6 @@ async def get_schedules_endpoint(
             detail=f"Failed to fetch schedules: {str(e)}"
         )
 
-
 @app.get("/schedules/live")
 async def get_schedules_live_endpoint(db: Session = Depends(get_db)):
     """
@@ -1539,7 +1958,6 @@ async def get_schedules_live_endpoint(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch live schedules: {str(e)}"
         )
-
 
 @app.get("/schedules/{schedule_id}", response_model=ScheduleResponse)
 async def get_schedule_endpoint(
@@ -1564,7 +1982,6 @@ async def get_schedule_endpoint(
             detail="Schedule not found"
         )
     return schedule
-
 
 @app.put("/schedules/{schedule_id}", response_model=ScheduleResponse)
 async def update_schedule_endpoint(
@@ -1600,7 +2017,6 @@ async def update_schedule_endpoint(
             detail=f"Failed to update schedule: {str(e)}"
         )
 
-
 @app.delete("/schedules/{schedule_id}")
 async def delete_schedule_endpoint(
     schedule_id: int,
@@ -1623,7 +2039,6 @@ async def delete_schedule_endpoint(
             detail="Schedule not found"
         )
     return {"message": "Schedule deleted successfully"}
-
 
 # Announcement endpoints
 @app.post("/announcements/", response_model=AnnouncementResponse)
@@ -1650,7 +2065,6 @@ async def create_announcement_endpoint(
             detail=f"Failed to create announcement: {str(e)}"
         )
 
-
 @app.get("/announcements/", response_model=list[AnnouncementResponse])
 async def get_announcements_endpoint(
     skip: int = 0,
@@ -1676,7 +2090,6 @@ async def get_announcements_endpoint(
             detail=f"Failed to fetch announcements: {str(e)}"
         )
 
-
 @app.get("/announcements/live", response_model=list[AnnouncementResponse])
 async def get_announcements_live_endpoint(db: Session = Depends(get_db)):
     """
@@ -1690,7 +2103,6 @@ async def get_announcements_live_endpoint(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch live announcements: {str(e)}"
         )
-
 
 @app.get("/announcements/{announcement_id}", response_model=AnnouncementResponse)
 async def get_announcement_endpoint(
@@ -1715,7 +2127,6 @@ async def get_announcement_endpoint(
             detail="Announcement not found"
         )
     return announcement
-
 
 @app.put("/announcements/{announcement_id}", response_model=AnnouncementResponse)
 async def update_announcement_endpoint(
@@ -1742,7 +2153,6 @@ async def update_announcement_endpoint(
         )
     return updated_announcement
 
-
 @app.delete("/announcements/{announcement_id}")
 async def delete_announcement_endpoint(
     announcement_id: int,
@@ -1765,7 +2175,6 @@ async def delete_announcement_endpoint(
             detail="Announcement not found"
         )
     return {"message": "Announcement deleted successfully"}
-
 
 # Classroom Report endpoints
 
@@ -1859,7 +2268,6 @@ async def create_classroom_report_endpoint(
             detail=f"Failed to create classroom report: {str(e)}"
         )
 
-
 @app.get("/reports/", response_model=list[ClassroomReportResponse])
 async def get_classroom_reports_endpoint(
     skip: int = 0,
@@ -1890,7 +2298,6 @@ async def get_classroom_reports_endpoint(
             detail=f"Failed to fetch classroom reports: {str(e)}"
         )
 
-
 @app.get("/reports/my", response_model=list[ClassroomReportResponse])
 async def get_my_classroom_reports_endpoint(
     skip: int = 0,
@@ -1920,7 +2327,6 @@ async def get_my_classroom_reports_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch classroom reports: {str(e)}"
         )
-
 
 @app.get("/reports/class/{class_id}", response_model=list[ClassroomReportResponse])
 async def get_classroom_reports_by_class_endpoint(
@@ -1953,7 +2359,6 @@ async def get_classroom_reports_by_class_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch classroom reports: {str(e)}"
         )
-
 
 # Teacher-specific endpoints
 
@@ -1996,7 +2401,7 @@ async def get_class_by_id(
             "id": class_obj.id,
             "name": class_obj.name,
             "code": class_obj.code,
-            "description": class_obj.description,
+            "description": getattr(class_obj, 'description', None),  # FIX: Safe attribute access
             "teacher_id": class_obj.teacher_id,
             "created_at": class_obj.created_at
         }
@@ -2052,7 +2457,8 @@ async def get_teacher_classes_with_metrics(
                 'id': class_obj.id,
                 'name': class_obj.name,
                 'code': class_obj.code,
-                'teacher_id': class_obj.teacher_id
+                'teacher_id': class_obj.teacher_id,
+                'description': getattr(class_obj, 'description', None)  # FIX: Safe attribute access
             }
             class_responses.append(class_dict)
         
@@ -2324,64 +2730,6 @@ async def get_student_assignments(
             detail=f"Failed to fetch student assignments: {str(e)}"
         )
 
-@app.get("/students/me/schedule")
-async def get_student_schedule(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get schedule for the current student
-    
-    Returns:
-        List of schedules for the student's enrolled classes
-    
-    Requires authentication and STUDENT role.
-    """
-    # Check if current user is a student
-    if current_user.role != UserRole.STUDENT:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view student schedule"
-        )
-    
-    try:
-        # Get classes the student is enrolled in
-        enrollments = db.query(Enrollment).filter(Enrollment.student_id == current_user.id).all()
-        class_ids = [enrollment.class_id for enrollment in enrollments]
-        
-        if not class_ids:
-            return []
-        
-        # Get schedules for those classes
-        schedules = db.query(Schedule).filter(Schedule.class_id.in_(class_ids)).all()
-        
-        # Convert to response format
-        schedule_responses = []
-        for schedule in schedules:
-            # Get class information
-            class_obj = db.query(Class).filter(Class.id == schedule.class_id).first()
-            class_name = class_obj.name if class_obj else f"Class {schedule.class_id}"
-            
-            schedule_response = ScheduleResponse(
-                id=schedule.id,
-                title=schedule.title,
-                description=schedule.description,
-                start_time=schedule.start_time,
-                end_time=schedule.end_time,
-                class_id=schedule.class_id,
-                class_name=class_name,
-                created_at=schedule.created_at
-            )
-            schedule_responses.append(schedule_response)
-        
-        return schedule_responses
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch student schedule: {str(e)}"
-        )
-
 @app.get("/students/me/grades")
 async def get_student_grades(
     db: Session = Depends(get_db),
@@ -2614,7 +2962,6 @@ from fastapi.staticfiles import StaticFiles
 
 # Mount static files directory
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
 
 if __name__ == "__main__":
     import uvicorn

@@ -8,6 +8,7 @@ import SubmissionAssignment from '../pages/StudentAssignmentPage';
 import SubmissionViewTeacher from '../pages/TeacherAssignmentPage';
 import UsersPage from '../pages/UsersPage';
 import ClassesPage from '../pages/ClassesPage';
+import StudentClassesPage from '../pages/StudentClassesPage';
 import ReportsPage from '../pages/ReportsPage';
 import AssignmentPage from '../pages/AssignmentPage';
 import SubmissionsViewPage from '../pages/SubmissionsViewPage';
@@ -129,6 +130,14 @@ const AppRouter: React.FC = () => {
         element={
           <ProtectedRoute requiredRole="student">
             <StudentDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/classes"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <StudentClassesPage />
           </ProtectedRoute>
         }
       />

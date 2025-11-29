@@ -2,7 +2,6 @@ from pydantic import BaseModel, validator
 from typing import Optional
 from datetime import datetime
 
-
 class ClassExport(BaseModel):
     """
     Export schema for Class data without relationships.
@@ -16,7 +15,6 @@ class ClassExport(BaseModel):
     teacher_id: Optional[int] = None
 
     model_config = {"from_attributes": True}
-
 
 # Submission schemas
 class SubmissionBase(BaseModel):
@@ -58,5 +56,17 @@ class SubmissionResponse(BaseModel):
     grade: Optional[float] = None
     time_spent_minutes: int
     submitted_at: datetime
+
+    model_config = {"from_attributes": True}
+
+# NEW: Assignment response with class name
+class AssignmentWithClassName(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    class_id: int
+    class_name: str
+    creator_id: int
+    created_at: datetime
 
     model_config = {"from_attributes": True}

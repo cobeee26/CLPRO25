@@ -413,7 +413,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           },
           {
             path: "/student/assignments",
-            label: "Assignments",
+            label: "Assignments", // NEW: Added separate assignments page
             icon: (
               <svg
                 className="w-4 h-4 text-white"
@@ -434,6 +434,28 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             iconColors: "from-green-500 to-green-600",
           },
           {
+            path: "/student/classes",
+            label: "My Classes", // NEW: Changed from Assignments to My Classes
+            icon: (
+              <svg
+                className="w-4 h-4 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                />
+              </svg>
+            ),
+            activeColors:
+              "bg-purple-50 border-purple-200 hover:bg-purple-100",
+            iconColors: "from-purple-500 to-purple-600",
+          },
+          {
             path: "/student/schedule",
             label: "Schedule",
             icon: (
@@ -452,8 +474,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </svg>
             ),
             activeColors:
-              "bg-purple-50 border-purple-200 hover:bg-purple-100",
-            iconColors: "from-purple-500 to-purple-600",
+              "bg-indigo-50 border-indigo-200 hover:bg-indigo-100",
+            iconColors: "from-indigo-500 to-indigo-600",
           },
           {
             path: "/student/grades",

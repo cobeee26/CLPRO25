@@ -4,7 +4,7 @@ import axios from 'axios';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
-import { getTeacherAssignments, getTeacherClasses, authService } from '../services/authService';
+import { getTeacherAssignments, getTeacherClasses, authService, getStudentClassesAll } from '../services/authService';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 
 // API configuration
@@ -41,6 +41,7 @@ interface Assignment {
   created_at: string;
   class_name?: string;
   class_code?: string;
+  teacher_name?: string;
 }
 
 interface Class {
@@ -48,6 +49,7 @@ interface Class {
   name: string;
   code: string;
   teacher_id: number | null | undefined;
+  teacher_name?: string;
 }
 
 interface CreateAssignmentRequest {
@@ -119,9 +121,8 @@ const AssignmentPage: React.FC = () => {
     };
   }, [showDeleteModal]);
 
-  // FIXED: ADDED REAL-TIME SYNC WITH LOCAL STORAGE
+  // Real-time sync with localStorage
   useEffect(() => {
-    // Listen for storage changes (cross-tab synchronization)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'assignments_updated') {
         console.log('🔄 Storage change detected, reloading assignments...');
@@ -158,7 +159,6 @@ const AssignmentPage: React.FC = () => {
       
       console.log('🔄 Loading assignment data for user:', user.username, 'role:', user.role);
       
-      // FIXED: BOTH TEACHER AND STUDENT NEED TO LOAD CLASSES DATA
       await Promise.all([
         loadClasses(),
         loadAssignments()
@@ -174,7 +174,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // FIXED: UNIFIED CLASS LOADING FOR BOTH TEACHER AND STUDENT
+  // COMBINED CLASS LOADING - WORKING FOR BOTH TEACHER AND STUDENT
   const loadClasses = async (): Promise<Class[]> => {
     try {
       console.log('📚 Loading classes from API...');
@@ -182,53 +182,103 @@ const AssignmentPage: React.FC = () => {
       let classesData: Class[] = [];
       
       if (user?.role === 'teacher') {
-        // Teacher loads their own classes
-        const teacherData = await getTeacherClasses();
-        console.log('📊 Raw teacher data:', teacherData);
-        
-        if (Array.isArray(teacherData)) {
-          classesData = teacherData.map(cls => ({
-            id: cls.id,
-            name: cls.name,
-            code: cls.code,
-            teacher_id: cls.teacher_id ?? null
-          }));
-        } else if (teacherData && typeof teacherData === 'object') {
-          const teacherDataObj = teacherData as any;
-          const rawClasses = teacherDataObj.classes || [];
-          classesData = rawClasses.map((cls: any) => ({
-            id: cls.id,
-            name: cls.name,
-            code: cls.code,
-            teacher_id: cls.teacher_id ?? null
-          }));
-        }
-      } else if (user?.role === 'student') {
-        // Student loads classes they are enrolled in
+        // TEACHER: Use working teacher API endpoint
         try {
-          const response = await apiClient.get('/classes/student');
-          console.log('📊 Student classes response:', response.data);
+          const response = await apiClient.get('/teachers/me/classes');
+          console.log('📊 Teacher classes API response:', response.data);
           
           if (Array.isArray(response.data)) {
             classesData = response.data.map((cls: any) => ({
               id: cls.id,
-              name: cls.name,
-              code: cls.code,
-              teacher_id: cls.teacher_id ?? null
+              name: cls.name || `Class ${cls.id}`,
+              code: cls.code || `CLASS-${cls.id}`,
+              teacher_id: cls.teacher_id ?? user?.id,
+              teacher_name: user?.username || 'Teacher'
+            }));
+          }
+        } catch (apiError: any) {
+          console.warn('⚠️ Teacher classes API failed, trying alternative endpoint');
+          try {
+            const teacherData = await getTeacherClasses();
+            console.log('📊 Alternative teacher data:', teacherData);
+            
+            if (Array.isArray(teacherData)) {
+              classesData = teacherData.map((cls: any) => ({
+                id: cls.id,
+                name: cls.name || `Class ${cls.id}`,
+                code: cls.code || `CLASS-${cls.id}`,
+                teacher_id: cls.teacher_id ?? user?.id,
+                teacher_name: user?.username || 'Teacher'
+              }));
+            } else if (teacherData && typeof teacherData === 'object') {
+              const teacherDataObj = teacherData as any;
+              const rawClasses = teacherDataObj.classes || [];
+              classesData = rawClasses.map((cls: any) => ({
+                id: cls.id,
+                name: cls.name || `Class ${cls.id}`,
+                code: cls.code || `CLASS-${cls.id}`,
+                teacher_id: cls.teacher_id ?? user?.id,
+                teacher_name: user?.username || 'Teacher'
+              }));
+            }
+          } catch (secondError) {
+            console.warn('⚠️ All teacher class endpoints failed, using fallback');
+          }
+        }
+      } else if (user?.role === 'student') {
+        // STUDENT: Use getStudentClassesAll to get class names and codes
+        try {
+          console.log('🎓 Loading student classes using getStudentClassesAll...');
+          const studentClassesData = await getStudentClassesAll();
+          console.log('📊 Student classes from getStudentClassesAll:', studentClassesData);
+          
+          if (Array.isArray(studentClassesData)) {
+            classesData = studentClassesData.map((cls: any) => ({
+              id: cls.id,
+              name: cls.name || `Class ${cls.id}`,
+              code: cls.code || `CLASS-${cls.id}`,
+              teacher_id: cls.teacher_id ?? null,
+              teacher_name: cls.teacher_name || cls.teacher?.username || 'Teacher'
             }));
           }
         } catch (apiError: any) {
           console.warn('⚠️ Student classes API failed:', apiError.response?.status, apiError.message);
-          // Fallback: Use synchronized classes from localStorage
-          const savedClasses = localStorage.getItem('synchronized_classes');
-          if (savedClasses) {
-            console.log('🔄 Using synchronized classes from localStorage');
-            classesData = JSON.parse(savedClasses);
+          
+          // Try to get classes from assignments data
+          try {
+            console.log('🔄 Trying to get classes from assignments data...');
+            const assignmentsResponse = await apiClient.get('/assignments/student/');
+            if (Array.isArray(assignmentsResponse.data)) {
+              const uniqueClasses = new Map();
+              assignmentsResponse.data.forEach((assignment: any) => {
+                if (assignment.class_id && assignment.class_name) {
+                  uniqueClasses.set(assignment.class_id, {
+                    id: assignment.class_id,
+                    name: assignment.class_name,
+                    code: assignment.class_code || `CLASS-${assignment.class_id}`,
+                    teacher_id: assignment.creator_id,
+                    teacher_name: assignment.teacher_name || 'Teacher'
+                  });
+                }
+              });
+              classesData = Array.from(uniqueClasses.values());
+            }
+          } catch (secondError) {
+            console.warn('⚠️ Secondary class load failed, using fallback');
           }
         }
       }
       
-      console.log('✅ Classes loaded:', classesData);
+      // If no classes from API, use synchronized classes from localStorage
+      if (classesData.length === 0) {
+        const savedClasses = localStorage.getItem('synchronized_classes');
+        if (savedClasses) {
+          console.log('🔄 Using synchronized classes from localStorage');
+          classesData = JSON.parse(savedClasses);
+        }
+      }
+      
+      console.log('✅ Final classes loaded:', classesData);
       setClasses(classesData);
       
       // Sync to localStorage for consistency
@@ -251,7 +301,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // FIXED: UNIFIED DATA SOURCE FOR BOTH TEACHER AND STUDENT
+  // COMBINED ASSIGNMENT LOADING - WORKING FOR BOTH TEACHER AND STUDENT
   const loadAssignments = async (): Promise<Assignment[]> => {
     try {
       console.log('📝 Loading assignments for:', user?.role);
@@ -259,11 +309,13 @@ const AssignmentPage: React.FC = () => {
       let assignmentsData: Assignment[] = [];
       
       try {
-        // FIXED: USE CONSISTENT ENDPOINT BUT DIFFERENT QUERY PARAMS
-        let endpoint = '/assignments/';
+        // USE WORKING ENDPOINTS FOR BOTH ROLES
+        let endpoint = '';
         
-        if (user?.role === 'student') {
-          endpoint = '/assignments/student/';
+        if (user?.role === 'teacher') {
+          endpoint = '/assignments/'; // Teacher sees ALL assignments
+        } else if (user?.role === 'student') {
+          endpoint = '/assignments/student/'; // Student sees ALL assignments from ALL teachers
         }
         
         console.log('🌐 Calling endpoint:', endpoint);
@@ -271,38 +323,59 @@ const AssignmentPage: React.FC = () => {
         console.log('✅ Assignments from database:', response.data);
         
         if (Array.isArray(response.data)) {
-          assignmentsData = response.data.map((assignment: any) => ({
-            id: assignment.id,
-            name: assignment.name,
-            description: assignment.description,
-            class_id: assignment.class_id,
-            creator_id: assignment.creator_id,
-            created_at: assignment.created_at,
-            class_name: assignment.class_name || assignment.class?.name,
-            class_code: assignment.class_code || assignment.class?.code
-          }));
+          assignmentsData = response.data.map((assignment: any) => {
+            // Get class info from the classes state or from assignment data
+            const classInfo = classes.find(c => c.id === assignment.class_id) || 
+                            { name: assignment.class_name, code: assignment.class_code };
+            
+            return {
+              id: assignment.id,
+              name: assignment.name || `Assignment ${assignment.id}`,
+              description: assignment.description,
+              class_id: assignment.class_id,
+              creator_id: assignment.creator_id,
+              created_at: assignment.created_at || new Date().toISOString(),
+              class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
+              class_code: classInfo?.code || assignment.class_code || `CODE${assignment.class_id}`,
+              teacher_name: assignment.teacher_name || assignment.creator?.username || 'Teacher'
+            };
+          });
         }
         
       } catch (apiError: any) {
         console.warn('⚠️ API call failed:', apiError.response?.status, apiError.message);
         
-        // FIXED: IMPROVED FALLBACK WITH LOCAL STORAGE SYNC
+        // Use synchronized assignments from localStorage
         const savedAssignments = localStorage.getItem('synchronized_assignments');
         if (savedAssignments) {
           console.log('🔄 Using synchronized assignments from localStorage');
           assignmentsData = JSON.parse(savedAssignments);
         } else {
-          // Default fallback data with proper class names
+          // Default fallback data with multiple teachers
           assignmentsData = getFallbackAssignments();
         }
         
         console.log('🔄 Using fallback data for demonstration');
       }
       
-      // FIXED: SYNC TO LOCAL STORAGE FOR CONSISTENCY
+      // ENRICH ASSIGNMENTS WITH CLASS NAMES FROM CLASSES STATE
+      if (classes.length > 0) {
+        assignmentsData = assignmentsData.map(assignment => {
+          const classInfo = classes.find(c => c.id === assignment.class_id);
+          return {
+            ...assignment,
+            class_name: classInfo?.name || assignment.class_name,
+            class_code: classInfo?.code || assignment.class_code,
+            teacher_name: classInfo?.teacher_name || assignment.teacher_name
+          };
+        });
+      }
+      
+      // SYNC TO LOCAL STORAGE FOR CONSISTENCY
       localStorage.setItem('synchronized_assignments', JSON.stringify(assignmentsData));
       
       console.log('📝 Final assignments for', user?.role + ':', assignmentsData.length, 'assignments');
+      console.log('👨‍🏫 Teachers in assignments:', [...new Set(assignmentsData.map(a => a.teacher_name))]);
       setAssignments(assignmentsData);
       
       return assignmentsData;
@@ -316,53 +389,66 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // FIXED: ADDED FALLBACK ASSIGNMENTS WITH PROPER CLASS DATA
+  // FALLBACK ASSIGNMENTS WITH CLASS NAMES
   const getFallbackAssignments = (): Assignment[] => {
     // Get classes from state or localStorage for fallback data
     const currentClasses = classes.length > 0 ? classes : 
       JSON.parse(localStorage.getItem('synchronized_classes') || '[]');
     
-    const fallbackClasses = currentClasses.length > 0 ? currentClasses : [
-      { id: 1, name: 'Information Technology', code: 'IT-12', teacher_id: 1 },
-      { id: 2, name: 'Mathematics', code: 'MATH-10', teacher_id: 1 },
-      { id: 3, name: 'Computer Programming', code: 'CPP-101', teacher_id: 1 }
-    ];
+    // If we have classes, use them for fallback data
+    if (currentClasses.length > 0) {
+      return currentClasses.map((classItem: Class, index: number) => ({
+        id: index + 1,
+        name: `Assignment for ${classItem.name}`,
+        description: `This is a sample assignment for ${classItem.name}`,
+        class_id: classItem.id,
+        creator_id: classItem.teacher_id || 1,
+        created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
+        class_name: classItem.name,
+        class_code: classItem.code,
+        teacher_name: classItem.teacher_name || 'Teacher'
+      }));
+    }
     
+    // Default fallback if no classes available
     return [
       {
         id: 1,
         name: 'CPP Programming Project',
         description: 'Create a C++ program that demonstrates OOP concepts',
-        class_id: 3,
+        class_id: 1,
         creator_id: 1,
         created_at: new Date().toISOString(),
-        class_name: fallbackClasses.find(c => c.id === 3)?.name,
-        class_code: fallbackClasses.find(c => c.id === 3)?.code
+        class_name: 'Computer Programming',
+        class_code: 'CPP-101',
+        teacher_name: 'Ms. Davis'
       },
       {
         id: 2,
         name: 'Web Development Assignment',
         description: 'Build a responsive website using HTML, CSS, and JavaScript',
-        class_id: 1,
-        creator_id: 1,
+        class_id: 2,
+        creator_id: 2,
         created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        class_name: fallbackClasses.find(c => c.id === 1)?.name,
-        class_code: fallbackClasses.find(c => c.id === 1)?.code
+        class_name: 'Web Development',
+        class_code: 'WEB-201',
+        teacher_name: 'Dr. Smith'
       },
       {
         id: 3,
         name: 'Math Problem Set',
         description: 'Solve the following calculus problems',
-        class_id: 2,
-        creator_id: 1,
+        class_id: 3,
+        creator_id: 3,
         created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        class_name: fallbackClasses.find(c => c.id === 2)?.name,
-        class_code: fallbackClasses.find(c => c.id === 2)?.code
+        class_name: 'Mathematics',
+        class_code: 'MATH-10',
+        teacher_name: 'Prof. Johnson'
       }
     ];
   };
 
-  // FIXED: SYNC FUNCTION TO UPDATE ALL CLIENTS
+  // SYNC FUNCTION TO UPDATE ALL CLIENTS
   const syncAssignmentsAcrossClients = (updatedAssignments: Assignment[]) => {
     // Update local state
     setAssignments(updatedAssignments);
@@ -393,16 +479,20 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // Helper function to get class name by class_id
+  // HELPER FUNCTIONS TO USE CLASSES STATE
   const getClassName = (classId: number): string => {
     const classItem = classes.find((c) => c.id === classId);
     return classItem ? classItem.name : 'Unknown Class';
   };
 
-  // Helper function to get class code by class_id
   const getClassCode = (classId: number): string => {
     const classItem = classes.find((c) => c.id === classId);
     return classItem ? classItem.code : 'UNKNOWN';
+  };
+
+  const getTeacherName = (classId: number): string => {
+    const classItem = classes.find((c) => c.id === classId);
+    return classItem?.teacher_name || 'Teacher';
   };
 
   const handleCreateAssignment = () => {
@@ -410,6 +500,12 @@ const AssignmentPage: React.FC = () => {
   };
 
   const handleEditAssignment = (assignment: Assignment) => {
+    // CHECK IF USER OWNS THE ASSIGNMENT BEFORE EDITING
+    if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
+      alert('You can only edit assignments that you created.');
+      return;
+    }
+    
     setEditingAssignment(assignment);
     setShowCreateModal(true);
     
@@ -422,31 +518,47 @@ const AssignmentPage: React.FC = () => {
   };
 
   const handleDeleteAssignment = (assignment: Assignment) => {
+    // CHECK IF USER OWNS THE ASSIGNMENT BEFORE DELETING
+    if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
+      alert('You can only delete assignments that you created.');
+      return;
+    }
+    
     setAssignmentToDelete(assignment);
     setShowDeleteModal(true);
   };
 
-  // NEW: Teacher assignment management function
+  // Teacher assignment management function
   const handleManageAssignment = (assignment: Assignment) => {
+    // CHECK IF USER OWNS THE ASSIGNMENT
+    if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
+      alert('You can only manage assignments that you created.');
+      return;
+    }
     navigate(`/teacher/assignments/${assignment.id}`);
   };
 
-  // NEW: Updated view submissions function
+  // View submissions function
   const handleViewSubmissions = (assignment: Assignment) => {
+    // CHECK IF USER OWNS THE ASSIGNMENT
+    if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
+      alert('You can only view submissions for assignments that you created.');
+      return;
+    }
     navigate(`/teacher/assignments/${assignment.id}/submissions`);
   };
 
-  // NEW: Updated function for students to view assignment details
+  // Function for students to view assignment details
   const handleViewAssignment = (assignment: Assignment) => {
     navigate(`/student/assignments/${assignment.id}`);
   };
 
-  // NEW: Updated function for students to submit work
+  // Function for students to submit work
   const handleSubmitWork = (assignment: Assignment) => {
     navigate(`/student/assignments/${assignment.id}/submit`);
   };
 
-  // FIXED: IMPROVED DELETE WITH PROPER SYNC
+  // DELETE WITH PROPER SYNC
   const confirmDeleteAssignment = async () => {
     if (!assignmentToDelete) return;
     
@@ -462,7 +574,7 @@ const AssignmentPage: React.FC = () => {
         console.warn('⚠️ API delete failed, updating local state only');
       }
       
-      // FIXED: USE SYNC FUNCTION INSTEAD OF DIRECT STATE UPDATE
+      // USE SYNC FUNCTION INSTEAD OF DIRECT STATE UPDATE
       const updatedAssignments = assignments.filter(a => a.id !== assignmentToDelete.id);
       syncAssignmentsAcrossClients(updatedAssignments);
       
@@ -512,7 +624,7 @@ const AssignmentPage: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // FIXED: IMPROVED SUBMIT WITH PROPER SYNC
+  // SUBMIT WITH CLASS NAME ENRICHMENT
   const handleSubmitAssignment = async () => {
     if (!validateForm()) {
       return;
@@ -529,6 +641,9 @@ const AssignmentPage: React.FC = () => {
 
       console.log('Submitting assignment with data:', formData);
 
+      // Get class info for enrichment
+      const selectedClass = classes.find(c => c.id === formData.class_id);
+      
       if (editingAssignment) {
         // Update existing assignment
         console.log('📝 Updating assignment via API:', editingAssignment.id);
@@ -544,8 +659,9 @@ const AssignmentPage: React.FC = () => {
             name: formData.name,
             description: formData.description || null,
             class_id: formData.class_id,
-            class_name: getClassName(formData.class_id),
-            class_code: getClassCode(formData.class_id)
+            class_name: selectedClass?.name || getClassName(formData.class_id),
+            class_code: selectedClass?.code || getClassCode(formData.class_id),
+            teacher_name: selectedClass?.teacher_name || getTeacherName(formData.class_id)
           };
         } catch (apiError) {
           console.warn('⚠️ API update failed, updating local state only');
@@ -554,12 +670,13 @@ const AssignmentPage: React.FC = () => {
             name: formData.name,
             description: formData.description || null,
             class_id: formData.class_id,
-            class_name: getClassName(formData.class_id),
-            class_code: getClassCode(formData.class_id)
+            class_name: selectedClass?.name || getClassName(formData.class_id),
+            class_code: selectedClass?.code || getClassCode(formData.class_id),
+            teacher_name: selectedClass?.teacher_name || getTeacherName(formData.class_id)
           };
         }
         
-        // FIXED: USE SYNC FUNCTION FOR CONSISTENT UPDATES
+        // USE SYNC FUNCTION FOR CONSISTENT UPDATES
         const updatedAssignments = assignments.map(a => 
           a.id === editingAssignment.id ? updatedAssignment : a
         );
@@ -582,8 +699,9 @@ const AssignmentPage: React.FC = () => {
             class_id: formData.class_id,
             creator_id: user?.id || 1,
             created_at: new Date().toISOString(),
-            class_name: getClassName(formData.class_id),
-            class_code: getClassCode(formData.class_id)
+            class_name: selectedClass?.name || getClassName(formData.class_id),
+            class_code: selectedClass?.code || getClassCode(formData.class_id),
+            teacher_name: user?.username || selectedClass?.teacher_name || getTeacherName(formData.class_id)
           };
         } catch (apiError) {
           console.warn('⚠️ API create failed, creating local assignment only');
@@ -594,12 +712,13 @@ const AssignmentPage: React.FC = () => {
             class_id: formData.class_id,
             creator_id: user?.id || 1,
             created_at: new Date().toISOString(),
-            class_name: getClassName(formData.class_id),
-            class_code: getClassCode(formData.class_id)
+            class_name: selectedClass?.name || getClassName(formData.class_id),
+            class_code: selectedClass?.code || getClassCode(formData.class_id),
+            teacher_name: user?.username || selectedClass?.teacher_name || getTeacherName(formData.class_id)
           };
         }
         
-        // FIXED: USE SYNC FUNCTION FOR CONSISTENT UPDATES
+        // USE SYNC FUNCTION FOR CONSISTENT UPDATES
         const updatedAssignments = [...assignments, newAssignment];
         syncAssignmentsAcrossClients(updatedAssignments);
       }
@@ -629,10 +748,14 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // Rest of the component remains the same...
+  // Filter assignments for teacher (only show their own) and student (show all)
+  const displayAssignments = user?.role === 'teacher' 
+    ? assignments.filter(assignment => assignment.creator_id === user.id)
+    : assignments;
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center cursor-default">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading assignments...</p>
@@ -642,7 +765,7 @@ const AssignmentPage: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden cursor-default">
       {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
@@ -672,7 +795,7 @@ const AssignmentPage: React.FC = () => {
             {/* Logout Button */}
             <button 
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300"
+              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
               title="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -683,7 +806,7 @@ const AssignmentPage: React.FC = () => {
             {/* Menu Button */}
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
               title="Toggle menu"
             >
               <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -703,11 +826,11 @@ const AssignmentPage: React.FC = () => {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+        <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 cursor-default">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {/* Error Display */}
             {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 cursor-default">
                 <div className="flex items-center">
                   <svg className="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -718,7 +841,7 @@ const AssignmentPage: React.FC = () => {
                   </div>
                   <button
                     onClick={loadAssignmentData}
-                    className="ml-auto px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm transition-colors"
+                    className="ml-auto px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm transition-colors cursor-pointer"
                   >
                     Retry
                   </button>
@@ -727,7 +850,7 @@ const AssignmentPage: React.FC = () => {
             )}
 
             {/* Page Header */}
-            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-sm mb-6 cursor-default">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-sm">
@@ -741,8 +864,8 @@ const AssignmentPage: React.FC = () => {
                     </h2>
                     <p className="text-gray-600 leading-relaxed">
                       {user?.role === 'student' 
-                        ? `You have ${assignments.length} assigned tasks. Track your progress and deadlines.`
-                        : 'Create, edit, and manage assignments for your classes. Students will see these assignments immediately.'
+                        ? `You have ${displayAssignments.length} assigned tasks from ${new Set(displayAssignments.map(a => a.teacher_name)).size} different teachers.`
+                        : `You have created ${displayAssignments.length} assignments. Students will see these assignments immediately.`
                       }
                     </p>
                   </div>
@@ -750,7 +873,7 @@ const AssignmentPage: React.FC = () => {
                 {user?.role === 'teacher' && (
                   <button
                     onClick={handleCreateAssignment}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 w-full lg:w-auto justify-center"
+                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 w-full lg:w-auto justify-center cursor-pointer"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -762,22 +885,22 @@ const AssignmentPage: React.FC = () => {
             </div>
 
             {/* Assignments Table */}
-            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden cursor-default">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">All Assignments</h3>
                     <p className="text-sm text-gray-600">
                       {user?.role === 'student' 
-                        ? `Showing ${assignments.length} of your assigned tasks` 
+                        ? `Showing ${displayAssignments.length} assignments from ${new Set(displayAssignments.map(a => a.teacher_name)).size} teachers` 
                         : 'Manage your class assignments - Students see these immediately'
                       }
                     </p>
                   </div>
-                  {user?.role === 'student' && assignments.length > 0 && (
-                    <div className="bg-green-100 border border-green-200 rounded-lg px-3 py-1">
+                  {user?.role === 'student' && displayAssignments.length > 0 && (
+                    <div className="bg-green-100 border border-green-200 rounded-lg px-3 py-1 cursor-default">
                       <span className="text-green-700 text-sm font-medium">
-                        {assignments.length} Active
+                        {displayAssignments.length} Active
                       </span>
                     </div>
                   )}
@@ -786,13 +909,16 @@ const AssignmentPage: React.FC = () => {
               
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 cursor-default">
                     <tr>
                       <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Assignment Name
                       </th>
                       <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Class
+                      </th>
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Teacher
                       </th>
                       <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Created
@@ -806,9 +932,9 @@ const AssignmentPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {assignments.length > 0 ? (
-                      assignments.map((assignment) => (
-                        <tr key={assignment.id} className="hover:bg-gray-50 transition-colors duration-200">
+                    {displayAssignments.length > 0 ? (
+                      displayAssignments.map((assignment) => (
+                        <tr key={assignment.id} className="hover:bg-gray-50 transition-colors duration-200 cursor-default">
                           <td className="px-4 lg:px-6 py-4">
                             <div className="flex items-center">
                               <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm mr-4">
@@ -835,20 +961,25 @@ const AssignmentPage: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-4 lg:px-6 py-4">
+                            <div className="text-sm text-gray-600">
+                              {assignment.teacher_name || getTeacherName(assignment.class_id)}
+                            </div>
+                          </td>
+                          <td className="px-4 lg:px-6 py-4">
                             <div className="text-sm text-gray-600 whitespace-nowrap">{formatDate(assignment.created_at)}</div>
                           </td>
                           <td className="px-4 lg:px-6 py-4">
-                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200 whitespace-nowrap">
+                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200 whitespace-nowrap cursor-default">
                               Active
                             </span>
                           </td>
                           <td className="px-4 lg:px-6 py-4">
                             {user?.role === 'teacher' ? (
                               <div className="flex items-center justify-end space-x-2">
-                                {/* NEW: Manage Assignment Button */}
+                                {/* Manage Assignment Button */}
                                 <button
                                   onClick={() => handleManageAssignment(assignment)}
-                                  className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all duration-200 border border-purple-200 hover:border-purple-300"
+                                  className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all duration-200 border border-purple-200 hover:border-purple-300 cursor-pointer"
                                   title="Manage Assignment"
                                   aria-label="Manage Assignment"
                                 >
@@ -859,7 +990,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleViewSubmissions(assignment)}
-                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300"
+                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer"
                                   title="View Submissions"
                                   aria-label="View Submissions"
                                 >
@@ -869,7 +1000,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleEditAssignment(assignment)}
-                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300"
+                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer"
                                   title="Edit Assignment"
                                   aria-label="Edit Assignment"
                                 >
@@ -879,7 +1010,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleDeleteAssignment(assignment)}
-                                  className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200 border border-red-200 hover:border-red-300"
+                                  className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
                                   title="Delete Assignment"
                                   aria-label="Delete Assignment"
                                 >
@@ -892,7 +1023,7 @@ const AssignmentPage: React.FC = () => {
                               <div className="flex items-center justify-end space-x-2">
                                 <button
                                   onClick={() => handleViewAssignment(assignment)}
-                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300"
+                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer"
                                   title="View Assignment"
                                   aria-label="View Assignment"
                                 >
@@ -903,7 +1034,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleSubmitWork(assignment)}
-                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300"
+                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer"
                                   title="Submit Work"
                                   aria-label="Submit Work"
                                 >
@@ -918,7 +1049,7 @@ const AssignmentPage: React.FC = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center">
+                        <td colSpan={6} className="px-6 py-12 text-center cursor-default">
                           <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -934,7 +1065,7 @@ const AssignmentPage: React.FC = () => {
                           {user?.role === 'teacher' && (
                             <button
                               onClick={handleCreateAssignment}
-                              className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+                              className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
                             >
                               Create Assignment
                             </button>
@@ -952,7 +1083,14 @@ const AssignmentPage: React.FC = () => {
 
       {/* Create/Edit Assignment Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-default"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCloseModal();
+            }
+          }}
+        >
           <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -961,7 +1099,7 @@ const AssignmentPage: React.FC = () => {
                 </h3>
                 <button
                   onClick={handleCloseModal}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
                   aria-label="Close modal"
                 >
                   <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -974,14 +1112,14 @@ const AssignmentPage: React.FC = () => {
             <div className="p-6">
               {/* General Error Message */}
               {formErrors.general && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl cursor-default">
                   <p className="text-red-700 text-sm">{formErrors.general}</p>
                 </div>
               )}
 
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="assignment-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="assignment-name" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                     Assignment Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -990,19 +1128,19 @@ const AssignmentPage: React.FC = () => {
                     ref={nameRef}
                     type="text"
                     autoComplete="off"
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent cursor-text ${
                       formErrors.name ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter assignment name"
                     defaultValue={editingAssignment?.name || ''}
                   />
                   {formErrors.name && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>
+                    <p className="mt-1 text-sm text-red-600 cursor-default">{formErrors.name}</p>
                   )}
                 </div>
                 
                 <div>
-                  <label htmlFor="assignment-class" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="assignment-class" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                     Class <span className="text-red-500">*</span>
                   </label>
                   <select 
@@ -1010,7 +1148,7 @@ const AssignmentPage: React.FC = () => {
                     name="assignment-class"
                     ref={classRef}
                     autoComplete="off"
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent cursor-pointer ${
                       formErrors.class_id ? 'border-red-500' : 'border-gray-300'
                     }`}
                     defaultValue={editingAssignment?.class_id || ''}
@@ -1021,22 +1159,22 @@ const AssignmentPage: React.FC = () => {
                     </option>
                     {classes.map((classItem) => (
                       <option key={classItem.id} value={classItem.id}>
-                        {classItem.name} ({classItem.code})
+                        {classItem.name} ({classItem.code}) - {classItem.teacher_name}
                       </option>
                     ))}
                   </select>
                   {formErrors.class_id && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.class_id}</p>
+                    <p className="mt-1 text-sm text-red-600 cursor-default">{formErrors.class_id}</p>
                   )}
                   {classes.length === 0 && (
-                    <p className="mt-1 text-sm text-yellow-600">
+                    <p className="mt-1 text-sm text-yellow-600 cursor-default">
                       You need to be assigned to at least one class to create assignments.
                     </p>
                   )}
                 </div>
                 
                 <div>
-                  <label htmlFor="assignment-description" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="assignment-description" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                     Description
                   </label>
                   <textarea
@@ -1045,12 +1183,12 @@ const AssignmentPage: React.FC = () => {
                     ref={descriptionRef}
                     rows={4}
                     autoComplete="off"
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none cursor-text"
                     placeholder="Enter assignment description (optional)"
                     defaultValue={editingAssignment?.description || ''}
                   />
                   {formErrors.description && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.description}</p>
+                    <p className="mt-1 text-sm text-red-600 cursor-default">{formErrors.description}</p>
                   )}
                 </div>
               </div>
@@ -1059,14 +1197,14 @@ const AssignmentPage: React.FC = () => {
                 <button
                   onClick={handleCloseModal}
                   disabled={isSubmitting}
-                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitAssignment}
                   disabled={isSubmitting || classes.length === 0}
-                  className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                 >
                   {isSubmitting && (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -1085,7 +1223,7 @@ const AssignmentPage: React.FC = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && assignmentToDelete && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-default"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               cancelDeleteAssignment();
@@ -1111,7 +1249,7 @@ const AssignmentPage: React.FC = () => {
             {/* Modal Content */}
             <div className="px-6 py-4">
               <div className="mb-4">
-                <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                <div className="bg-gray-50 rounded-xl p-4 mb-4 cursor-default">
                   <div className="flex items-center space-x-3 mb-2">
                     <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1131,7 +1269,7 @@ const AssignmentPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 cursor-default">
                 <div className="flex items-start space-x-3">
                   <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -1151,14 +1289,14 @@ const AssignmentPage: React.FC = () => {
               <button
                 onClick={cancelDeleteAssignment}
                 disabled={isDeleting}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteAssignment}
                 disabled={isDeleting}
-                className="px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 hover:text-red-800 rounded-xl font-medium transition-all duration-200 border border-red-200 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 hover:text-red-800 rounded-xl font-medium transition-all duration-200 border border-red-200 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 cursor-pointer"
               >
                 {isDeleting ? (
                   <>
