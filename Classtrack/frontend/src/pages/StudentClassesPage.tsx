@@ -56,52 +56,41 @@ const StudentClassesPage: React.FC = () => {
         setError(null);
         console.log('🔄 Fetching student data...');
 
-        // Fetch classes and assignments in parallel
-        const [classesData, assignmentsData] = await Promise.all([
-          getStudentClassesAll(),
-          getStudentAssignmentsAll()
-        ]);
-
+        // Fetch classes first, then use them to enrich assignments
+        console.log('📚 Loading student classes...');
+        const classesData = await getStudentClassesAll();
         console.log('✅ Student classes loaded:', classesData);
-        console.log('✅ Student assignments loaded:', assignmentsData);
-
-        // Transform the data to ensure proper structure
+        
+        // Transform classes data
         const transformedClasses: Class[] = classesData.map((classItem: any) => ({
           id: classItem.id,
           name: classItem.name || `Class ${classItem.id}`,
-          code: classItem.code || `CODE${classItem.id}`,
+          code: classItem.code || `CODE-${classItem.id}`,
           teacher_id: classItem.teacher_id || 0,
-          teacher_name: classItem.teacher_name || classItem.teacher_username || 'Default Teacher',
+          teacher_name: classItem.teacher_name || classItem.teacher_username || classItem.teacher?.username || 'Teacher',
           description: classItem.description,
           created_at: classItem.created_at || new Date().toISOString()
         }));
 
-        // ENHANCED: Enrich assignments with proper class names and codes from classes data
-        const transformedAssignments: Assignment[] = assignmentsData.map((assignment: any) => {
-          // Find the corresponding class to get accurate class name and code
-          const classInfo = transformedClasses.find(cls => cls.id === assignment.class_id);
-          
-          return {
-            id: assignment.id,
-            name: assignment.name || `Assignment ${assignment.id}`,
-            description: assignment.description,
-            class_id: assignment.class_id,
-            class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
-            class_code: classInfo?.code || assignment.class_code || `CODE${assignment.class_id}`,
-            teacher_name: assignment.teacher_name || assignment.teacher_username || classInfo?.teacher_name || 'Default Teacher',
-            creator_id: assignment.creator_id,
-            created_at: assignment.created_at || new Date().toISOString()
-          };
-        });
-
         setClasses(transformedClasses);
-        setAssignments(transformedAssignments);
+        console.log('📊 Transformed classes:', transformedClasses);
+
+        // Now fetch assignments and enrich with class info
+        console.log('📝 Loading student assignments...');
+        const assignmentsData = await getStudentAssignmentsAll();
+        console.log('✅ Student assignments loaded:', assignmentsData);
+        
+        // Enrich assignments with class information
+        const enrichedAssignments = enrichAssignmentsWithClassInfo(assignmentsData, transformedClasses);
+        console.log('🎯 Enriched assignments:', enrichedAssignments);
+        
+        setAssignments(enrichedAssignments);
 
         // Calculate metrics
         const metrics = {
           total_classes: transformedClasses.length,
-          total_assignments: transformedAssignments.length,
-          upcoming_assignments: transformedAssignments.filter(a => 
+          total_assignments: enrichedAssignments.length,
+          upcoming_assignments: enrichedAssignments.filter(a => 
             new Date(a.created_at) > new Date()
           ).length
         };
@@ -109,9 +98,33 @@ const StudentClassesPage: React.FC = () => {
         setStudentMetrics(metrics);
         console.log('📊 Student metrics:', metrics);
 
+        // Save to localStorage for persistence
+        localStorage.setItem('student_classes', JSON.stringify(transformedClasses));
+        localStorage.setItem('student_assignments', JSON.stringify(enrichedAssignments));
+        
       } catch (err) {
         console.error('Failed to fetch student data:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch your classes and assignments');
+        
+        // Try to load from localStorage if API fails
+        try {
+          const savedClasses = localStorage.getItem('student_classes');
+          const savedAssignments = localStorage.getItem('student_assignments');
+          
+          if (savedClasses) {
+            const parsedClasses = JSON.parse(savedClasses);
+            setClasses(parsedClasses);
+            console.log('🔄 Loaded classes from localStorage:', parsedClasses);
+          }
+          
+          if (savedAssignments) {
+            const parsedAssignments = JSON.parse(savedAssignments);
+            setAssignments(parsedAssignments);
+            console.log('🔄 Loaded assignments from localStorage:', parsedAssignments);
+          }
+        } catch (localStorageError) {
+          console.error('Failed to load from localStorage:', localStorageError);
+        }
       } finally {
         setLoading(false);
       }
@@ -119,6 +132,39 @@ const StudentClassesPage: React.FC = () => {
 
     fetchStudentData();
   }, [user]);
+
+  // Function to enrich assignments with class information
+  const enrichAssignmentsWithClassInfo = (assignmentsData: any[], classesData: Class[]): Assignment[] => {
+    return assignmentsData.map((assignment: any) => {
+      // Find the corresponding class
+      const matchingClass = classesData.find(c => c.id === assignment.class_id);
+      
+      console.log(`📋 Enriching assignment ${assignment.id} (class_id: ${assignment.class_id})`);
+      console.log(`   Matching class found:`, matchingClass);
+      console.log(`   Assignment class_name: ${assignment.class_name}`);
+      console.log(`   Assignment class_code: ${assignment.class_code}`);
+      
+      // Use class info from matching class, fall back to assignment data
+      const classInfo = matchingClass || {
+        name: assignment.class_name || `Class ${assignment.class_id}`,
+        code: assignment.class_code || `CODE-${assignment.class_id}`,
+        teacher_name: assignment.teacher_name || 'Teacher',
+        teacher_id: assignment.creator_id || assignment.teacher_id || 0
+      };
+      
+      return {
+        id: assignment.id,
+        name: assignment.name || `Assignment ${assignment.id}`,
+        description: assignment.description,
+        class_id: assignment.class_id,
+        class_name: classInfo.name,
+        class_code: classInfo.code,
+        teacher_name: classInfo.teacher_name,
+        creator_id: assignment.creator_id || 0,
+        created_at: assignment.created_at || new Date().toISOString()
+      };
+    });
+  };
 
   // Filter classes based on search term
   const filteredClasses = classes.filter(classItem =>
@@ -131,8 +177,8 @@ const StudentClassesPage: React.FC = () => {
   const filteredAssignments = assignments.filter(assignment =>
     assignment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     assignment.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    assignment.teacher_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    assignment.class_code?.toLowerCase().includes(searchTerm.toLowerCase())
+    assignment.class_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    assignment.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Get assignments for a specific class
@@ -147,7 +193,12 @@ const StudentClassesPage: React.FC = () => {
 
   // Navigate to submit work page
   const handleSubmitWork = (assignmentId: number) => {
-    navigate('/student/assignments', { state: { assignmentId } });
+    navigate(`/student/assignments/${assignmentId}/submit`);
+  };
+
+  // Navigate to view assignment page
+  const handleViewAssignment = (assignmentId: number) => {
+    navigate(`/student/assignments/${assignmentId}`);
   };
 
   // Refresh data
@@ -156,52 +207,40 @@ const StudentClassesPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const [classesData, assignmentsData] = await Promise.all([
-        getStudentClassesAll(),
-        getStudentAssignmentsAll()
-      ]);
-
-      // Transform the data to ensure proper structure
+      console.log('🔄 Refreshing student data...');
+      
+      // Fetch classes first
+      const classesData = await getStudentClassesAll();
+      
+      // Transform classes data
       const transformedClasses: Class[] = classesData.map((classItem: any) => ({
         id: classItem.id,
         name: classItem.name || `Class ${classItem.id}`,
-        code: classItem.code || `CODE${classItem.id}`,
+        code: classItem.code || `CODE-${classItem.id}`,
         teacher_id: classItem.teacher_id || 0,
-        teacher_name: classItem.teacher_name || classItem.teacher_username || 'Default Teacher',
+        teacher_name: classItem.teacher_name || classItem.teacher_username || classItem.teacher?.username || 'Teacher',
         description: classItem.description,
         created_at: classItem.created_at || new Date().toISOString()
       }));
 
-      // ENHANCED: Enrich assignments with proper class names and codes from classes data
-      const transformedAssignments: Assignment[] = assignmentsData.map((assignment: any) => {
-        // Find the corresponding class to get accurate class name and code
-        const classInfo = transformedClasses.find(cls => cls.id === assignment.class_id);
-        
-        return {
-          id: assignment.id,
-          name: assignment.name || `Assignment ${assignment.id}`,
-          description: assignment.description,
-          class_id: assignment.class_id,
-          class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
-          class_code: classInfo?.code || assignment.class_code || `CODE${assignment.class_id}`,
-          teacher_name: assignment.teacher_name || assignment.teacher_username || classInfo?.teacher_name || 'Default Teacher',
-          creator_id: assignment.creator_id,
-          created_at: assignment.created_at || new Date().toISOString()
-        };
-      });
-
       setClasses(transformedClasses);
-      setAssignments(transformedAssignments);
+
+      // Fetch assignments and enrich with class info
+      const assignmentsData = await getStudentAssignmentsAll();
+      const enrichedAssignments = enrichAssignmentsWithClassInfo(assignmentsData, transformedClasses);
+      
+      setAssignments(enrichedAssignments);
 
       const metrics = {
         total_classes: transformedClasses.length,
-        total_assignments: transformedAssignments.length,
-        upcoming_assignments: transformedAssignments.filter(a => 
+        total_assignments: enrichedAssignments.length,
+        upcoming_assignments: enrichedAssignments.filter(a => 
           new Date(a.created_at) > new Date()
         ).length
       };
 
       setStudentMetrics(metrics);
+      console.log('✅ Data refreshed successfully');
     } catch (err) {
       console.error('Failed to refresh data:', err);
       setError(err instanceof Error ? err.message : 'Failed to refresh data');
@@ -231,7 +270,7 @@ const StudentClassesPage: React.FC = () => {
           </div>
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Toggle menu"
             aria-label="Toggle navigation menu"
           >
@@ -278,9 +317,21 @@ const StudentClassesPage: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2 text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded-full border border-blue-200">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5 animate-pulse"></div>
-                    <span className="font-medium">Student</span>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={refreshData}
+                      className="flex items-center space-x-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                      title="Refresh data"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span>Refresh</span>
+                    </button>
+                    <div className="flex items-center space-x-2 text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded-full border border-blue-200">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5 animate-pulse"></div>
+                      <span className="font-medium">Student</span>
+                    </div>
                   </div>
                 </div>
                 
@@ -296,7 +347,7 @@ const StudentClassesPage: React.FC = () => {
                       placeholder="Search by class name, teacher, or assignment..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="relative w-full px-4 py-3 lg:py-4 pl-12 bg-white border-2 border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-base lg:text-base font-medium"
+                      className="relative w-full px-4 py-3 lg:py-4 pl-12 bg-white border-2 border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-base lg:text-base font-medium cursor-text"
                     />
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <svg className="h-5 w-5 lg:h-6 lg:w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,7 +357,7 @@ const StudentClassesPage: React.FC = () => {
                     {searchTerm && (
                       <button
                         onClick={() => setSearchTerm('')}
-                        className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer"
                         title="Clear search"
                         aria-label="Clear search input"
                       >
@@ -321,7 +372,7 @@ const StudentClassesPage: React.FC = () => {
               
               {/* Student Metrics */}
               <div className="mt-6 grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-pointer">
+                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-default">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
                       <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -337,7 +388,7 @@ const StudentClassesPage: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 lg:p-4 border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100 transition-all duration-300 group cursor-pointer">
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 lg:p-4 border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100 transition-all duration-300 group cursor-default">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 lg:p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
                       <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -353,7 +404,7 @@ const StudentClassesPage: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-3 lg:p-4 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-100 transition-all duration-300 group cursor-pointer col-span-2 lg:col-span-1">
+                <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-3 lg:p-4 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-100 transition-all duration-300 group cursor-default col-span-2 lg:col-span-1">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 lg:p-2.5 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg shadow-lg group-hover:shadow-orange-500/25 transition-all duration-300">
                       <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -384,6 +435,12 @@ const StudentClassesPage: React.FC = () => {
                     <p className="font-semibold text-sm lg:text-base">Failed to load data</p>
                     <p className="text-xs lg:text-sm text-red-600">{error}</p>
                   </div>
+                  <button
+                    onClick={refreshData}
+                    className="ml-auto px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm transition-colors cursor-pointer"
+                  >
+                    Retry
+                  </button>
                 </div>
               </div>
             )}
@@ -496,9 +553,6 @@ const StudentClassesPage: React.FC = () => {
                                           {new Date(assignment.created_at).toLocaleDateString()}
                                         </span>
                                       </div>
-                                      <div className="text-xs text-gray-600 mt-1">
-                                        Class: {assignment.class_name} ({assignment.class_code})
-                                      </div>
                                     </div>
                                   ))}
                                   {classAssignments.length > 2 && (
@@ -605,7 +659,7 @@ const StudentClassesPage: React.FC = () => {
               )}
             </div>
 
-            {/* Assignments Section - IMPROVED UI */}
+            {/* Assignments Section - FIXED */}
             <div className="w-full bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg">
               <div className="px-4 lg:px-8 py-4 bg-gray-50 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
@@ -658,7 +712,7 @@ const StudentClassesPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  {/* Mobile Card View for Assignments - IMPROVED */}
+                  {/* Mobile Card View for Assignments */}
                   <div className="block lg:hidden">
                     <div className="space-y-4 p-4">
                       {filteredAssignments.map((assignment) => (
@@ -699,19 +753,29 @@ const StudentClassesPage: React.FC = () => {
                             )}
                           </div>
                           
-                          {/* Action Buttons - IMPROVED LAYOUT */}
+                          {/* Action Buttons */}
                           <div className="flex items-center justify-between pt-3 border-t border-gray-200">
                             <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-700 border border-yellow-200">
                               <div className="w-2 h-2 bg-yellow-500 rounded-full mr-1.5"></div>
                               Pending
                             </span>
                             <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleViewAssignment(assignment.id)}
+                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-300 text-xs font-medium cursor-pointer"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <span>View</span>
+                              </button>
                               <button 
                                 onClick={() => handleSubmitWork(assignment.id)}
                                 className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-300 text-xs font-medium shadow-sm hover:shadow-md transform hover:scale-105 cursor-pointer"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00 2-2h1a2 2 0 012 2v5h4a2 2 0 012-2h1a2 2 0 012 2v5a2 2 0 01-2 2h-4a2 2 0 01-2-2v-5H9a2 2 0 00-2 2v7a2 2 0 002 2h4a2 2 0 002-2v2a2 2 0 002-2V9a2 2 0 00-2-2h-4z" />
                                 </svg>
                                 <span>Submit</span>
                               </button>
@@ -722,7 +786,7 @@ const StudentClassesPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Desktop Table View for Assignments - IMPROVED */}
+                  {/* Desktop Table View for Assignments - FIXED */}
                   <table className="hidden lg:table min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-gray-50 to-orange-50">
                       <tr>
@@ -736,7 +800,7 @@ const StudentClassesPage: React.FC = () => {
                           Date & Status
                         </th>
                         <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Action
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -770,13 +834,11 @@ const StudentClassesPage: React.FC = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                   </svg>
                                 </div>
-                                <div>
-                                  <span className="text-sm font-medium text-gray-700 truncate group-hover:text-purple-700 transition-colors duration-200">
+                                <div className="min-w-0">
+                                  <span className="text-sm font-medium text-gray-700 truncate group-hover:text-purple-700 transition-colors duration-200 block">
                                     {assignment.class_name}
                                   </span>
-                                  <div className="text-xs text-gray-500">
-                                    Code: {assignment.class_code}
-                                  </div>
+                                  <span className="text-xs text-gray-500 truncate block">Code: {assignment.class_code}</span>
                                 </div>
                               </div>
                               <div className="flex items-center space-x-2 text-xs text-gray-600">
@@ -799,7 +861,17 @@ const StudentClassesPage: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 lg:px-8 py-5">
-                            <div className="flex justify-center">
+                            <div className="flex justify-center space-x-2">
+                              <button 
+                                onClick={() => handleViewAssignment(assignment.id)}
+                                className="inline-flex items-center space-x-2 px-3 py3-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-300 hover:shadow-sm border border-blue-200 font-medium cursor-pointer"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <span>View</span>
+                              </button>
                               <button 
                                 onClick={() => handleSubmitWork(assignment.id)}
                                 className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/30 border border-blue-400 cursor-pointer font-medium"
@@ -807,7 +879,7 @@ const StudentClassesPage: React.FC = () => {
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
-                                <span>Submit Work</span>
+                                <span>Submit</span>
                               </button>
                             </div>
                           </td>

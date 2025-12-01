@@ -159,10 +159,9 @@ const AssignmentPage: React.FC = () => {
       
       console.log('🔄 Loading assignment data for user:', user.username, 'role:', user.role);
       
-      await Promise.all([
-        loadClasses(),
-        loadAssignments()
-      ]);
+      // Load classes first, then assignments to ensure we have class data for enrichment
+      const loadedClasses = await loadClasses();
+      await loadAssignments(loadedClasses);
       
       console.log('✅ Assignment data loaded successfully');
 
@@ -187,7 +186,15 @@ const AssignmentPage: React.FC = () => {
           const response = await apiClient.get('/teachers/me/classes');
           console.log('📊 Teacher classes API response:', response.data);
           
-          if (Array.isArray(response.data)) {
+          if (response.data && Array.isArray(response.data.classes)) {
+            classesData = response.data.classes.map((cls: any) => ({
+              id: cls.id,
+              name: cls.name || `Class ${cls.id}`,
+              code: cls.code || `CLASS-${cls.id}`,
+              teacher_id: cls.teacher_id ?? user?.id,
+              teacher_name: user?.username || 'Teacher'
+            }));
+          } else if (Array.isArray(response.data)) {
             classesData = response.data.map((cls: any) => ({
               id: cls.id,
               name: cls.name || `Class ${cls.id}`,
@@ -202,18 +209,16 @@ const AssignmentPage: React.FC = () => {
             const teacherData = await getTeacherClasses();
             console.log('📊 Alternative teacher data:', teacherData);
             
-            if (Array.isArray(teacherData)) {
-              classesData = teacherData.map((cls: any) => ({
+            if (teacherData && Array.isArray(teacherData.classes)) {
+              classesData = teacherData.classes.map((cls: any) => ({
                 id: cls.id,
                 name: cls.name || `Class ${cls.id}`,
                 code: cls.code || `CLASS-${cls.id}`,
                 teacher_id: cls.teacher_id ?? user?.id,
                 teacher_name: user?.username || 'Teacher'
               }));
-            } else if (teacherData && typeof teacherData === 'object') {
-              const teacherDataObj = teacherData as any;
-              const rawClasses = teacherDataObj.classes || [];
-              classesData = rawClasses.map((cls: any) => ({
+            } else if (Array.isArray(teacherData)) {
+              classesData = teacherData.map((cls: any) => ({
                 id: cls.id,
                 name: cls.name || `Class ${cls.id}`,
                 code: cls.code || `CLASS-${cls.id}`,
@@ -302,7 +307,7 @@ const AssignmentPage: React.FC = () => {
   };
 
   // COMBINED ASSIGNMENT LOADING - WORKING FOR BOTH TEACHER AND STUDENT
-  const loadAssignments = async (): Promise<Assignment[]> => {
+  const loadAssignments = async (loadedClasses: Class[] = []): Promise<Assignment[]> => {
     try {
       console.log('📝 Loading assignments for:', user?.role);
       
@@ -324,9 +329,11 @@ const AssignmentPage: React.FC = () => {
         
         if (Array.isArray(response.data)) {
           assignmentsData = response.data.map((assignment: any) => {
-            // Get class info from the classes state or from assignment data
-            const classInfo = classes.find(c => c.id === assignment.class_id) || 
-                            { name: assignment.class_name, code: assignment.class_code };
+            // Get class info from the loaded classes or from assignment data
+            const classInfo = loadedClasses.find(c => c.id === assignment.class_id) || 
+                            classes.find(c => c.id === assignment.class_id);
+            
+            console.log(`📋 Assignment ${assignment.id} - class_id: ${assignment.class_id}, classInfo:`, classInfo);
             
             return {
               id: assignment.id,
@@ -337,7 +344,7 @@ const AssignmentPage: React.FC = () => {
               created_at: assignment.created_at || new Date().toISOString(),
               class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
               class_code: classInfo?.code || assignment.class_code || `CODE${assignment.class_id}`,
-              teacher_name: assignment.teacher_name || assignment.creator?.username || 'Teacher'
+              teacher_name: assignment.teacher_name || assignment.creator?.username || classInfo?.teacher_name || 'Teacher'
             };
           });
         }
@@ -352,21 +359,24 @@ const AssignmentPage: React.FC = () => {
           assignmentsData = JSON.parse(savedAssignments);
         } else {
           // Default fallback data with multiple teachers
-          assignmentsData = getFallbackAssignments();
+          assignmentsData = getFallbackAssignments(loadedClasses);
         }
         
         console.log('🔄 Using fallback data for demonstration');
       }
       
-      // ENRICH ASSIGNMENTS WITH CLASS NAMES FROM CLASSES STATE
-      if (classes.length > 0) {
+      // ENRICH ASSIGNMENTS WITH CLASS NAMES FROM LOADED CLASSES
+      const classesToUse = loadedClasses.length > 0 ? loadedClasses : classes;
+      if (classesToUse.length > 0) {
         assignmentsData = assignmentsData.map(assignment => {
-          const classInfo = classes.find(c => c.id === assignment.class_id);
+          const classInfo = classesToUse.find(c => c.id === assignment.class_id);
+          console.log(`🎯 Enriching assignment ${assignment.id} with class:`, classInfo);
+          
           return {
             ...assignment,
-            class_name: classInfo?.name || assignment.class_name,
-            class_code: classInfo?.code || assignment.class_code,
-            teacher_name: classInfo?.teacher_name || assignment.teacher_name
+            class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
+            class_code: classInfo?.code || assignment.class_code || `CODE${assignment.class_id}`,
+            teacher_name: classInfo?.teacher_name || assignment.teacher_name || 'Teacher'
           };
         });
       }
@@ -376,6 +386,8 @@ const AssignmentPage: React.FC = () => {
       
       console.log('📝 Final assignments for', user?.role + ':', assignmentsData.length, 'assignments');
       console.log('👨‍🏫 Teachers in assignments:', [...new Set(assignmentsData.map(a => a.teacher_name))]);
+      console.log('🏫 Class names in assignments:', [...new Set(assignmentsData.map(a => a.class_name))]);
+      console.log('🔤 Class codes in assignments:', [...new Set(assignmentsData.map(a => a.class_code))]);
       setAssignments(assignmentsData);
       
       return assignmentsData;
@@ -383,21 +395,36 @@ const AssignmentPage: React.FC = () => {
       console.error('❌ Error loading assignments:', error);
       
       // Use fallback data as last resort
-      const fallbackData = getFallbackAssignments();
+      const fallbackData = getFallbackAssignments(classes);
       setAssignments(fallbackData);
       return fallbackData;
     }
   };
 
   // FALLBACK ASSIGNMENTS WITH CLASS NAMES
-  const getFallbackAssignments = (): Assignment[] => {
+  const getFallbackAssignments = (currentClasses: Class[] = []): Assignment[] => {
+    // Use current classes for fallback data
+    if (currentClasses.length > 0) {
+      return currentClasses.map((classItem: Class, index: number) => ({
+        id: index + 1,
+        name: `Assignment for ${classItem.name}`,
+        description: `This is a sample assignment for ${classItem.name}`,
+        class_id: classItem.id,
+        creator_id: classItem.teacher_id || 1,
+        created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
+        class_name: classItem.name,
+        class_code: classItem.code,
+        teacher_name: classItem.teacher_name || 'Teacher'
+      }));
+    }
+    
     // Get classes from state or localStorage for fallback data
-    const currentClasses = classes.length > 0 ? classes : 
+    const storedClasses = classes.length > 0 ? classes : 
       JSON.parse(localStorage.getItem('synchronized_classes') || '[]');
     
     // If we have classes, use them for fallback data
-    if (currentClasses.length > 0) {
-      return currentClasses.map((classItem: Class, index: number) => ({
+    if (storedClasses.length > 0) {
+      return storedClasses.map((classItem: Class, index: number) => ({
         id: index + 1,
         name: `Assignment for ${classItem.name}`,
         description: `This is a sample assignment for ${classItem.name}`,

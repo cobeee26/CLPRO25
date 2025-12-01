@@ -73,17 +73,6 @@ interface Assignment {
   teacher_name?: string;
 }
 
-interface Submission {
-  id: number;
-  assignment_id: number;
-  student_id: number;
-  submitted_at: string;
-  time_spent_minutes: number;
-  status: string;
-  grade?: number;
-  feedback?: string;
-}
-
 interface ScheduleItem {
   id: number;
   class_id: number;
@@ -119,14 +108,6 @@ interface Class {
   teacher_name?: string;
 }
 
-interface SubmissionData {
-  assignment_id: number;
-  student_id: number;
-  time_spent_minutes: number;
-  submission_text?: string;
-  attachment_url?: string;
-}
-
 interface RoomReportData {
   class_id: string;
   is_clean_before: string;
@@ -141,7 +122,6 @@ const StudentDashboard: React.FC = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
 
   const [loadingStates, setLoadingStates] = useState({
@@ -149,13 +129,7 @@ const StudentDashboard: React.FC = () => {
     schedule: true,
     announcements: true,
     classes: true,
-    submissions: true,
   });
-
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
   // Room Report Modal state
   const [showRoomReportModal, setShowRoomReportModal] = useState(false);
@@ -175,7 +149,6 @@ const StudentDashboard: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Form refs for controlled inputs
-  const timeSpentRef = useRef<HTMLInputElement>(null);
   const classIdRef = useRef<HTMLSelectElement>(null);
   const reportTextRef = useRef<HTMLTextAreaElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -227,25 +200,9 @@ const StudentDashboard: React.FC = () => {
   // Real-time assignment statistics calculation
   const assignmentStats = {
     total: assignments.length,
-    submitted: submissions.length,
-    available: assignments.length - submissions.length,
-    pending: assignments.filter(assignment => 
-      !submissions.some(submission => submission.assignment_id === assignment.id)
-    ).length
-  };
-
-  // Helper function to check if assignment is submitted
-  const isAssignmentSubmitted = (assignmentId: number): boolean => {
-    return submissions.some(
-      (submission) => submission.assignment_id === assignmentId
-    );
-  };
-
-  // Helper function to get submission details
-  const getSubmissionDetails = (assignmentId: number): Submission | undefined => {
-    return submissions.find(
-      (submission) => submission.assignment_id === assignmentId
-    );
+    submitted: 0,
+    available: assignments.length,
+    pending: assignments.length
   };
 
   // Helper function to construct full image URL
@@ -397,7 +354,6 @@ const StudentDashboard: React.FC = () => {
       await loadStudentClasses();
       await Promise.all([
         loadStudentAssignments(),
-        loadStudentSubmissions(),
         loadSchedules(),
         loadAnnouncements(),
       ]);
@@ -408,38 +364,53 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Function to load student classes from API
+  // Function to load student classes from API - IMPROVED VERSION
   const loadStudentClasses = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, classes: true }));
       console.log("📚 Loading classes for student from API...");
 
       try {
-        const response = await apiClient.get("/classes/student");
+        // USING SAME ENDPOINT AS StudentClassesPage
+        const response = await apiClient.get("/classes/student/");
         console.log("✅ Classes API response:", response.data);
 
         if (response.status === 200 && Array.isArray(response.data)) {
-          const classesData = response.data.map((classItem: any) => ({
+          // Transform data exactly like in StudentClassesPage
+          const transformedClasses: Class[] = response.data.map((classItem: any) => ({
             id: classItem.id,
-            name: classItem.name || `Class ${classItem.code}`,
-            code: classItem.code,
-            teacher_id: classItem.teacher_id,
-            subject: classItem.subject || classItem.name,
-            description: classItem.description || "",
-            semester: classItem.semester || "Spring 2024",
-            academic_year: classItem.academic_year || "2024-2025",
-            teacher_name: classItem.teacher_name || "Unknown Teacher"
+            name: classItem.name || `Class ${classItem.id}`,
+            code: classItem.code || `CODE-${classItem.id}`,
+            teacher_id: classItem.teacher_id || 0,
+            teacher_name: classItem.teacher_name || classItem.teacher_username || classItem.teacher?.username || 'Teacher',
+            description: classItem.description,
+            created_at: classItem.created_at || new Date().toISOString()
           }));
           
-          setClasses(classesData);
-          localStorage.setItem("student_classes", JSON.stringify(classesData));
+          console.log("📊 Transformed classes:", transformedClasses);
+          setClasses(transformedClasses);
+          localStorage.setItem("student_classes", JSON.stringify(transformedClasses));
         } else {
           console.warn("⚠️ Classes API returned unexpected response");
           setClasses([]);
         }
       } catch (error: any) {
         console.error("❌ Error loading classes from API:", error.message);
-        setClasses([]);
+        
+        // Fallback: Try to load from localStorage
+        try {
+          const savedClasses = localStorage.getItem('student_classes');
+          if (savedClasses) {
+            const parsedClasses = JSON.parse(savedClasses);
+            console.log('🔄 Loaded classes from localStorage:', parsedClasses);
+            setClasses(parsedClasses);
+          } else {
+            setClasses([]);
+          }
+        } catch (localStorageError) {
+          console.error('Failed to load from localStorage:', localStorageError);
+          setClasses([]);
+        }
       }
     } catch (error: any) {
       console.error("❌ Error loading classes:", error);
@@ -449,106 +420,95 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Function to load student assignments from API
+  // Function to load student assignments from API - IMPROVED VERSION
   const loadStudentAssignments = async (): Promise<Assignment[]> => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
       console.log("📝 Loading assignments for student from API...");
 
+      let assignmentsData: Assignment[] = [];
+
       try {
+        // USING SAME ENDPOINT AS StudentClassesPage
         const response = await apiClient.get("/assignments/student/");
         console.log("✅ Assignments API response:", response.data);
 
         if (response.status === 200 && Array.isArray(response.data)) {
-          const assignmentsData = response.data.map((assignment: any) => ({
+          assignmentsData = response.data.map((assignment: any) => ({
             id: assignment.id,
-            name: assignment.name,
+            name: assignment.name || `Assignment ${assignment.id}`,
             description: assignment.description,
             class_id: assignment.class_id,
-            creator_id: assignment.creator_id,
-            created_at: assignment.created_at,
+            creator_id: assignment.creator_id || 0,
+            created_at: assignment.created_at || new Date().toISOString(),
             class_name: assignment.class_name,
             class_code: assignment.class_code,
-            class_subject: assignment.class_subject,
             teacher_name: assignment.teacher_name,
             due_date: assignment.due_date,
             points: assignment.points || 100,
             assignment_type: assignment.assignment_type || "Homework"
           }));
-          
-          console.log("📝 Final assignments from API:", assignmentsData);
-          setAssignments(assignmentsData);
-          localStorage.setItem("student_assignments", JSON.stringify(assignmentsData));
-          return assignmentsData;
+
+          console.log("📝 Raw assignments from API:", assignmentsData);
         } else {
           console.warn("⚠️ Assignments API returned unexpected response");
-          setAssignments([]);
-          return [];
         }
       } catch (error: any) {
         console.error("❌ Error loading assignments from API:", error.message);
-        setAssignments([]);
-        return [];
+        
+        // Fallback to synchronized assignments from localStorage
+        const savedAssignments = localStorage.getItem('student_assignments');
+        if (savedAssignments) {
+          console.log('🔄 Using saved assignments from localStorage');
+          assignmentsData = JSON.parse(savedAssignments);
+        }
       }
+
+      // ENHANCE ASSIGNMENTS WITH CLASS DATA - IMPROVED LOGIC
+      console.log("🔄 Enhancing assignments with class data...");
+      console.log("📚 Available classes:", classes);
+      console.log("📝 Assignments before enrichment:", assignmentsData);
+
+      const enrichedAssignments = assignmentsData.map(assignment => {
+        // Find the corresponding class from classes state
+        const matchingClass = classes.find(c => c.id === assignment.class_id);
+        
+        console.log(`📋 Assignment ${assignment.id}: class_id=${assignment.class_id}, matchingClass=`, matchingClass);
+        
+        // Use class info from matching class, fall back to assignment data or default
+        let classCode = assignment.class_code;
+        let className = assignment.class_name;
+        let teacherName = assignment.teacher_name;
+        
+        if (matchingClass) {
+          classCode = matchingClass.code;
+          className = matchingClass.name;
+          teacherName = matchingClass.teacher_name || teacherName;
+        } else {
+          // If no matching class, create defaults
+          if (!classCode) classCode = `CODE-${assignment.class_id}`;
+          if (!className) className = `Class ${assignment.class_id}`;
+          if (!teacherName) teacherName = 'Teacher';
+        }
+        
+        return {
+          ...assignment,
+          class_name: className,
+          class_code: classCode,
+          teacher_name: teacherName
+        };
+      });
+      
+      console.log("🎯 Enriched assignments:", enrichedAssignments);
+      setAssignments(enrichedAssignments);
+      localStorage.setItem("student_assignments", JSON.stringify(enrichedAssignments));
+      return enrichedAssignments;
     } catch (error: any) {
       console.error("❌ Error loading assignments:", error);
       setAssignments([]);
       return [];
     } finally {
       setLoadingStates((prev) => ({ ...prev, assignments: false }));
-    }
-  };
-
-  // Function to load student submissions from API
-  const loadStudentSubmissions = async () => {
-    try {
-      setLoadingStates((prev) => ({ ...prev, submissions: true }));
-
-      if (user?.role === "student") {
-        console.log("📄 Loading submissions for student from API...");
-
-        try {
-          const response = await apiClient.get("/submissions/me");
-          console.log("✅ Submissions API response:", response.data);
-
-          if (response.status === 200) {
-            const responseData = response.data;
-            const submissionsArray = Array.isArray(responseData) ? responseData : 
-                                   (responseData.submissions || responseData.data || []);
-            
-            if (Array.isArray(submissionsArray)) {
-              const submissionsData = submissionsArray.map((submission: any) => ({
-                id: submission.id,
-                assignment_id: submission.assignment_id,
-                student_id: submission.student_id,
-                submitted_at: submission.submitted_at,
-                time_spent_minutes: submission.time_spent_minutes || 0,
-                status: submission.status || "submitted",
-                grade: submission.grade,
-                feedback: submission.feedback
-              }));
-              
-              setSubmissions(submissionsData);
-              localStorage.setItem("student_submissions", JSON.stringify(submissionsData));
-            } else {
-              setSubmissions([]);
-            }
-          } else {
-            console.warn("⚠️ Submissions API returned unexpected response");
-            setSubmissions([]);
-          }
-        } catch (error: any) {
-          console.error("❌ Error loading submissions from API:", error.message);
-          setSubmissions([]);
-        }
-      } else {
-        setSubmissions([]);
-      }
-    } catch (error: any) {
-      console.error("❌ Error loading submissions:", error);
-      setSubmissions([]);
-    } finally {
-      setLoadingStates((prev) => ({ ...prev, submissions: false }));
     }
   };
 
@@ -639,14 +599,13 @@ const StudentDashboard: React.FC = () => {
     const refreshInterval = setInterval(() => {
       console.log("🔄 Student: Periodic data refresh");
       loadStudentAssignments();
-      loadStudentSubmissions();
     }, 30000); // Refresh every 30 seconds
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       clearInterval(refreshInterval);
     };
-  }, []);
+  }, [classes]);
 
   // Time formatting functions
   const formatDate = (dateString: string) => {
@@ -724,7 +683,7 @@ const StudentDashboard: React.FC = () => {
   };
 
   const formatTeacherName = (fullName: string) => {
-    if (!fullName || fullName === "Unknown Teacher") return "Unknown Teacher";
+    if (!fullName || fullName === "Unknown Teacher") return "Teacher";
 
     const parts = fullName.trim().split(" ");
 
@@ -760,8 +719,7 @@ const StudentDashboard: React.FC = () => {
     navigate("/student/assignments", { 
       state: { 
         selectedAssignment: assignment,
-        assignments: assignments,
-        submissions: submissions
+        assignments: assignments
       } 
     });
   };
@@ -923,6 +881,14 @@ const StudentDashboard: React.FC = () => {
       setIsSubmittingReport(false);
     }
   };
+
+  // Refresh assignments data when classes are loaded
+  useEffect(() => {
+    if (classes.length > 0 && assignments.length > 0) {
+      console.log("🔄 Classes loaded, re-enriching assignments...");
+      loadStudentAssignments();
+    }
+  }, [classes]);
 
   // Show loading screen while user data is being fetched
   if (!user) {
@@ -1482,7 +1448,7 @@ const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Assignments Section - CLEANER DESIGN */}
+              {/* Assignments Section - WITH IMPROVED UI DESIGN */}
               <div className="lg:col-span-2 xl:col-span-1">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
@@ -1563,8 +1529,19 @@ const StudentDashboard: React.FC = () => {
                         </div>
                       ) : assignments.length > 0 ? (
                         assignments.map((assignment) => {
-                          const isSubmitted = isAssignmentSubmitted(assignment.id);
-
+                          // Determine class code to display - using enriched data
+                          const classCodeToDisplay = assignment.class_code || `CODE-${assignment.class_id}`;
+                          
+                          // Determine class name to display - using enriched data
+                          const classNameToDisplay = assignment.class_name || `Class ${assignment.class_id}`;
+                          
+                          // Truncate teacher name if too long
+                          const teacherDisplayName = assignment.teacher_name 
+                            ? (assignment.teacher_name.length > 15 
+                                ? assignment.teacher_name.substring(0, 12) + '...' 
+                                : assignment.teacher_name)
+                            : 'Teacher';
+                          
                           return (
                             <div
                               key={assignment.id}
@@ -1572,64 +1549,66 @@ const StudentDashboard: React.FC = () => {
                             >
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex-1 min-w-0">
-                                  {/* CLASS NAME DISPLAY - Cleaner */}
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full border border-blue-200">
-                                      {assignment.class_code}
+                                  {/* CLASS NAME AND CODE DISPLAY - IMPROVED UI */}
+                                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                    <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full border border-blue-200 flex-shrink-0">
+                                      {classCodeToDisplay.length > 10 
+                                        ? classCodeToDisplay.substring(0, 8) + '...'
+                                        : classCodeToDisplay}
                                     </span>
-                                    {assignment.teacher_name && (
-                                      <span className="text-xs text-gray-500">
-                                        by {assignment.teacher_name}
-                                      </span>
-                                    )}
+                                    <span className="text-xs text-gray-500 truncate max-w-[120px]">
+                                      {classNameToDisplay.length > 15 
+                                        ? classNameToDisplay.substring(0, 13) + '...' 
+                                        : classNameToDisplay}
+                                    </span>
+                                    <span className="text-xs text-gray-500 ml-auto">
+                                      by {teacherDisplayName}
+                                    </span>
                                   </div>
 
-                                  {/* Assignment name - Clean Design */}
-                                  <h4 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-1">
-                                    {assignment.name}
+                                  {/* Assignment name - IMPROVED UI */}
+                                  <h4 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-1 break-words">
+                                    {assignment.name.length > 40 
+                                      ? assignment.name.substring(0, 38) + '...' 
+                                      : assignment.name}
                                   </h4>
 
-                                  {/* Assignment description - Cleaner */}
-                                  <p className="text-sm text-gray-600 leading-relaxed mb-2 line-clamp-2">
-                                    {assignment.description || "No description provided"}
+                                  {/* Assignment description - IMPROVED UI */}
+                                  <p className="text-xs text-gray-600 leading-relaxed mb-2 line-clamp-2 break-words">
+                                    {assignment.description && assignment.description.length > 80 
+                                      ? assignment.description.substring(0, 78) + '...' 
+                                      : assignment.description || "No description provided"}
                                   </p>
 
-                                  {/* Assignment details - Minimal */}
-                                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                                    <span>Created: {formatDate(assignment.created_at)}</span>
-                                    {assignment.due_date && (
-                                      <span className={`font-medium ${
-                                        new Date(assignment.due_date) < new Date() 
-                                          ? "text-red-600"
-                                          : "text-green-600"
-                                      }`}>
-                                        {formatDueDate(assignment.due_date)}
+                                  {/* Assignment details - IMPROVED UI */}
+                                  <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <div className="flex items-center gap-2">
+                                      <span className="truncate max-w-[100px]">
+                                        Created: {formatDate(assignment.created_at)}
                                       </span>
-                                    )}
+                                      {assignment.due_date && (
+                                        <span className={`font-medium whitespace-nowrap ${
+                                          new Date(assignment.due_date) < new Date() 
+                                            ? "text-red-600"
+                                            : "text-green-600"
+                                        }`}>
+                                          {formatDueDate(assignment.due_date)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 border border-blue-200 whitespace-nowrap">
+                                      Active
+                                    </span>
                                   </div>
                                 </div>
-                                <span
-                                  className={`px-2 py-1 text-xs rounded-full border ml-2 flex-shrink-0 ${
-                                    isSubmitted
-                                      ? "bg-green-100 text-green-700 border-green-200"
-                                      : "bg-blue-100 text-blue-700 border-blue-200"
-                                  }`}
-                                >
-                                  {isSubmitted ? "Submitted" : "Active"}
-                                </span>
                               </div>
 
-                              {/* Button navigates to assignments page */}
+                              {/* Button navigates to assignments page - IMPROVED UI */}
                               <button
                                 onClick={() => handleSubmitAssignment(assignment)}
-                                disabled={isSubmitted}
-                                className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer ${
-                                  isSubmitted
-                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                    : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg"
-                                }`}
+                                className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg`}
                               >
-                                {isSubmitted ? "Submitted" : "Submit Assignment"}
+                                Submit Assignment
                               </button>
                             </div>
                           );
@@ -2018,7 +1997,7 @@ const StudentDashboard: React.FC = () => {
                     {reportFormErrors.is_clean_after && (
                       <p className="mt-1 text-sm text-red-600">
                         {reportFormErrors.is_clean_after}
-                      </p>
+                    </p>
                     )}
                   </div>
                 </div>

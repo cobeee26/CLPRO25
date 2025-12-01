@@ -129,27 +129,27 @@ export interface AssignmentResponse {
   created_at: string;
 }
 
-// Student-specific interfaces
+// FIXED: Student-specific interfaces with optional fields
 export interface StudentClass {
   id: number;
   name: string;
   code: string;
   teacher_id: number;
   teacher_name: string;
-  description?: string;
-  created_at: string;
+  description?: string;  // Optional
+  created_at?: string;   // Optional
 }
 
 export interface StudentAssignment {
   id: number;
   name: string;
-  description?: string;
+  description?: string;  // Optional
   class_id: number;
   class_name: string;
-  class_code?: string;
+  class_code?: string;   // Optional
   teacher_name: string;
   creator_id: number;
-  created_at: string;
+  created_at?: string;   // Optional
 }
 
 export interface SubmissionCreate {
@@ -359,9 +359,7 @@ export const getTeacherAssignments = async (): Promise<AssignmentResponse[]> => 
   }
 };
 
-// STUDENT-SPECIFIC API FUNCTIONS
-
-// Get student schedule from the /students/me/schedule endpoint
+// FIXED: Student schedule function
 export const getStudentSchedule = async (): Promise<ScheduleEnrichedResponse[]> => {
   try {
     const response = await apiClient.get('/students/me/schedule');
@@ -376,11 +374,23 @@ export const getStudentSchedule = async (): Promise<ScheduleEnrichedResponse[]> 
   }
 };
 
-// Get all classes for students (from the /classes/student/ endpoint)
+// FIXED: Get all classes for students
 export const getStudentClassesAll = async (): Promise<StudentClass[]> => {
   try {
     const response = await apiClient.get('/classes/student/');
-    return response.data;
+    
+    // Transform the response to ensure all required fields exist
+    const classes = response.data.map((classData: any) => ({
+      id: classData.id,
+      name: classData.name || `Class ${classData.id}`,
+      code: classData.code || 'N/A',
+      teacher_id: classData.teacher_id || 0,
+      teacher_name: classData.teacher_name || 'Unknown Teacher',
+      description: classData.description || '',
+      created_at: classData.created_at || new Date().toISOString()
+    }));
+    
+    return classes;
   } catch (error: any) {
     console.error('Error fetching student classes:', error);
     if (error.response?.status === 403) {
@@ -398,11 +408,25 @@ export const getStudentClassesAll = async (): Promise<StudentClass[]> => {
   }
 };
 
-// Get all assignments for students (from the /assignments/student/ endpoint)
+// FIXED: Get all assignments for students
 export const getStudentAssignmentsAll = async (): Promise<StudentAssignment[]> => {
   try {
     const response = await apiClient.get('/assignments/student/');
-    return response.data;
+    
+    // Transform the response to ensure all required fields exist
+    const assignments = response.data.map((assignment: any) => ({
+      id: assignment.id,
+      name: assignment.name || `Assignment ${assignment.id}`,
+      description: assignment.description || '',
+      class_id: assignment.class_id || 0,
+      class_name: assignment.class_name || `Class ${assignment.class_id}`,
+      class_code: assignment.class_code || 'N/A',
+      teacher_name: assignment.teacher_name || 'Unknown Teacher',
+      creator_id: assignment.creator_id || 0,
+      created_at: assignment.created_at || new Date().toISOString()
+    }));
+    
+    return assignments;
   } catch (error: any) {
     console.error('Error fetching student assignments:', error);
     if (error.response?.status === 403) {
@@ -1429,7 +1453,7 @@ export const authService = {
     }
   },
 
-  // NEW STUDENT-SPECIFIC METHODS
+  // FIXED STUDENT-SPECIFIC METHODS
   async getStudentClassesAll(): Promise<StudentClass[]> {
     return getStudentClassesAll();
   },
