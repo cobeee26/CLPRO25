@@ -514,7 +514,7 @@ const StudentClassesPage: React.FC = () => {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <h4 className="text-sm font-bold text-gray-900 truncate">{classItem.name}</h4>
-                                  <p className="text-xs text-gray-600 truncate">Code: {classItem.code}</p>
+                                  <p className="text-xs text-gray-600 truncate">{classItem.code}</p>
                                 </div>
                               </div>
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 via-green-100 to-teal-100 text-emerald-700 border border-emerald-200">
@@ -605,7 +605,7 @@ const StudentClassesPage: React.FC = () => {
                                   <div className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-200">
                                     {classItem.name}
                                   </div>
-                                  <div className="text-xs text-gray-500 mt-1">Code: {classItem.code}</div>
+                                  <div className="text-xs text-gray-500 mt-1">{classItem.code}</div>
                                   {classItem.description && (
                                     <div className="text-xs text-gray-600 mt-1 truncate">
                                       {classItem.description}
@@ -728,7 +728,7 @@ const StudentClassesPage: React.FC = () => {
                               <div className="min-w-0 flex-1">
                                 <h4 className="text-sm font-bold text-gray-900 truncate">{assignment.name}</h4>
                                 <p className="text-xs text-gray-600 truncate">
-                                  Class: {assignment.class_name} ({assignment.class_code})
+                                  {assignment.class_name} ({assignment.class_code})
                                 </p>
                               </div>
                             </div>
@@ -838,7 +838,7 @@ const StudentClassesPage: React.FC = () => {
                                   <span className="text-sm font-medium text-gray-700 truncate group-hover:text-purple-700 transition-colors duration-200 block">
                                     {assignment.class_name}
                                   </span>
-                                  <span className="text-xs text-gray-500 truncate block">Code: {assignment.class_code}</span>
+                                  <span className="text-xs text-gray-500 truncate block">{assignment.class_code}</span>
                                 </div>
                               </div>
                               <div className="flex items-center space-x-2 text-xs text-gray-600">

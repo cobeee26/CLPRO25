@@ -45,6 +45,8 @@ interface Assignment {
   class_id: number;
   creator_id: number;
   created_at: string;
+  class_name?: string;
+  class_code?: string;
 }
 
 interface EngagementInsight {
@@ -162,7 +164,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
           </h2>
           <button
             onClick={closeModal}
-            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors duration-200"
+            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer"
             title="Close modal"
           >
             <svg
@@ -256,7 +258,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
                     is_urgent: e.target.checked,
                   })
                 }
-                className="w-5 h-5 text-orange-600 bg-gray-50 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                className="w-5 h-5 text-orange-600 bg-gray-50 border-gray-300 rounded focus:ring-orange-500 focus:ring-2 cursor-pointer"
               />
               <label
                 htmlFor="is_urgent"
@@ -270,14 +272,14 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
               <button
                 type="button"
                 onClick={closeModal}
-                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200"
+                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isSubmitting ? "Creating..." : "Create Announcement"}
               </button>
@@ -309,10 +311,12 @@ const TeacherDashboard: React.FC = () => {
 
   // Scroll indicators state
   const [showClassesScrollIndicator, setShowClassesScrollIndicator] = useState(true);
+  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] = useState(true);
   const [showAnnouncementsScrollIndicator, setShowAnnouncementsScrollIndicator] = useState(true);
 
   // Scroll refs
   const classesScrollRef = useRef<HTMLDivElement>(null);
+  const assignmentsScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll handlers
@@ -323,6 +327,17 @@ const TeacherDashboard: React.FC = () => {
         setShowClassesScrollIndicator(false);
       } else {
         setShowClassesScrollIndicator(true);
+      }
+    }
+  };
+
+  const handleAssignmentsScroll = () => {
+    if (assignmentsScrollRef.current) {
+      const { scrollTop } = assignmentsScrollRef.current;
+      if (scrollTop > 10) {
+        setShowAssignmentsScrollIndicator(false);
+      } else {
+        setShowAssignmentsScrollIndicator(true);
       }
     }
   };
@@ -517,21 +532,64 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // UPDATED: GUMAMIT NG /teachers/me/assignments ENDPOINT
   const loadAssignments = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
 
-      console.log("📝 Loading teacher assignments from API...");
-      const { getTeacherAssignments } = await import("../services/authService");
-      const assignmentsData = await getTeacherAssignments();
-
-      setAssignments(assignmentsData);
-      console.log(
-        "✅ Teacher assignments loaded successfully:",
-        assignmentsData
-      );
-
-      await loadEngagementInsights(assignmentsData);
+      console.log("📝 Loading teacher assignments from /teachers/me/assignments...");
+      
+      try {
+        const response = await apiClient.get("/teachers/me/assignments");
+        console.log("✅ Teacher assignments API response:", response.data);
+        
+        let assignmentsData: Assignment[] = [];
+        
+        if (Array.isArray(response.data)) {
+          assignmentsData = response.data.map((assignment: any) => ({
+            id: assignment.id,
+            name: assignment.name || `Assignment ${assignment.id}`,
+            description: assignment.description,
+            class_id: assignment.class_id,
+            creator_id: assignment.creator_id,
+            created_at: assignment.created_at || new Date().toISOString(),
+            class_name: assignment.class_name || `Class ${assignment.class_id}`,
+            class_code: assignment.class_code || `CLASS-${assignment.class_id}`
+          }));
+        } else if (response.data && response.data.assignments && Array.isArray(response.data.assignments)) {
+          assignmentsData = response.data.assignments.map((assignment: any) => ({
+            id: assignment.id,
+            name: assignment.name || `Assignment ${assignment.id}`,
+            description: assignment.description,
+            class_id: assignment.class_id,
+            creator_id: assignment.creator_id,
+            created_at: assignment.created_at || new Date().toISOString(),
+            class_name: assignment.class_name || `Class ${assignment.class_id}`,
+            class_code: assignment.class_code || `CLASS-${assignment.class_id}`
+          }));
+        }
+        
+        setAssignments(assignmentsData);
+        console.log("✅ Teacher assignments loaded successfully:", assignmentsData);
+        
+        await loadEngagementInsights(assignmentsData);
+      } catch (apiError: any) {
+        console.warn("⚠️ /teachers/me/assignments API failed, trying alternative...");
+        
+        // Try alternative method
+        try {
+          const { getTeacherAssignments } = await import("../services/authService");
+          const assignmentsData = await getTeacherAssignments();
+          
+          setAssignments(assignmentsData);
+          console.log("✅ Teacher assignments loaded via alternative:", assignmentsData);
+          
+          await loadEngagementInsights(assignmentsData);
+        } catch (secondError) {
+          console.error("❌ All assignment endpoints failed:", secondError);
+          setAssignments([]);
+        }
+      }
     } catch (error) {
       console.error("Error loading teacher assignments:", error);
       setAssignments([]);
@@ -548,7 +606,7 @@ const TeacherDashboard: React.FC = () => {
       const mockInsights: EngagementInsight[] = assignmentsList.map(
         (assignment) => ({
           id: assignment.id,
-          class_name: assignment.name,
+          class_name: assignment.class_name || `Class ${assignment.class_id}`,
           assignment_name: assignment.name,
           total_submissions: Math.floor(Math.random() * 50) + 10,
           average_time_spent: Math.floor(Math.random() * 120) + 30,
@@ -1138,12 +1196,88 @@ const TeacherDashboard: React.FC = () => {
                       </div>
 
                       {/* Assignments List */}
-                      <div className="space-y-3 max-h-80 overflow-y-auto">
-                        {assignments.length === 0 ? (
-                          <div className="text-center py-6">
-                            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <div className="relative">
+                        <div 
+                          className="space-y-3 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
+                          ref={assignmentsScrollRef}
+                          onScroll={handleAssignmentsScroll}
+                        >
+                          {loadingStates.assignments ? (
+                            <div className="space-y-3">
+                              {[1, 2, 3].map((i) => (
+                                <div
+                                  key={i}
+                                  className="bg-gray-50 rounded-xl p-4 border border-gray-200"
+                                >
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="h-4 bg-gray-300 rounded w-3/4 animate-pulse"></div>
+                                    <div className="w-12 h-6 bg-gray-300 rounded-full animate-pulse"></div>
+                                  </div>
+                                  <div className="h-3 bg-gray-300 rounded w-1/2 animate-pulse"></div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : assignments.length === 0 ? (
+                            <div className="text-center py-8">
+                              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <svg
+                                  className="w-8 h-8 text-gray-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                  />
+                                </svg>
+                              </div>
+                              <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                                No Assignments Yet
+                              </h4>
+                              <p className="text-gray-600 mb-4">
+                                Create your first assignment to get started.
+                              </p>
+                              <button
+                                className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
+                                style={{ cursor: "pointer" }}
+                              >
+                                Create Assignment
+                              </button>
+                            </div>
+                          ) : (
+                            assignments.slice(0, 4).map((assignment) => (
+                              <div
+                                key={assignment.id}
+                                className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
+                                style={{ cursor: "pointer" }}
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="font-semibold text-gray-900 text-sm">
+                                    {assignment.name}
+                                  </h4>
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200">
+                                    Active
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-600">
+                                    {formatDate(assignment.created_at)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* Scroll Indicator - Only show if there are more than 3 assignments AND user hasn't scrolled */}
+                        {assignments.length > 3 && showAssignmentsScrollIndicator && (
+                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
                               <svg
-                                className="w-6 h-6 text-gray-400"
+                                className="w-3 h-3 text-green-500 animate-bounce"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -1152,39 +1286,14 @@ const TeacherDashboard: React.FC = () => {
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
                                 />
                               </svg>
+                              <span className="text-xs text-gray-600">
+                                Scroll for more
+                              </span>
                             </div>
-                            <h5 className="font-medium text-gray-900 text-sm mb-1">
-                              No Assignments Yet
-                            </h5>
-                            <p className="text-xs text-gray-600">
-                              Create your first assignment to get started
-                            </p>
                           </div>
-                        ) : (
-                          assignments.slice(0, 4).map((assignment) => (
-                            <div
-                              key={assignment.id}
-                              className="bg-gray-50 rounded-xl p-3 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
-                              style={{ cursor: "pointer" }}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <h5 className="font-medium text-gray-900 text-sm truncate">
-                                    {assignment.name}
-                                  </h5>
-                                  <p className="text-xs text-gray-600">
-                                    {formatDate(assignment.created_at)}
-                                  </p>
-                                </div>
-                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200 ml-2 flex-shrink-0">
-                                  Active
-                                </span>
-                              </div>
-                            </div>
-                          ))
                         )}
                       </div>
                     </div>

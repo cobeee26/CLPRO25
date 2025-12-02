@@ -56,6 +56,9 @@ export interface User {
   id: number;
   username: string;
   role: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
 }
 
 export interface UserCreate {
@@ -75,6 +78,7 @@ export interface Class {
   name: string;
   code: string;
   teacher_id?: number;
+  student_count?: number;
 }
 
 export interface ClassCreate {
@@ -138,6 +142,7 @@ export interface StudentClass {
   teacher_name: string;
   description?: string;  // Optional
   created_at?: string;   // Optional
+  student_count?: number; // NEW: Add student count
 }
 
 export interface StudentAssignment {
@@ -194,7 +199,7 @@ export const loginUser = async (username: string, password: string): Promise<str
   }
 };
 
-// Get all users from the protected backend endpoint
+// Get all users from the protected backend endpoint (Admin only)
 export const getAllUsers = async (): Promise<User[]> => {
   try {
     // Use the configured apiClient which automatically includes auth headers
@@ -216,6 +221,43 @@ export const getAllUsers = async (): Promise<User[]> => {
       }
     }
     throw error;
+  }
+};
+
+// Get users for export (Admin only) - uses /exports/users/all endpoint
+export const exportAllUsers = async (): Promise<User[]> => {
+  try {
+    const response = await apiClient.get('/exports/users/all');
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to export users:', error);
+    
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+      
+      let errorMessage = 'Failed to export users data. Please try again.';
+      
+      if (error.response.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail;
+        }
+      }
+      
+      if (error.response.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (error.response.status === 403) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    if (error.request) {
+      throw new Error('Network error. Please check your connection and try again.');
+    }
+    
+    throw new Error('Failed to export users data. Please try again.');
   }
 };
 
@@ -273,12 +315,50 @@ export const getAllClasses = async (): Promise<Class[]> => {
   }
 };
 
-// Get classes for the current teacher with metrics (Teacher-specific endpoint)
+// Get classes for the current teacher with metrics (Teacher-specific endpoint) - UPDATED
 export const getTeacherClasses = async (): Promise<{classes: Class[], metrics: {total_classes: number, total_students: number}}> => {
   try {
     // Use teacher-specific endpoint with metrics
     const response = await apiClient.get('/teachers/me/classes');
-    return response.data;
+    
+    // Check if the API returns student_count in each class
+    let classesWithStudentCount = response.data.classes || [];
+    let totalStudents = response.data.metrics?.total_students || 0;
+    
+    // If API doesn't provide student count, we need to calculate it ourselves
+    if (totalStudents === 0 && classesWithStudentCount.length > 0) {
+      // We need to get student count for each class individually
+      const classesWithCounts = await Promise.all(
+        classesWithStudentCount.map(async (classItem: any) => {
+          try {
+            // Get roster for each class to count students
+            const rosterResponse = await apiClient.get(`/teachers/me/classes/${classItem.id}/roster`);
+            const studentCount = rosterResponse.data?.length || 0;
+            return {
+              ...classItem,
+              student_count: studentCount
+            };
+          } catch (rosterError) {
+            console.error(`Failed to get roster for class ${classItem.id}:`, rosterError);
+            return {
+              ...classItem,
+              student_count: 0
+            };
+          }
+        })
+      );
+      
+      classesWithStudentCount = classesWithCounts;
+      totalStudents = classesWithCounts.reduce((sum, classItem) => sum + (classItem.student_count || 0), 0);
+    }
+    
+    return {
+      classes: classesWithStudentCount,
+      metrics: {
+        total_classes: classesWithStudentCount.length,
+        total_students: totalStudents
+      }
+    };
   } catch (error: any) {
     console.error('Failed to fetch teacher classes:', error);
     if (error.response?.status === 403) {
@@ -387,7 +467,8 @@ export const getStudentClassesAll = async (): Promise<StudentClass[]> => {
       teacher_id: classData.teacher_id || 0,
       teacher_name: classData.teacher_name || 'Unknown Teacher',
       description: classData.description || '',
-      created_at: classData.created_at || new Date().toISOString()
+      created_at: classData.created_at || new Date().toISOString(),
+      student_count: classData.student_count || 0 // Add student count
     }));
     
     return classes;
@@ -661,64 +742,6 @@ export const deleteUserByAdmin = async (userId: number): Promise<{ message: stri
   }
 };
 
-// Create class by admin from the protected backend endpoint
-export const createClassByAdmin = async (classData: ClassCreate): Promise<Class> => {
-  try {
-    // Use the configured apiClient which automatically includes auth headers
-    const response = await apiClient.post('/classes/', classData);
-    
-    // Return the created class data
-    return response.data;
-  } catch (error: any) {
-    console.error('Failed to create class:', error);
-    
-    // Handle Axios error response
-    if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
-      
-      // Extract error message from response
-      let errorMessage = 'Class creation failed. Please check the input and try again.';
-      
-      if (error.response.data?.detail) {
-        // Handle different types of detail responses
-        if (typeof error.response.data.detail === 'string') {
-          errorMessage = error.response.data.detail;
-        } else if (Array.isArray(error.response.data.detail)) {
-          // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
-            `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
-          ).join(', ');
-        } else if (typeof error.response.data.detail === 'object') {
-          // Handle object details
-          errorMessage = JSON.stringify(error.response.data.detail);
-        }
-      }
-      
-      // Handle specific status codes
-      if (error.response.status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.';
-      } else if (error.response.status === 403) {
-        errorMessage = 'Access denied. Admin privileges required.';
-      } else if (error.response.status === 400) {
-        errorMessage = errorMessage || 'Invalid class data provided.';
-      } else if (error.response.status === 422) {
-        errorMessage = errorMessage || 'Invalid request data. Please check all fields.';
-      }
-      
-      throw new Error(errorMessage);
-    }
-    
-    // Handle network or other errors
-    if (error.request) {
-      throw new Error('Network error. Please check your connection and try again.');
-    }
-    
-    // Handle other errors
-    throw new Error('Class creation failed. Please try again.');
-  }
-};
-
 // Create class function for general use
 export const createClass = async (classData: ClassCreate): Promise<Class> => {
   try {
@@ -906,81 +929,6 @@ export const deleteClass = async (classId: number): Promise<{ message: string }>
     
     // Handle other errors
     throw new Error('Class deletion failed. Please try again.');
-  }
-};
-
-// Export all users data (Admin only)
-export const exportAllUsers = async (): Promise<User[]> => {
-  try {
-    // Explicitly define the backend URL
-    const BACKEND_URL = 'http://localhost:8000';
-    const endpoint = `${BACKEND_URL}/exports/users/all`;
-    
-    console.log('exportAllUsers: Starting API call to:', endpoint);
-    
-    // Get the auth token
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      throw new Error('No authentication token found. Please log in again.');
-    }
-    
-    // Make explicit request with full URL and auth header
-    const response = await axios.get(endpoint, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    console.log('exportAllUsers: API response received:', response.status, response.data);
-    
-    // Return the users data
-    return response.data;
-  } catch (error: any) {
-    console.error('Failed to export users:', error);
-    
-    // Handle Axios error response
-    if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
-      
-      // Extract error message from response
-      let errorMessage = 'Failed to export users data. Please try again.';
-      
-      if (error.response.data?.detail) {
-        // Handle different types of detail responses
-        if (typeof error.response.data.detail === 'string') {
-          errorMessage = error.response.data.detail;
-        } else if (Array.isArray(error.response.data.detail)) {
-          // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
-            `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
-          ).join(', ');
-        } else if (typeof error.response.data.detail === 'object') {
-          // Handle object details
-          errorMessage = JSON.stringify(error.response.data.detail);
-        }
-      }
-      
-      // Handle specific status codes
-      if (error.response.status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.';
-      } else if (error.response.status === 403) {
-        errorMessage = 'Access denied. Admin privileges required.';
-      } else if (error.response.status === 500) {
-        errorMessage = 'Server error. Please try again later.';
-      }
-      
-      throw new Error(errorMessage);
-    }
-    
-    // Handle network or other errors
-    if (error.request) {
-      throw new Error('Network error. Please check your connection and try again.');
-    }
-    
-    // Handle other errors
-    throw new Error('Failed to export users data. Please try again.');
   }
 };
 
@@ -1182,6 +1130,21 @@ export const deleteClassByAdmin = async (classId: number): Promise<{ message: st
   }
 };
 
+// NEW: Get teacher student count endpoint
+export const getTeacherStudentsCount = async (): Promise<{ total_students: number }> => {
+  try {
+    const response = await apiClient.get('/teachers/me/students/count');
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to fetch teacher student count:', error);
+    if (error.response?.status === 403) {
+      console.log('Teacher student count endpoint not available, returning 0...');
+      return { total_students: 0 };
+    }
+    throw error;
+  }
+};
+
 // Main auth service object with all methods
 export const authService = {
   // Login user - Updated to use the correct endpoint
@@ -1289,6 +1252,11 @@ export const authService = {
     return getAllUsers();
   },
 
+  // Export all users (Admin only)
+  async exportAllUsers(): Promise<User[]> {
+    return exportAllUsers();
+  },
+
   // Get all classes (Admin only)
   async getAllClasses(): Promise<Class[]> {
     return getAllClasses();
@@ -1296,17 +1264,17 @@ export const authService = {
 
   // Create class (Admin only)
   async createClass(classData: ClassCreate): Promise<Class> {
-    return createClassByAdmin(classData);
+    return createClass(classData);
   },
 
   // Update class (Admin only)
   async updateClass(classId: number, updateData: ClassUpdate): Promise<Class> {
-    return updateClassByAdmin(classId, updateData);
+    return updateClass(classId, updateData);
   },
 
   // Delete class (Admin only)
   async deleteClass(classId: number): Promise<{ message: string }> {
-    return deleteClassByAdmin(classId);
+    return deleteClass(classId);
   },
 
   // Get current user profile
@@ -1420,6 +1388,10 @@ export const authService = {
     return getClassRoster(classId);
   },
 
+  async getTeacherStudentsCount(): Promise<{ total_students: number }> {
+    return getTeacherStudentsCount();
+  },
+
   // Student-specific functions
   async getStudentAssignments(): Promise<AssignmentResponse[]> {
     try {
@@ -1472,6 +1444,11 @@ export const authService = {
 
   async getStudentSubmissions(): Promise<SubmissionResponse[]> {
     return getStudentSubmissions();
+  },
+
+  // Export functions
+  async exportAllClasses(): Promise<Class[]> {
+    return exportAllClasses();
   }
 };
 

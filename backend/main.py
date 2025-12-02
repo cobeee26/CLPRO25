@@ -1882,7 +1882,7 @@ async def export_all_classes_data(
     Requires authentication and ADMIN role.
     """
     # Check if current user is an admin
-    if current_user.role != UserRole.ADMIN:
+    if currentUser.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to export class data"
@@ -2458,7 +2458,8 @@ async def get_teacher_classes_with_metrics(
                 'name': class_obj.name,
                 'code': class_obj.code,
                 'teacher_id': class_obj.teacher_id,
-                'description': getattr(class_obj, 'description', None)  # FIX: Safe attribute access
+                'description': getattr(class_obj, 'description', None),  # FIX: Safe attribute access
+                'student_count': student_count  # Add student count to response
             }
             class_responses.append(class_dict)
         
@@ -2955,6 +2956,52 @@ async def get_teacher_reports(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch teacher reports: {str(e)}"
+        )
+
+# NEW: Teacher student count endpoint - ADDED FIX
+@app.get("/teachers/me/students/count")
+async def get_teacher_students_count(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get total student count for the current teacher (Teacher only)
+    
+    Returns:
+        Total number of students across all teacher's classes
+    
+    Requires authentication and TEACHER role.
+    """
+    # Check if current user is a teacher
+    if current_user.role != UserRole.TEACHER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student counts"
+        )
+    
+    try:
+        # Get classes assigned to the teacher
+        teacher_classes = db.query(Class).filter(
+            Class.teacher_id == current_user.id
+        ).all()
+        
+        if not teacher_classes:
+            return {"total_students": 0}
+        
+        # Count total students across all teacher's classes
+        total_students = 0
+        for class_obj in teacher_classes:
+            student_count = db.query(Enrollment).filter(
+                Enrollment.class_id == class_obj.id
+            ).count()
+            total_students += student_count
+        
+        return {"total_students": total_students}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get student count: {str(e)}"
         )
 
 # Static file serving for uploaded photos

@@ -173,7 +173,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // COMBINED CLASS LOADING - WORKING FOR BOTH TEACHER AND STUDENT
+  // IMPROVED CLASS LOADING FUNCTION - FIXED FOR BOTH TEACHER AND STUDENT
   const loadClasses = async (): Promise<Class[]> => {
     try {
       console.log('📚 Loading classes from API...');
@@ -306,7 +306,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // COMBINED ASSIGNMENT LOADING - WORKING FOR BOTH TEACHER AND STUDENT
+  // IMPROVED ASSIGNMENT LOADING WITH PROPER CLASS CODE
   const loadAssignments = async (loadedClasses: Class[] = []): Promise<Assignment[]> => {
     try {
       console.log('📝 Loading assignments for:', user?.role);
@@ -343,7 +343,8 @@ const AssignmentPage: React.FC = () => {
               creator_id: assignment.creator_id,
               created_at: assignment.created_at || new Date().toISOString(),
               class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
-              class_code: classInfo?.code || assignment.class_code || `CODE${assignment.class_id}`,
+              // FIXED: Use actual class code from API or fallback
+              class_code: assignment.class_code || classInfo?.code || `CLASS-${assignment.class_id}`,
               teacher_name: assignment.teacher_name || assignment.creator?.username || classInfo?.teacher_name || 'Teacher'
             };
           });
@@ -365,7 +366,7 @@ const AssignmentPage: React.FC = () => {
         console.log('🔄 Using fallback data for demonstration');
       }
       
-      // ENRICH ASSIGNMENTS WITH CLASS NAMES FROM LOADED CLASSES
+      // ENRICH ASSIGNMENTS WITH CLASS NAMES AND CODES FROM LOADED CLASSES
       const classesToUse = loadedClasses.length > 0 ? loadedClasses : classes;
       if (classesToUse.length > 0) {
         assignmentsData = assignmentsData.map(assignment => {
@@ -375,7 +376,8 @@ const AssignmentPage: React.FC = () => {
           return {
             ...assignment,
             class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
-            class_code: classInfo?.code || assignment.class_code || `CODE${assignment.class_id}`,
+            // FIXED: Ensure class_code is properly assigned
+            class_code: assignment.class_code || classInfo?.code || `CLASS-${assignment.class_id}`,
             teacher_name: classInfo?.teacher_name || assignment.teacher_name || 'Teacher'
           };
         });
@@ -401,7 +403,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // FALLBACK ASSIGNMENTS WITH CLASS NAMES
+  // FALLBACK ASSIGNMENTS WITH PROPER CLASS CODES
   const getFallbackAssignments = (currentClasses: Class[] = []): Assignment[] => {
     // Use current classes for fallback data
     if (currentClasses.length > 0) {
@@ -413,7 +415,7 @@ const AssignmentPage: React.FC = () => {
         creator_id: classItem.teacher_id || 1,
         created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
         class_name: classItem.name,
-        class_code: classItem.code,
+        class_code: classItem.code, // Use actual class code
         teacher_name: classItem.teacher_name || 'Teacher'
       }));
     }
@@ -432,7 +434,7 @@ const AssignmentPage: React.FC = () => {
         creator_id: classItem.teacher_id || 1,
         created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
         class_name: classItem.name,
-        class_code: classItem.code,
+        class_code: classItem.code, // Use actual class code
         teacher_name: classItem.teacher_name || 'Teacher'
       }));
     }
@@ -514,7 +516,7 @@ const AssignmentPage: React.FC = () => {
 
   const getClassCode = (classId: number): string => {
     const classItem = classes.find((c) => c.id === classId);
-    return classItem ? classItem.code : 'UNKNOWN';
+    return classItem ? classItem.code : 'CLASS-UNKNOWN';
   };
 
   const getTeacherName = (classId: number): string => {
@@ -911,8 +913,11 @@ const AssignmentPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Assignments Table */}
-            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden cursor-default">
+            {/* Assignments Table with Scroll Indicator */}
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden cursor-default relative">
+              {/* Scroll Indicator */}
+              <div className="absolute top-0 right-0 h-full w-4 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10"></div>
+              
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
@@ -934,26 +939,26 @@ const AssignmentPage: React.FC = () => {
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto relative">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 cursor-default">
                     <tr>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">
                         Assignment Name
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[180px]">
                         Class
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">
                         Teacher
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">
                         Created
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">
                         Status
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">
                         Actions
                       </th>
                     </tr>
@@ -964,7 +969,7 @@ const AssignmentPage: React.FC = () => {
                         <tr key={assignment.id} className="hover:bg-gray-50 transition-colors duration-200 cursor-default">
                           <td className="px-4 lg:px-6 py-4">
                             <div className="flex items-center">
-                              <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm mr-4">
+                              <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm mr-4 flex-shrink-0">
                                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
@@ -982,7 +987,7 @@ const AssignmentPage: React.FC = () => {
                               <div className="text-sm font-medium text-gray-900">
                                 {assignment.class_name || getClassName(assignment.class_id)}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200 inline-block mt-1">
                                 {assignment.class_code || getClassCode(assignment.class_id)}
                               </div>
                             </div>
@@ -1006,7 +1011,7 @@ const AssignmentPage: React.FC = () => {
                                 {/* Manage Assignment Button */}
                                 <button
                                   onClick={() => handleManageAssignment(assignment)}
-                                  className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all duration-200 border border-purple-200 hover:border-purple-300 cursor-pointer"
+                                  className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all duration-200 border border-purple-200 hover:border-purple-300 cursor-pointer flex-shrink-0"
                                   title="Manage Assignment"
                                   aria-label="Manage Assignment"
                                 >
@@ -1017,7 +1022,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleViewSubmissions(assignment)}
-                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer"
+                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer flex-shrink-0"
                                   title="View Submissions"
                                   aria-label="View Submissions"
                                 >
@@ -1027,7 +1032,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleEditAssignment(assignment)}
-                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer"
+                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer flex-shrink-0"
                                   title="Edit Assignment"
                                   aria-label="Edit Assignment"
                                 >
@@ -1037,7 +1042,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleDeleteAssignment(assignment)}
-                                  className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
+                                  className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer flex-shrink-0"
                                   title="Delete Assignment"
                                   aria-label="Delete Assignment"
                                 >
@@ -1050,7 +1055,7 @@ const AssignmentPage: React.FC = () => {
                               <div className="flex items-center justify-end space-x-2">
                                 <button
                                   onClick={() => handleViewAssignment(assignment)}
-                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer"
+                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer flex-shrink-0"
                                   title="View Assignment"
                                   aria-label="View Assignment"
                                 >
@@ -1061,7 +1066,7 @@ const AssignmentPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleSubmitWork(assignment)}
-                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer"
+                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer flex-shrink-0"
                                   title="Submit Work"
                                   aria-label="Submit Work"
                                 >
@@ -1102,7 +1107,25 @@ const AssignmentPage: React.FC = () => {
                     )}
                   </tbody>
                 </table>
+                
+                {/* Horizontal Scroll Indicator */}
+                <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-gray-100 to-transparent opacity-50 pointer-events-none"></div>
               </div>
+              
+              {/* Scroll Hint */}
+              {displayAssignments.length > 0 && (
+                <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-center">
+                  <span className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                    </svg>
+                    Scroll horizontally to see more
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </main>
@@ -1287,6 +1310,9 @@ const AssignmentPage: React.FC = () => {
                       <div className="text-sm font-semibold text-gray-900">{assignmentToDelete.name}</div>
                       <div className="text-xs text-gray-500">
                         {assignmentToDelete.class_name || getClassName(assignmentToDelete.class_id)}
+                        <span className="ml-2 font-mono bg-gray-100 px-1 rounded">
+                          ({assignmentToDelete.class_code || getClassCode(assignmentToDelete.class_id)})
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1341,7 +1367,7 @@ const AssignmentPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>    
       )}
     </div>
   );
