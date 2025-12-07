@@ -121,6 +121,9 @@ export interface ScheduleEnrichedResponse {
   class_code: string;
   teacher_name: string;
   teacher_full_name: string;
+  cleanliness_before?: string;
+  cleanliness_after?: string;
+  last_report_time?: string;
 }
 
 export interface AssignmentResponse {
@@ -170,6 +173,47 @@ export interface SubmissionResponse {
   time_spent_minutes: number;
   submitted_at: string;
 }
+
+// NEW: Cleanliness response interface
+export interface CleanlinessResponse {
+  schedule_id: number;
+  class_id: number;
+  cleanliness_status: string;
+  has_report: boolean;
+  latest_report?: {
+    id: number;
+    reporter_id: number;
+    is_clean_before: string;
+    is_clean_after: string;
+    report_text: string;
+    photo_url?: string;
+    created_at: string;
+  };
+  message?: string;
+}
+
+// NEW: Get schedule cleanliness function
+export const getScheduleCleanliness = async (scheduleId: number): Promise<CleanlinessResponse> => {
+  try {
+    const response = await apiClient.get(`/schedules/${scheduleId}/cleanliness`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to fetch cleanliness for schedule ${scheduleId}:`, error);
+    
+    // Return default response if endpoint not found
+    if (error.response?.status === 404) {
+      console.log('Cleanliness endpoint not available, returning default...');
+      return {
+        schedule_id: scheduleId,
+        class_id: 0,
+        cleanliness_status: 'Unknown',
+        has_report: false,
+        message: 'Cleanliness endpoint not available'
+      };
+    }
+    throw error;
+  }
+};
 
 // FastAPI OAuth2 login function - COMPLETELY REWRITTEN for correct form data format
 export const loginUser = async (username: string, password: string): Promise<string> => {
@@ -1369,6 +1413,11 @@ export const authService = {
       console.error('Failed to delete schedule:', error);
       throw error;
     }
+  },
+
+  // NEW: Get schedule cleanliness
+  async getScheduleCleanliness(scheduleId: number): Promise<CleanlinessResponse> {
+    return getScheduleCleanliness(scheduleId);
   },
 
   // Teacher-specific functions

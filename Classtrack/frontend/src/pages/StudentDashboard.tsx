@@ -84,6 +84,12 @@ interface ScheduleItem {
   class_code: string;
   teacher_name: string;
   teacher_full_name: string;
+  cleanliness_before?: string;
+  cleanliness_after?: string;
+  last_report_time?: string;
+  schedule_date?: Date; 
+  is_today?: boolean; 
+  is_current?: boolean;
 }
 
 interface Announcement {
@@ -145,25 +151,20 @@ const StudentDashboard: React.FC = () => {
     report_text: "",
   });
 
-  // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Form refs for controlled inputs
   const classIdRef = useRef<HTMLSelectElement>(null);
   const reportTextRef = useRef<HTMLTextAreaElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll indicators state
   const [showScheduleScrollIndicator, setShowScheduleScrollIndicator] = useState(true);
   const [showAnnouncementsScrollIndicator, setShowAnnouncementsScrollIndicator] = useState(true);
   const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] = useState(true);
 
-  // Scroll refs
   const scheduleScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
 
-  // Scroll handlers
   const handleScheduleScroll = () => {
     if (scheduleScrollRef.current) {
       const { scrollTop } = scheduleScrollRef.current;
@@ -420,7 +421,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Function to load student assignments from API - IMPROVED VERSION
+  // Function to load student assignments from API - IMPROVED VERSION WITH REAL-TIME UPDATES
   const loadStudentAssignments = async (): Promise<Assignment[]> => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
@@ -464,7 +465,7 @@ const StudentDashboard: React.FC = () => {
         }
       }
 
-      // ENHANCE ASSIGNMENTS WITH CLASS DATA - IMPROVED LOGIC
+      // ENHANCE ASSIGNMENTS WITH CLASS DATA - IMPROVED LOGIC WITH AUTOMATIC REFRESH
       console.log("🔄 Enhancing assignments with class data...");
       console.log("📚 Available classes:", classes);
       console.log("📝 Assignments before enrichment:", assignmentsData);
@@ -512,33 +513,203 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Function to load schedules from API
+  // FIXED: Function to load schedules - USING CORRECT STUDENT SCHEDULE ENDPOINT
   const loadSchedules = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, schedule: true }));
-      console.log("📅 Loading schedules from API...");
+      console.log("📅 Loading student schedules...");
 
       try {
-        const response = await apiClient.get("/schedules/live");
-        console.log("✅ Schedules API response:", response.data);
+        // Use the correct student schedule endpoint
+        const response = await apiClient.get("/students/me/schedule");
+        console.log("✅ Student schedule API response:", response.data);
 
         if (response.status === 200) {
-          const responseData = response.data;
-          const schedulesArray = Array.isArray(responseData) ? responseData : 
-                               (responseData.schedules || responseData.data || []);
+          let schedulesArray = [];
           
-          if (Array.isArray(schedulesArray)) {
-            setSchedule(schedulesArray);
+          // Handle different response formats
+          if (Array.isArray(response.data)) {
+            schedulesArray = response.data;
+          } else if (response.data.schedules) {
+            schedulesArray = response.data.schedules;
+          } else if (response.data.data) {
+            schedulesArray = response.data.data;
+          } else if (response.data.student_schedules) {
+            schedulesArray = response.data.student_schedules;
           } else {
+            // Assume the data is directly in response.data
+            schedulesArray = response.data;
+          }
+          
+          console.log("📊 Student schedules received:", schedulesArray);
+          
+          if (Array.isArray(schedulesArray) && schedulesArray.length > 0) {
+            // Get current date and time in local timezone
+            const now = new Date();
+            const todayDateString = now.toDateString();
+            const currentTime = now.getTime();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            
+            console.log("📅 Current local time:", {
+              date: todayDateString,
+              time: `${currentHour}:${currentMinute}`,
+              timestamp: now.toISOString()
+            });
+            
+            // Transform schedules with accurate timezone handling
+            const allSchedules = schedulesArray.map((scheduleItem: any) => {
+              try {
+                // Parse times with proper timezone handling
+                const startTime = new Date(scheduleItem.start_time);
+                const endTime = new Date(scheduleItem.end_time);
+                
+                // Convert to local timezone
+                const localStartTime = new Date(startTime.getTime() - startTime.getTimezoneOffset() * 60000);
+                const localEndTime = new Date(endTime.getTime() - endTime.getTimezoneOffset() * 60000);
+                
+                const scheduleDateString = localStartTime.toDateString();
+                const isToday = scheduleDateString === todayDateString;
+                
+                // Check if this schedule is happening now
+                const isCurrentClass = currentTime >= localStartTime.getTime() && 
+                                       currentTime <= localEndTime.getTime();
+                
+                // Determine status based on time and cleanliness
+                let status: "Occupied" | "Clean" | "Needs Cleaning" = "Occupied";
+                
+                if (isCurrentClass) {
+                  status = "Occupied";
+                } else if (currentTime > localEndTime.getTime()) {
+                  // Class has ended, check cleanliness
+                  if (scheduleItem.latest_report) {
+                    const report = scheduleItem.latest_report;
+                    if (report.is_clean_after === true || report.is_clean_after === "true") {
+                      status = "Clean";
+                    } else if (report.is_clean_after === false || report.is_clean_after === "false") {
+                      status = "Needs Cleaning";
+                    } else {
+                      status = "Needs Cleaning"; // Default after class ends
+                    }
+                  } else if (scheduleItem.cleanliness_status) {
+                    status = scheduleItem.cleanliness_status;
+                  } else if (scheduleItem.status) {
+                    status = scheduleItem.status;
+                  } else {
+                    status = "Needs Cleaning"; // Default after class
+                  }
+                } else if (currentTime < localStartTime.getTime()) {
+                  // Class hasn't started yet
+                  status = "Clean"; // Assume clean before class
+                }
+                
+                return {
+                  id: scheduleItem.id || scheduleItem.schedule_id || 0,
+                  class_id: scheduleItem.class_id || 0,
+                  start_time: scheduleItem.start_time,
+                  end_time: scheduleItem.end_time,
+                  room_number: scheduleItem.room_number || "Room 101",
+                  status: status,
+                  class_name: scheduleItem.class_name || `Class ${scheduleItem.class_id}`,
+                  class_code: scheduleItem.class_code || `CODE-${scheduleItem.class_id}`,
+                  teacher_name: scheduleItem.teacher_name || scheduleItem.teacher_full_name || "Teacher",
+                  teacher_full_name: scheduleItem.teacher_full_name || scheduleItem.teacher_name || "Teacher",
+                  cleanliness_before: scheduleItem.cleanliness_before || scheduleItem.is_clean_before || "Unknown",
+                  cleanliness_after: scheduleItem.cleanliness_after || scheduleItem.is_clean_after || "Unknown",
+                  last_report_time: scheduleItem.last_report_time || scheduleItem.report_time || null,
+                  schedule_date: localStartTime,
+                  is_today: isToday,
+                  is_current: isCurrentClass
+                };
+              } catch (error) {
+                console.error("Error processing schedule item:", scheduleItem, error);
+                return null;
+              }
+            }).filter(item => item !== null) as ScheduleItem[];
+            
+            console.log("📋 All transformed schedules:", allSchedules);
+            
+            // Filter for today's schedules
+            const todaySchedules = allSchedules.filter((item: ScheduleItem) => item.is_today);
+            
+            console.log("🎯 Today's schedules found:", todaySchedules.length);
+            
+            // Group schedules by time slot (one per time slot)
+            const groupedSchedules = groupSchedulesByTimeSlot(todaySchedules);
+            
+            // Filter to show only current or upcoming schedules
+            const currentAndNextSchedules = getCurrentAndNextSchedules(groupedSchedules);
+            
+            console.log("⏰ Filtered schedules (current/next):", currentAndNextSchedules.map(s => ({
+              class: s.class_name,
+              time: formatTime(s.start_time),
+              status: s.status
+            })));
+            
+            if (currentAndNextSchedules.length > 0) {
+              setSchedule(currentAndNextSchedules);
+            } else {
+              // If no current schedules, show next schedules for today
+              const nextSchedules = getNextSchedules(todaySchedules);
+              if (nextSchedules.length > 0) {
+                setSchedule(nextSchedules.slice(0, 3)); // Show up to 3 next schedules
+              } else {
+                setSchedule([]);
+              }
+            }
+          } else {
+            console.warn("⚠️ No schedule data received from API");
             setSchedule([]);
           }
         } else {
-          console.warn("⚠️ Schedules API returned unexpected response");
+          console.warn("⚠️ Schedule API returned unexpected response");
           setSchedule([]);
         }
       } catch (error: any) {
         console.error("❌ Error loading schedules from API:", error.message);
-        setSchedule([]);
+        
+        // Try alternative endpoint
+        try {
+          console.log("🔄 Trying alternative schedule endpoint...");
+          const fallbackResponse = await apiClient.get("/schedules/student/today");
+          console.log("✅ Fallback schedules:", fallbackResponse.data);
+          
+          if (fallbackResponse.status === 200) {
+            const fallbackData = fallbackResponse.data;
+            const schedulesArray = Array.isArray(fallbackData) ? fallbackData : 
+                                 (fallbackData.schedules || fallbackData.data || []);
+            
+            if (Array.isArray(schedulesArray) && schedulesArray.length > 0) {
+              // Transform similar to above
+              const transformed = schedulesArray.map((item: any) => ({
+                id: item.id || 0,
+                class_id: item.class_id || 0,
+                start_time: item.start_time,
+                end_time: item.end_time,
+                room_number: item.room_number || "Room 101",
+                status: item.status || "Occupied",
+                class_name: item.class_name || `Class ${item.class_id}`,
+                class_code: item.class_code || `CODE-${item.class_id}`,
+                teacher_name: item.teacher_name || "Teacher",
+                teacher_full_name: item.teacher_full_name || item.teacher_name || "Teacher",
+                cleanliness_before: item.cleanliness_before || "Unknown",
+                cleanliness_after: item.cleanliness_after || "Unknown",
+                last_report_time: item.last_report_time || null,
+                schedule_date: new Date(item.start_time),
+                is_today: true
+              })).slice(0, 3); // Limit to 3
+              
+              setSchedule(transformed);
+            } else {
+              setSchedule([]);
+            }
+          } else {
+            setSchedule([]);
+          }
+        } catch (fallbackError) {
+          console.error("❌ Fallback also failed:", fallbackError);
+          setSchedule([]);
+        }
       }
     } catch (error) {
       console.error("❌ Error loading schedules:", error);
@@ -546,6 +717,64 @@ const StudentDashboard: React.FC = () => {
     } finally {
       setLoadingStates((prev) => ({ ...prev, schedule: false }));
     }
+  };
+
+  // Helper function to group schedules by time slot (one per time slot)
+  const groupSchedulesByTimeSlot = (schedules: ScheduleItem[]): ScheduleItem[] => {
+    const grouped: { [key: string]: ScheduleItem } = {};
+    
+    schedules.forEach(schedule => {
+      const timeSlot = formatTime(schedule.start_time);
+      if (!grouped[timeSlot] || schedule.is_current) {
+        grouped[timeSlot] = schedule;
+      }
+    });
+    
+    return Object.values(grouped);
+  };
+
+  // Helper function to get current and next schedules
+  const getCurrentAndNextSchedules = (schedules: ScheduleItem[]): ScheduleItem[] => {
+    const now = new Date();
+    const currentTime = now.getTime();
+    
+    // Find current schedule
+    const currentSchedule = schedules.find(s => {
+      const startTime = new Date(s.start_time).getTime();
+      const endTime = new Date(s.end_time).getTime();
+      return currentTime >= startTime && currentTime <= endTime;
+    });
+    
+    // Find next schedule
+    const upcomingSchedules = schedules
+      .filter(s => {
+        const startTime = new Date(s.start_time).getTime();
+        return startTime > currentTime;
+      })
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    
+    const nextSchedule = upcomingSchedules.length > 0 ? upcomingSchedules[0] : null;
+    
+    const result: ScheduleItem[] = [];
+    if (currentSchedule) {
+      result.push(currentSchedule);
+    }
+    if (nextSchedule && result.length < 3) {
+      result.push(nextSchedule);
+    }
+    
+    return result;
+  };
+
+  // Helper function to get next schedules
+  const getNextSchedules = (schedules: ScheduleItem[]): ScheduleItem[] => {
+    const now = new Date();
+    const currentTime = now.getTime();
+    
+    return schedules
+      .filter(s => new Date(s.start_time).getTime() > currentTime)
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+      .slice(0, 3); // Get next 3 schedules
   };
 
   // Function to load announcements from API
@@ -584,12 +813,23 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Real-time sync for assignments
+  // Real-time sync for assignments and schedules - IMPROVED
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
+      console.log("🔄 Storage change detected:", e.key);
+      
       if (e.key === "assignments_updated") {
-        console.log("🔄 Storage change detected, reloading assignments...");
+        console.log("🔄 Assignment update detected, reloading assignments...");
         loadStudentAssignments();
+      }
+      if (e.key === "room_report_submitted") {
+        console.log("🔄 Room report submitted, reloading schedules...");
+        loadSchedules();
+      }
+      if (e.key === "student_classes_updated") {
+        console.log("🔄 Classes updated, reloading classes and assignments...");
+        loadStudentClasses();
+        setTimeout(() => loadStudentAssignments(), 500); // Small delay to ensure classes are loaded first
       }
     };
 
@@ -597,23 +837,27 @@ const StudentDashboard: React.FC = () => {
 
     // Set up periodic refresh for real-time updates
     const refreshInterval = setInterval(() => {
-      console.log("🔄 Student: Periodic data refresh");
-      loadStudentAssignments();
-    }, 30000); // Refresh every 30 seconds
+      console.log("🔄 Student Dashboard: Periodic data refresh");
+      loadSchedules(); // Refresh schedules every 30 seconds
+    }, 30000);
+
+    // Initial auto-refresh after 2 seconds to ensure data is loaded
+    const initialRefresh = setTimeout(() => {
+      loadSchedules();
+    }, 2000);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       clearInterval(refreshInterval);
+      clearTimeout(initialRefresh);
     };
   }, [classes]);
 
-  // Time formatting functions
+  // Time formatting functions - IMPROVED TIMEZONE HANDLING
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      // Add timezone offset to convert to local time
-      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-      return localDate.toLocaleDateString("en-US", {
+      return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric",
@@ -629,15 +873,32 @@ const StudentDashboard: React.FC = () => {
   const formatTime = (dateTimeString: string) => {
     try {
       const date = new Date(dateTimeString);
-      // Add timezone offset to convert to local time
-      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-      return localDate.toLocaleTimeString("en-US", {
+      return date.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true
       });
     } catch (error) {
+      console.error("Error formatting time:", dateTimeString, error);
       return "Invalid time";
+    }
+  };
+
+  // Format time range properly with timezone
+  const formatTimeRange = (startTime: string, endTime: string) => {
+    try {
+      const start = formatTime(startTime);
+      const end = formatTime(endTime);
+      
+      // Get AM/PM indicators
+      const startDate = new Date(startTime);
+      const endDate = new Date(endTime);
+      const startPeriod = startDate.getHours() >= 12 ? "PM" : "AM";
+      const endPeriod = endDate.getHours() >= 12 ? "PM" : "AM";
+      
+      return `${start} ${startPeriod} - ${end} ${endPeriod}`;
+    } catch (error) {
+      return "Invalid time range";
     }
   };
 
@@ -645,9 +906,8 @@ const StudentDashboard: React.FC = () => {
   const formatDueDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
       const now = new Date();
-      const diffTime = localDate.getTime() - now.getTime();
+      const diffTime = date.getTime() - now.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
       if (diffDays < 0) {
@@ -659,7 +919,7 @@ const StudentDashboard: React.FC = () => {
       } else if (diffDays <= 7) {
         return `Due in ${diffDays} days`;
       } else {
-        return localDate.toLocaleDateString("en-US", {
+        return date.toLocaleDateString("en-US", {
           month: "short",
           day: "numeric"
         });
@@ -801,7 +1061,7 @@ const StudentDashboard: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Room report submission
+  // FIXED: Room report submission - CORRECTED VERSION
   const handleSubmitRoomReport = async () => {
     if (!validateRoomReportForm() || !user) {
       return;
@@ -811,63 +1071,115 @@ const StudentDashboard: React.FC = () => {
       setIsSubmittingReport(true);
       setReportFormErrors({});
 
-      // Create proper FormData with correct field names
-      const formData = new FormData();
-      
-      // Convert string values to proper types expected by API
-      formData.append("class_id", reportFormData.class_id);
-      formData.append("is_clean_before", reportFormData.is_clean_before === "true" ? "true" : "false");
-      formData.append("is_clean_after", reportFormData.is_clean_after === "true" ? "true" : "false");
-      formData.append("report_text", reportFormData.report_text);
-
-      if (selectedPhoto) {
-        formData.append("photo", selectedPhoto);
-      }
-
       console.log("📤 Submitting room report with data:", {
         class_id: reportFormData.class_id,
         is_clean_before: reportFormData.is_clean_before,
         is_clean_after: reportFormData.is_clean_after,
         report_text: reportFormData.report_text,
-        has_photo: !!selectedPhoto
+        user_id: user.id
       });
 
-      const response = await apiClient.post("/reports", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      // Create proper FormData with correct field names
+      const formData = new FormData();
+      
+      formData.append("class_id", reportFormData.class_id);
+      formData.append("is_clean_before", reportFormData.is_clean_before === "true" ? "true" : "false");
+      formData.append("is_clean_after", reportFormData.is_clean_after === "true" ? "true" : "false");
+      formData.append("report_text", reportFormData.report_text);
 
-      console.log("✅ Room report submitted successfully:", response.data);
+      if (user.id) {
+        formData.append("reported_by", user.id.toString());
+      }
+
+      // Get room number for the selected class
+      const selectedClass = classes.find(c => c.id === parseInt(reportFormData.class_id));
+      if (selectedClass) {
+        const classSchedule = schedule.find(s => s.class_id === parseInt(reportFormData.class_id));
+        if (classSchedule) {
+          formData.append("room_number", classSchedule.room_number);
+        } else {
+          formData.append("room_number", "Room 101");
+        }
+      }
+
+      if (selectedPhoto) {
+        formData.append("photo", selectedPhoto);
+      }
+
+      console.log("📤 Final FormData to be sent:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ', pair[1]);
+      }
+
+      // Try different endpoints
+      let response;
+      try {
+        response = await apiClient.post("/reports", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        console.log("✅ Room report submitted successfully to /reports:", response.data);
+      } catch (firstError: any) {
+        console.log("⚠️ First endpoint failed, trying /room-reports...");
+        
+        try {
+          response = await apiClient.post("/room-reports", formData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+          console.log("✅ Room report submitted successfully to /room-reports:", response.data);
+        } catch (secondError: any) {
+          console.log("⚠️ Second endpoint failed, trying /api/reports...");
+          
+          response = await apiClient.post("/api/reports", formData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+          console.log("✅ Room report submitted successfully to /api/reports:", response.data);
+        }
+      }
+
+      console.log("✅ Room report submitted successfully!");
+      
+      // Trigger schedule reload
+      await loadSchedules();
+      
+      // Notify other tabs/windows
+      localStorage.setItem("room_report_submitted", Date.now().toString());
+      
       handleCloseRoomReportModal();
-      alert("Room report submitted successfully!");
+      
+      // Show success message
+      showCustomAlert("success", "Room Report Submitted", "Your room report has been successfully submitted! The schedule will update shortly.");
     } catch (error: any) {
       console.error("❌ Error submitting room report:", error);
 
-      // Better error handling for 422 responses
       if (error.response?.status === 422) {
         const apiErrors: { [key: string]: string } = {};
         
         if (Array.isArray(error.response.data?.detail)) {
-          // Handle Pydantic validation errors
           error.response.data.detail.forEach((err: any) => {
             if (err.loc && err.loc.length > 1) {
               const fieldName = err.loc[err.loc.length - 1];
               apiErrors[fieldName] = err.msg;
+            } else {
+              apiErrors.general = err.msg || "Validation failed";
             }
           });
         } else if (typeof error.response.data?.detail === 'object') {
-          // Handle object-style validation errors
           Object.keys(error.response.data.detail).forEach(field => {
             apiErrors[field] = error.response.data.detail[field];
           });
         } else if (error.response.data?.detail) {
-          // Handle string error message
           apiErrors.general = error.response.data.detail;
         } else {
           apiErrors.general = "Validation failed. Please check your input.";
         }
         
+        console.error("📋 Validation errors:", apiErrors);
         setReportFormErrors(apiErrors);
       } else {
         const errorMessage =
@@ -875,17 +1187,125 @@ const StudentDashboard: React.FC = () => {
           error.response?.data?.message ||
           error.message ||
           "Failed to submit room report. Please try again.";
+        
+        console.error("❌ Server error:", errorMessage);
         setReportFormErrors({ general: errorMessage });
+        
+        showCustomAlert("error", "Submission Failed", errorMessage);
       }
     } finally {
       setIsSubmittingReport(false);
     }
   };
 
-  // Refresh assignments data when classes are loaded
+  // NEW: Custom alert function with beautiful styling
+  const showCustomAlert = (type: "success" | "error" | "info", title: string, message: string) => {
+    let alertContainer = document.getElementById('custom-alert-container');
+    if (!alertContainer) {
+      alertContainer = document.createElement('div');
+      alertContainer.id = 'custom-alert-container';
+      alertContainer.className = 'fixed top-4 right-4 z-[9999] flex flex-col gap-3 max-w-md';
+      document.body.appendChild(alertContainer);
+    }
+
+    const alertId = `alert-${Date.now()}`;
+    const alertElement = document.createElement('div');
+    alertElement.id = alertId;
+    alertElement.className = `animate-slideInRight rounded-xl shadow-xl border overflow-hidden ${
+      type === 'success' 
+        ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-200' 
+        : type === 'error'
+        ? 'bg-gradient-to-r from-red-50 to-red-100 border-red-200'
+        : 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200'
+    }`;
+
+    alertElement.innerHTML = `
+      <div class="p-4">
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center ${
+              type === 'success'
+                ? 'bg-gradient-to-r from-green-500 to-green-600'
+                : type === 'error'
+                ? 'bg-gradient-to-r from-red-500 to-red-600'
+                : 'bg-gradient-to-r from-blue-500 to-blue-600'
+            }">
+              ${
+                type === 'success'
+                  ? '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+                  : type === 'error'
+                  ? '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>'
+                  : '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+              }
+            </div>
+          </div>
+          <div class="flex-1">
+            <h3 class="font-bold text-gray-900 text-lg mb-1">${title}</h3>
+            <p class="text-gray-700 text-sm">${message}</p>
+          </div>
+          <button onclick="document.getElementById('${alertId}').remove()" class="flex-shrink-0 text-gray-400 hover:text-gray-600 cursor-pointer">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+
+    alertContainer.appendChild(alertElement);
+
+    setTimeout(() => {
+      const alertToRemove = document.getElementById(alertId);
+      if (alertToRemove) {
+        alertToRemove.classList.add('animate-fadeOut');
+        setTimeout(() => alertToRemove.remove(), 300);
+      }
+    }, 5000);
+  };
+
+  // Add CSS for animations
   useEffect(() => {
-    if (classes.length > 0 && assignments.length > 0) {
-      console.log("🔄 Classes loaded, re-enriching assignments...");
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes slideInRight {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes fadeOut {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+      
+      .animate-slideInRight {
+        animation: slideInRight 0.3s ease-out;
+      }
+      
+      .animate-fadeOut {
+        animation: fadeOut 0.3s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Refresh assignments data when classes are loaded - IMPROVED
+  useEffect(() => {
+    if (classes.length > 0) {
+      console.log("🔄 Classes loaded, automatically enriching assignments...");
       loadStudentAssignments();
     }
   }, [classes]);
@@ -1114,7 +1534,7 @@ const StudentDashboard: React.FC = () => {
                 {/* VIEW PROFILE BUTTON */}
                 <button
                   onClick={handleViewProfile}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow border border-gray-300 flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow border border-gray-300 flex items-center gap-2 cursor-pointer"
                   aria-label="View and edit user profile"
                 >
                   <svg
@@ -1138,7 +1558,7 @@ const StudentDashboard: React.FC = () => {
 
             {/* Dashboard Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {/* Schedule Section - WITH SCROLLING */}
+              {/* Schedule Section - WITH ACCURATE TIME DISPLAY */}
               <div className="lg:col-span-1">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
@@ -1159,16 +1579,38 @@ const StudentDashboard: React.FC = () => {
                           />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        Today's Schedule
-                      </h3>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                          Today's Schedule
+                        </h3>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-green-600 font-medium">
+                            Real-time Cleanliness
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-green-600 font-medium">
-                        Live
-                      </span>
-                    </div>
+                    <button
+                      onClick={loadSchedules}
+                      disabled={loadingStates.schedule}
+                      className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Refresh schedule"
+                    >
+                      <svg
+                        className={`w-4 h-4 ${loadingStates.schedule ? 'animate-spin' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                    </button>
                   </div>
 
                   <div className="relative flex-1">
@@ -1230,8 +1672,7 @@ const StudentDashboard: React.FC = () => {
                                 </p>
                                 <div className="flex items-center justify-between">
                                   <p className="text-sm font-medium text-gray-900">
-                                    {formatTime(item.start_time)} -{" "}
-                                    {formatTime(item.end_time)}
+                                    {formatTimeRange(item.start_time, item.end_time)}
                                   </p>
                                   <span
                                     className={`px-2 py-1 text-xs rounded-full border ${getRoomStatusColor(
@@ -1241,6 +1682,14 @@ const StudentDashboard: React.FC = () => {
                                     {item.status}
                                   </span>
                                 </div>
+                                {item.is_current && (
+                                  <div className="mt-2 flex items-center gap-1">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span className="text-xs text-green-600 font-medium">
+                                      Currently in session
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1263,6 +1712,12 @@ const StudentDashboard: React.FC = () => {
                           <p className="text-gray-500">
                             No schedule for today
                           </p>
+                          <button
+                            onClick={loadSchedules}
+                            className="mt-3 px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer"
+                          >
+                            Refresh Schedule
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1311,7 +1766,7 @@ const StudentDashboard: React.FC = () => {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+                            d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l -2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                           />
                         </svg>
                       </div>
@@ -1413,7 +1868,7 @@ const StudentDashboard: React.FC = () => {
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth={2}
-                              d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+                              d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l -2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                             />
                           </svg>
                           <p className="text-gray-500">No announcements</p>
@@ -1448,7 +1903,7 @@ const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Assignments Section - WITH IMPROVED UI DESIGN */}
+              {/* Assignments Section - WITH IMPROVED UI AND AUTOMATIC REFRESH */}
               <div className="lg:col-span-2 xl:col-span-1">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
@@ -1469,16 +1924,38 @@ const StudentDashboard: React.FC = () => {
                           />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        My Assignments
-                      </h3>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                          My Assignments
+                        </h3>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-blue-600 font-medium">
+                            Auto-refresh Enabled
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-xs text-blue-600 font-medium">
-                        {assignmentStats.total} Total
-                      </span>
-                    </div>
+                    <button
+                      onClick={loadStudentAssignments}
+                      disabled={loadingStates.assignments}
+                      className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Refresh assignments"
+                    >
+                      <svg
+                        className={`w-4 h-4 ${loadingStates.assignments ? 'animate-spin' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                    </button>
                   </div>
 
                   {/* Assignment Statistics - Clean Design */}
@@ -1529,13 +2006,8 @@ const StudentDashboard: React.FC = () => {
                         </div>
                       ) : assignments.length > 0 ? (
                         assignments.map((assignment) => {
-                          // Determine class code to display - using enriched data
                           const classCodeToDisplay = assignment.class_code || `CODE-${assignment.class_id}`;
-                          
-                          // Determine class name to display - using enriched data
                           const classNameToDisplay = assignment.class_name || `Class ${assignment.class_id}`;
-                          
-                          // Truncate teacher name if too long
                           const teacherDisplayName = assignment.teacher_name 
                             ? (assignment.teacher_name.length > 15 
                                 ? assignment.teacher_name.substring(0, 12) + '...' 
@@ -1549,38 +2021,26 @@ const StudentDashboard: React.FC = () => {
                             >
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex-1 min-w-0">
-                                  {/* CLASS NAME AND CODE DISPLAY - IMPROVED UI */}
                                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                                     <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full border border-blue-200 flex-shrink-0">
-                                      {classCodeToDisplay.length > 10 
-                                        ? classCodeToDisplay.substring(0, 8) + '...'
-                                        : classCodeToDisplay}
+                                      {classCodeToDisplay}
                                     </span>
                                     <span className="text-xs text-gray-500 truncate max-w-[120px]">
-                                      {classNameToDisplay.length > 15 
-                                        ? classNameToDisplay.substring(0, 13) + '...' 
-                                        : classNameToDisplay}
+                                      {classNameToDisplay}
                                     </span>
                                     <span className="text-xs text-gray-500 ml-auto">
                                       by {teacherDisplayName}
                                     </span>
                                   </div>
 
-                                  {/* Assignment name - IMPROVED UI */}
                                   <h4 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-1 break-words">
-                                    {assignment.name.length > 40 
-                                      ? assignment.name.substring(0, 38) + '...' 
-                                      : assignment.name}
+                                    {assignment.name}
                                   </h4>
 
-                                  {/* Assignment description - IMPROVED UI */}
                                   <p className="text-xs text-gray-600 leading-relaxed mb-2 line-clamp-2 break-words">
-                                    {assignment.description && assignment.description.length > 80 
-                                      ? assignment.description.substring(0, 78) + '...' 
-                                      : assignment.description || "No description provided"}
+                                    {assignment.description || "No description provided"}
                                   </p>
 
-                                  {/* Assignment details - IMPROVED UI */}
                                   <div className="flex items-center justify-between text-xs text-gray-500">
                                     <div className="flex items-center gap-2">
                                       <span className="truncate max-w-[100px]">
@@ -1603,7 +2063,6 @@ const StudentDashboard: React.FC = () => {
                                 </div>
                               </div>
 
-                              {/* Button navigates to assignments page - IMPROVED UI */}
                               <button
                                 onClick={() => handleSubmitAssignment(assignment)}
                                 className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg`}
@@ -1685,7 +2144,6 @@ const StudentDashboard: React.FC = () => {
                 <span>Quick Actions</span>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Blue - Submit Assignment */}
                 <button
                   onClick={() => navigate("/student/assignments")}
                   className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
@@ -1714,7 +2172,6 @@ const StudentDashboard: React.FC = () => {
                   </div>
                 </button>
 
-                {/* Orange - Submit Room Report */}
                 <button
                   onClick={() => setShowRoomReportModal(true)}
                   className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
@@ -1746,7 +2203,6 @@ const StudentDashboard: React.FC = () => {
                   </div>
                 </button>
 
-                {/* Green - View Grades */}
                 <button
                   onClick={() => navigate("/student/grades")}
                   className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
@@ -1777,7 +2233,6 @@ const StudentDashboard: React.FC = () => {
                   </div>
                 </button>
 
-                {/* Violet - View Schedule */}
                 <button
                   onClick={() => navigate("/student/schedule")}
                   className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
@@ -1803,7 +2258,7 @@ const StudentDashboard: React.FC = () => {
                       View Schedule
                     </p>
                     <p className="text-xs text-gray-600">
-                      See upcoming events
+                      See upcoming Schedule
                     </p>
                   </div>
                 </button>
@@ -1997,7 +2452,7 @@ const StudentDashboard: React.FC = () => {
                     {reportFormErrors.is_clean_after && (
                       <p className="mt-1 text-sm text-red-600">
                         {reportFormErrors.is_clean_after}
-                    </p>
+                      </p>
                     )}
                   </div>
                 </div>

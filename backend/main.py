@@ -2040,6 +2040,76 @@ async def delete_schedule_endpoint(
         )
     return {"message": "Schedule deleted successfully"}
 
+# NEW ENDPOINT: Get cleanliness status for specific schedule
+@app.get("/schedules/{schedule_id}/cleanliness")
+async def get_schedule_cleanliness(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get cleanliness report for a specific schedule
+    
+    Args:
+        schedule_id: ID of the schedule to get cleanliness for
+        
+    Returns:
+        Cleanliness status and latest report
+    """
+    try:
+        # Get the schedule
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+        if not schedule:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Schedule not found"
+            )
+        
+        # Get latest room report for this class
+        latest_report = db.query(ClassroomReport).filter(
+            ClassroomReport.class_id == schedule.class_id
+        ).order_by(
+            ClassroomReport.created_at.desc()
+        ).first()
+        
+        if not latest_report:
+            return {
+                "schedule_id": schedule_id,
+                "class_id": schedule.class_id,
+                "cleanliness_status": schedule.status,
+                "has_report": False,
+                "latest_report": None,
+                "message": "No cleanliness reports yet"
+            }
+        
+        # Convert boolean to string for compatibility
+        is_clean_after = "true" if latest_report.is_clean_after else "false"
+        is_clean_before = "true" if latest_report.is_clean_before else "false"
+        
+        return {
+            "schedule_id": schedule_id,
+            "class_id": schedule.class_id,
+            "cleanliness_status": "Clean" if latest_report.is_clean_after else "Needs Cleaning",
+            "has_report": True,
+            "latest_report": {
+                "id": latest_report.id,
+                "reporter_id": latest_report.reporter_id,
+                "is_clean_before": is_clean_before,
+                "is_clean_after": is_clean_after,
+                "report_text": latest_report.report_text,
+                "photo_url": latest_report.photo_url,
+                "created_at": latest_report.created_at
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get cleanliness status: {str(e)}"
+        )
+
 # Announcement endpoints
 @app.post("/announcements/", response_model=AnnouncementResponse)
 async def create_announcement_endpoint(
@@ -2256,6 +2326,29 @@ async def create_classroom_report_endpoint(
     
     try:
         new_report = create_classroom_report(db, report_in=report_data, reporter_id=current_user.id)
+        
+        # AFTER CREATING THE REPORT, UPDATE ALL RELATED SCHEDULES
+        try:
+            # Find all schedules for this class
+            class_schedules = db.query(Schedule).filter(
+                Schedule.class_id == class_id
+            ).all()
+            
+            for schedule in class_schedules:
+                # Update schedule status based on cleanliness
+                new_status = "Clean" if is_clean_after else "Needs Cleaning"
+                schedule.status = new_status
+                print(f"✅ Updated schedule {schedule.id} status to: {new_status}")
+            
+            db.commit()
+            print(f"✅ Successfully updated {len(class_schedules)} schedules for class {class_id}")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not update schedule statuses: {e}")
+            # Don't fail the report creation if schedule update fails
+            db.rollback()
+            # Re-query the report to ensure it's still saved
+            db.refresh(new_report)
+        
         return new_report
     except ValueError as e:
         raise HTTPException(
@@ -2358,6 +2451,128 @@ async def get_classroom_reports_by_class_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch classroom reports: {str(e)}"
+        )
+
+# NEW: Latest reports endpoint - FIX FOR 404 ERROR
+@app.get("/reports/latest")
+async def get_latest_classroom_reports(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get latest classroom reports for the current user
+    
+    - **limit**: Maximum number of latest reports to return (default: 10)
+    
+    Returns latest reports based on user role:
+    - Students: Their own latest reports
+    - Teachers: Latest reports for their classes
+    - Admins: All latest reports
+    
+    Requires authentication.
+    """
+    try:
+        print(f"📊 Fetching latest reports for user: {current_user.username} (role: {current_user.role})")
+        
+        if current_user.role == UserRole.STUDENT:
+            # Students get their own latest reports
+            reports = db.query(ClassroomReport).filter(
+                ClassroomReport.reporter_id == current_user.id
+            ).order_by(
+                ClassroomReport.created_at.desc()
+            ).limit(limit).all()
+            
+            print(f"✅ Found {len(reports)} latest reports for student")
+        
+        elif current_user.role == UserRole.TEACHER:
+            # Teachers get latest reports for their classes
+            # First, get classes taught by this teacher
+            teacher_classes = db.query(Class).filter(
+                Class.teacher_id == current_user.id
+            ).all()
+            
+            class_ids = [cls.id for cls in teacher_classes]
+            
+            if not class_ids:
+                print("ℹ️ No classes found for teacher")
+                return []
+            
+            # Get reports for these classes
+            reports = db.query(ClassroomReport).filter(
+                ClassroomReport.class_id.in_(class_ids)
+            ).order_by(
+                ClassroomReport.created_at.desc()
+            ).limit(limit).all()
+            
+            print(f"✅ Found {len(reports)} latest reports for teacher's classes")
+        
+        elif current_user.role == UserRole.ADMIN:
+            # Admins get all latest reports
+            reports = db.query(ClassroomReport).order_by(
+                ClassroomReport.created_at.desc()
+            ).limit(limit).all()
+            
+            print(f"✅ Found {len(reports)} latest reports for admin")
+        
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to view reports"
+            )
+        
+        # Convert to response format with enriched information
+        report_responses = []
+        for report in reports:
+            # Get class information
+            class_obj = db.query(Class).filter(Class.id == report.class_id).first()
+            class_name = class_obj.name if class_obj else f"Class {report.class_id}"
+            class_code = class_obj.code if class_obj else "N/A"
+            
+            # Get reporter information
+            reporter = db.query(User).filter(User.id == report.reporter_id).first()
+            reporter_name = "Unknown User"
+            if reporter:
+                reporter_name = reporter.first_name + " " + reporter.last_name if reporter.first_name and reporter.last_name else reporter.username
+            
+            # Get teacher information for the class
+            teacher_name = "Unknown Teacher"
+            if class_obj and class_obj.teacher:
+                teacher = class_obj.teacher
+                teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
+            
+            # FIX: Safely handle created_at
+            created_at = getattr(report, 'created_at', None)
+            if created_at:
+                created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
+            else:
+                created_at_str = datetime.utcnow().isoformat()
+            
+            report_response = {
+                "id": report.id,
+                "class_id": report.class_id,
+                "class_name": class_name,
+                "class_code": class_code,
+                "teacher_name": teacher_name,
+                "reporter_id": report.reporter_id,
+                "reporter_name": reporter_name,
+                "is_clean_before": report.is_clean_before,
+                "is_clean_after": report.is_clean_after,
+                "report_text": report.report_text,
+                "photo_url": report.photo_url,
+                "created_at": created_at_str
+            }
+            report_responses.append(report_response)
+        
+        return report_responses
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching latest reports: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch latest reports: {str(e)}"
         )
 
 # Teacher-specific endpoints

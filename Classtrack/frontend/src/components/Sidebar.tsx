@@ -46,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       case "admin":
         return (
           <svg
-            className="w-4 h-4 text-gray-700"
+            className="w-4 h-4 text-white"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -62,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       case "teacher":
         return (
           <svg
-            className="w-4 h-4 text-gray-700"
+            className="w-4 h-4 text-white"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -84,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       case "student":
         return (
           <svg
-            className="w-4 h-4 text-gray-700"
+            className="w-4 h-4 text-white"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -106,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       default:
         return (
           <svg
-            className="w-4 h-4 text-gray-700"
+            className="w-4 h-4 text-white"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -586,6 +586,16 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     }
   };
 
+  // Logout function
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("student_classes");
+    localStorage.removeItem("student_assignments");
+    window.location.href = "/login";
+  };
+
   return (
     <>
       {/* Sidebar */}
@@ -617,6 +627,26 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 {branding.subtitle}
               </p>
             </div>
+            {/* Mobile Close Button */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
+              aria-label="Close sidebar"
+            >
+              <svg
+                className="w-5 h-5 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -667,7 +697,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
         </nav>
 
-        {/* Sidebar Footer */}
+        {/* Sidebar Footer - ALWAYS VISIBLE BOTH MOBILE AND DESKTOP */}
         <div className="p-3 border-t border-gray-200 mt-auto">
           {/* User Info */}
           <div className="flex items-center space-x-3 mb-3">
@@ -717,14 +747,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             </div>
           </div>
 
-          {/* Logout Button */}
+          {/* Logout Button - ALWAYS VISIBLE */}
           <button
-            onClick={() => {
-              localStorage.removeItem("authToken");
-              localStorage.removeItem("userRole");
-              localStorage.removeItem("userId");
-              window.location.href = "/login";
-            }}
+            onClick={handleLogout}
             className="w-full flex items-center px-3 py-2.5 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all duration-300 hover:shadow-md group border border-gray-200 hover:border-red-200 cursor-pointer"
           >
             <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg group-hover:from-red-600 group-hover:to-red-700 transition-all duration-300 cursor-pointer">

@@ -251,7 +251,7 @@ const StudentClassesPage: React.FC = () => {
 
   return (
     <div className="h-screen w-full bg-white overflow-hidden relative flex">
-      {/* Mobile Header */}
+      {/* Mobile Header - ORIGINAL LAYOUT */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -268,16 +268,50 @@ const StudentClassesPage: React.FC = () => {
               <p className="text-xs text-gray-600">View your enrolled classes and assignments</p>
             </div>
           </div>
-          <button 
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-            title="Toggle menu"
-            aria-label="Toggle navigation menu"
-          >
-            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                localStorage.clear();
+                window.location.href = '/login';
+              }}
+              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
+              title="Logout"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+            </button>
+
+            <button 
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+              title="Toggle menu"
+            >
+              <svg
+                className="w-5 h-5 text-gray-700"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -775,7 +809,7 @@ const StudentClassesPage: React.FC = () => {
                                 className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-300 text-xs font-medium shadow-sm hover:shadow-md transform hover:scale-105 cursor-pointer"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00 2-2h1a2 2 0 012 2v5h4a2 2 0 012-2h1a2 2 0 012 2v5a2 2 0 01-2 2h-4a2 2 0 01-2-2v-5H9a2 2 0 00-2 2v7a2 2 0 002 2h4a2 2 0 002-2v2a2 2 0 002-2V9a2 2 0 00-2-2h-4z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                                 <span>Submit</span>
                               </button>
@@ -864,7 +898,7 @@ const StudentClassesPage: React.FC = () => {
                             <div className="flex justify-center space-x-2">
                               <button 
                                 onClick={() => handleViewAssignment(assignment.id)}
-                                className="inline-flex items-center space-x-2 px-3 py3-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-300 hover:shadow-sm border border-blue-200 font-medium cursor-pointer"
+                                className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-300 hover:shadow-sm border border-blue-200 font-medium cursor-pointer"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

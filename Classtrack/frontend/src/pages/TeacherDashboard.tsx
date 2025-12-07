@@ -992,7 +992,7 @@ const TeacherDashboard: React.FC = () => {
                   </div>
                   <button
                     onClick={() => navigate("/profile")}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl border border-gray-200 flex items-center gap-2 cursor-pointer"
+                    className="px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl border border-gray-200 flex items-center gap-2 cursor-pointer"
                     style={{ cursor: "pointer" }}
                   >
                     <svg
