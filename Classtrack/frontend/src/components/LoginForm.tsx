@@ -4,7 +4,11 @@ import { loginUser } from '../services/authService';
 import { Button, Input } from './ui';
 import { useUser } from '../contexts/UserContext';
 
-const LoginForm: React.FC = () => {
+interface LoginFormProps {
+  onLoginSuccess?: (message: string) => void;
+}
+
+const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   const [role, setRole] = useState('Student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +41,13 @@ const LoginForm: React.FC = () => {
       
       console.log('Stored auth data, fetching user profile...');
       
+      // Show success message
+      if (onLoginSuccess) {
+        const roleDisplay = role === 'Student' ? '🎓 Student' : 
+                          role === 'Teacher' ? '👨‍🏫 Teacher' : '⚙️ Admin';
+        onLoginSuccess(`Welcome back! You have successfully logged in as ${roleDisplay}.`);
+      }
+      
       // Fetch user profile immediately after login to ensure fresh data
       try {
         await fetchCurrentUser();
@@ -48,20 +59,23 @@ const LoginForm: React.FC = () => {
       
       console.log('Redirecting to dashboard...');
       
-      // Role-based redirection (role is used only for frontend navigation)
-      switch (role.toLowerCase()) {
-        case 'admin':
-          navigate('/admin/dashboard');
-          break;
-        case 'teacher':
-          navigate('/teacher/dashboard');
-          break;
-        case 'student':
-          navigate('/student/dashboard');
-          break;
-        default:
-          navigate('/dashboard');
-      }
+      // Small delay to show the success message before redirecting
+      setTimeout(() => {
+        // Role-based redirection (role is used only for frontend navigation)
+        switch (role.toLowerCase()) {
+          case 'admin':
+            navigate('/admin/dashboard');
+            break;
+          case 'teacher':
+            navigate('/teacher/dashboard');
+            break;
+          case 'student':
+            navigate('/student/dashboard');
+            break;
+          default:
+            navigate('/dashboard');
+        }
+      }, 1000);
     } catch (error: any) {
       console.error('Login failed:', error);
       console.error('Error details:', {

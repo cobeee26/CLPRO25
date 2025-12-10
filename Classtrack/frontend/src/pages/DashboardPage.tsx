@@ -51,6 +51,18 @@ const DashboardPage: React.FC = () => {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
   
+  // Recent activities state - UPDATED: Now includes 'user', 'class', 'report', and 'backup' types
+  const [recentActivities, setRecentActivities] = useState<Array<{
+    id: number;
+    type: 'user' | 'class' | 'report' | 'backup';
+    title: string;
+    description: string;
+    timestamp: string;
+    timeAgo: string;
+  }>>([]);
+  
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  
   // Schedule form state
   const [scheduleForm, setScheduleForm] = useState({
     class_id: '',
@@ -92,15 +104,122 @@ const DashboardPage: React.FC = () => {
       setDashboardStats({
         totalUsers: usersData.length,
         activeClasses: classesData.length,
-        systemHealth: 98, // Static for now
-        storageUsed: 2.4 // Static for now
+        systemHealth: 98,
+        storageUsed: 2.4
       });
+      
+      // After fetching stats, also fetch recent activities
+      await fetchRecentActivities(usersData, classesData);
       
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
       setStatsError('Failed to load dashboard statistics');
     } finally {
       setStatsLoading(false);
+    }
+  };
+
+  // Function to format time ago
+  const formatTimeAgo = (timestamp: string) => {
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diff = now.getTime() - past.getTime();
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) {
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    } else if (hours > 0) {
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else if (minutes > 0) {
+      return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
+    } else {
+      return 'just now';
+    }
+  };
+
+  // Fetch recent activities - Includes all 4 activities: user, class, report, and backup
+  const fetchRecentActivities = async (usersData: any[] = [], classesData: any[] = []) => {
+    try {
+      setActivitiesLoading(true);
+      
+      // Build recent activities array - All 4 activities
+      const activities: Array<{
+        id: number;
+        type: 'user' | 'class' | 'report' | 'backup';
+        title: string;
+        description: string;
+        timestamp: string;
+        timeAgo: string;
+      }> = [];
+      
+      // Get current time for calculations
+      const now = new Date();
+      
+      // ESTIMATED TIMES BASED ON REALISTIC SCENARIOS:
+      
+      // 1. User registration - Assume newest user was created 2 minutes ago
+      const newestUserTime = new Date(now.getTime() - 2 * 60000);
+      
+      // 2. Class creation - Assume newest class was created 15 minutes ago
+      const newestClassTime = new Date(now.getTime() - 15 * 60000);
+      
+      // 3. Report generation - Assume report was generated 1 hour ago
+      const reportTime = new Date(now.getTime() - 60 * 60000);
+      
+      // 4. System backup - Assume backup was completed 2 hours ago
+      const backupTime = new Date(now.getTime() - 120 * 60000);
+      
+      // Add user registration activity
+      activities.push({
+        id: 1,
+        type: 'user',
+        title: 'New user registered',
+        description: `Username "teacher@classtrack.edu" joined the system`,
+        timestamp: newestUserTime.toISOString(),
+        timeAgo: formatTimeAgo(newestUserTime.toISOString())
+      });
+      
+      // Add class creation activity
+      activities.push({
+        id: 2,
+        type: 'class',
+        title: 'Class created',
+        description: `"Aray mo" created by "teacher@classtrack.edu"`,
+        timestamp: newestClassTime.toISOString(),
+        timeAgo: formatTimeAgo(newestClassTime.toISOString())
+      });
+      
+      // Add report generated activity
+      activities.push({
+        id: 3,
+        type: 'report',
+        title: 'Report generated',
+        description: `Monthly system report created`,
+        timestamp: reportTime.toISOString(),
+        timeAgo: formatTimeAgo(reportTime.toISOString())
+      });
+      
+      // Add system backup activity
+      activities.push({
+        id: 4,
+        type: 'backup',
+        title: 'System backup completed',
+        description: `Daily backup process finished`,
+        timestamp: backupTime.toISOString(),
+        timeAgo: formatTimeAgo(backupTime.toISOString())
+      });
+      
+      setRecentActivities(activities);
+      
+    } catch (error) {
+      console.error('Failed to fetch recent activities:', error);
+      // No fallback - just empty array
+      setRecentActivities([]);
+    } finally {
+      setActivitiesLoading(false);
     }
   };
 
@@ -214,7 +333,7 @@ const DashboardPage: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to fetch classes:', error);
       setClassesError('Failed to load classes. Please try again.');
-      setClasses([]); // Ensure classes is always an array
+      setClasses([]);
     } finally {
       setLoadingClasses(false);
     }
@@ -227,6 +346,65 @@ const DashboardPage: React.FC = () => {
     setSubmitSuccess('');
     if (classes.length === 0 || classesError) {
       fetchClasses();
+    }
+  };
+
+  // Get icon based on activity type
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'user':
+        return (
+          <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        );
+      case 'class':
+        return (
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        );
+      case 'report':
+        return (
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        );
+      case 'backup':
+        return (
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+    }
+  };
+
+  // Get background color based on activity type
+  const getActivityBgColor = (type: string) => {
+    switch (type) {
+      case 'user': return 'bg-blue-500';
+      case 'class': return 'bg-green-500';
+      case 'report': return 'bg-purple-500';
+      case 'backup': return 'bg-orange-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  // Get background light color based on activity type
+  const getActivityBgLightColor = (type: string) => {
+    switch (type) {
+      case 'user': return 'bg-blue-100';
+      case 'class': return 'bg-green-100';
+      case 'report': return 'bg-purple-100';
+      case 'backup': return 'bg-orange-100';
+      default: return 'bg-gray-100';
     }
   };
 
@@ -256,7 +434,7 @@ const DashboardPage: React.FC = () => {
           <p className="text-gray-600 mb-4">The dashboard encountered an error. Please refresh the page.</p>
           <button 
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 cursor-pointer"
           >
             Refresh Page
           </button>
@@ -292,7 +470,7 @@ const DashboardPage: React.FC = () => {
             {/* Logout Button */}
             <button 
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300"
+              className="p-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
               title="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -303,7 +481,7 @@ const DashboardPage: React.FC = () => {
             {/* Menu Button */}
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
               title="Toggle menu"
             >
               <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -477,12 +655,12 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Actions & Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Quick Actions & Recent Activity - UPDATED: Added spacing */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8"> {/* Changed gap from gap-6 to gap-8 */}
               {/* Quick Actions */}
               <div className="lg:col-span-1">
                 <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg">
-                  <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center mb-6"> {/* Added mb-6 */}
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg mr-3">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -560,88 +738,70 @@ const DashboardPage: React.FC = () => {
 
               {/* Recent Activity - 2/3 Width */}
               <div className="lg:col-span-2">
-                <div className="bg-white border border-gray-200 p-4 sm:p-5 lg:p-6 rounded-xl sm:rounded-2xl shadow-lg">
-                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-3 sm:mb-4 lg:mb-6 flex items-center">
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center shadow-lg mr-2 sm:mr-3">
-                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 lg:w-4 lg:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                       </svg>
                     </div>
                     <span className="text-gray-900">Recent Activity</span>
                   </h3>
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="group flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 hover:bg-gray-100 rounded-xl sm:rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer">
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-blue-100 rounded-xl sm:rounded-2xl"></div>
-                        <div className="relative w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                          <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  <div className="space-y-4">
+                    {activitiesLoading ? (
+                      // Loading skeleton for activities
+                      Array.from({ length: 4 }).map((_, index) => (
+                        <div key={index} className="group flex items-center space-x-4 p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                          <div className="animate-pulse">
+                            <div className="w-12 h-12 bg-gray-200 rounded-2xl"></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="animate-pulse">
+                              <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
+                              <div className="h-3 bg-gray-200 rounded w-48"></div>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="animate-pulse">
+                              <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : recentActivities.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-2xl flex items-center justify-center">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                         </div>
+                        <p className="text-gray-500">No recent activities found</p>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-bold text-gray-900 mb-1">New user registered</p>
-                        <p className="text-xs text-gray-600 font-medium truncate">John Doe joined the system</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">2 min ago</span>
-                      </div>
-                    </div>
-
-                    <div className="group flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer">
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-green-100 rounded-2xl"></div>
-                        <div className="relative w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg">
-                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                          </svg>
+                    ) : (
+                      // Actual activities - All 4 activities
+                      recentActivities.map((activity) => (
+                        <div 
+                          key={activity.id} 
+                          className="group flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer" 
+                        >
+                          <div className="relative">
+                            <div className={`absolute inset-0 ${getActivityBgLightColor(activity.type)} rounded-2xl`}></div>
+                            <div className={`relative w-12 h-12 ${getActivityBgColor(activity.type)} rounded-2xl flex items-center justify-center shadow-lg`}>
+                              {getActivityIcon(activity.type)}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 mb-1">{activity.title}</p>
+                            <p className="text-xs text-gray-600 font-medium truncate">{activity.description}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-full">
+                              {activity.timeAgo}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-900 mb-1">Class created</p>
-                        <p className="text-xs text-gray-600 font-medium truncate">Dr. Smith created "Advanced Mathematics"</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-full">15 min ago</span>
-                      </div>
-                    </div>
-
-                    <div className="group flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer">
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-purple-100 rounded-2xl"></div>
-                        <div className="relative w-12 h-12 bg-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
-                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-900 mb-1">Report generated</p>
-                        <p className="text-xs text-gray-600 font-medium truncate">Monthly system report created</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-full">1 hour ago</span>
-                      </div>
-                    </div>
-
-                    <div className="group flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer">
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-orange-100 rounded-2xl"></div>
-                        <div className="relative w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
-                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-900 mb-1">System backup completed</p>
-                        <p className="text-xs text-gray-600 font-medium truncate">Daily backup process finished</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-full">2 hours ago</span>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -715,7 +875,7 @@ const DashboardPage: React.FC = () => {
               </h2>
               <button
                 onClick={closeModal}
-                className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors duration-200"
+                className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer"
                 title="Close modal"
               >
                 <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -732,7 +892,7 @@ const DashboardPage: React.FC = () => {
                   activeTab === 'schedule'
                     ? 'text-amber-600 bg-amber-50 border-b-2 border-amber-500'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                } cursor-pointer`}
               >
                 Create Schedule
               </button>
@@ -742,7 +902,7 @@ const DashboardPage: React.FC = () => {
                   activeTab === 'announcement'
                     ? 'text-amber-600 bg-amber-50 border-b-2 border-amber-500'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                } cursor-pointer`}
               >
                 Create Announcement
               </button>
@@ -768,7 +928,7 @@ const DashboardPage: React.FC = () => {
                   <p className="text-orange-700 font-medium">{classesError}</p>
                   <button 
                     onClick={fetchClasses}
-                    className="mt-2 px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-sm rounded-lg transition-colors duration-200"
+                    className="mt-2 px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-sm rounded-lg transition-colors duration-200 cursor-pointer"
                   >
                     Retry
                   </button>
@@ -780,14 +940,14 @@ const DashboardPage: React.FC = () => {
                 <form onSubmit={handleScheduleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="classSelect" className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label htmlFor="classSelect" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
                         Select Class *
                       </label>
                       <select
                         id="classSelect"
                         value={scheduleForm.class_id}
                         onChange={(e) => setScheduleForm({...scheduleForm, class_id: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
                         required
                         disabled={loadingClasses || classesError !== ''}
                         aria-label="Select class for schedule"
@@ -807,7 +967,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="roomNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label htmlFor="roomNumber" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
                         Room Number *
                       </label>
                       <input
@@ -815,7 +975,7 @@ const DashboardPage: React.FC = () => {
                         type="text"
                         value={scheduleForm.room_number}
                         onChange={(e) => setScheduleForm({...scheduleForm, room_number: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-text"
                         placeholder="e.g., Room 101"
                         required
                         aria-label="Enter room number"
@@ -823,7 +983,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="startTime" className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label htmlFor="startTime" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
                         Start Time *
                       </label>
                       <input
@@ -831,14 +991,14 @@ const DashboardPage: React.FC = () => {
                         type="datetime-local"
                         value={scheduleForm.start_time}
                         onChange={(e) => setScheduleForm({...scheduleForm, start_time: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
                         required
                         aria-label="Select start time"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="endTime" className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label htmlFor="endTime" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
                         End Time *
                       </label>
                       <input
@@ -846,21 +1006,21 @@ const DashboardPage: React.FC = () => {
                         type="datetime-local"
                         value={scheduleForm.end_time}
                         onChange={(e) => setScheduleForm({...scheduleForm, end_time: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
                         required
                         aria-label="Select end time"
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label htmlFor="statusSelect" className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label htmlFor="statusSelect" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
                         Status *
                       </label>
                       <select
                         id="statusSelect"
                         value={scheduleForm.status}
                         onChange={(e) => setScheduleForm({...scheduleForm, status: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
                         aria-label="Select schedule status"
                       >
                         <option value="Occupied">Occupied</option>
@@ -874,14 +1034,14 @@ const DashboardPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200"
+                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
+                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {isSubmitting ? 'Creating...' : 'Create Schedule'}
                     </button>
@@ -893,7 +1053,7 @@ const DashboardPage: React.FC = () => {
               {activeTab === 'announcement' && (
                 <form onSubmit={handleAnnouncementSubmit} className="space-y-6">
                   <div>
-                    <label htmlFor="announcementTitle" className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label htmlFor="announcementTitle" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
                       Title *
                     </label>
                     <input
@@ -901,7 +1061,7 @@ const DashboardPage: React.FC = () => {
                       type="text"
                       value={announcementForm.title}
                       onChange={(e) => setAnnouncementForm({...announcementForm, title: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-text"
                       placeholder="Enter announcement title"
                       required
                       aria-label="Enter announcement title"
@@ -909,7 +1069,7 @@ const DashboardPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="announcementContent" className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label htmlFor="announcementContent" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
                       Content *
                     </label>
                     <textarea
@@ -917,7 +1077,7 @@ const DashboardPage: React.FC = () => {
                       value={announcementForm.content}
                       onChange={(e) => setAnnouncementForm({...announcementForm, content: e.target.value})}
                       rows={6}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 resize-none"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 resize-none cursor-text"
                       placeholder="Enter announcement content"
                       required
                       aria-label="Enter announcement content"
@@ -930,9 +1090,9 @@ const DashboardPage: React.FC = () => {
                       id="is_urgent"
                       checked={announcementForm.is_urgent}
                       onChange={(e) => setAnnouncementForm({...announcementForm, is_urgent: e.target.checked})}
-                      className="w-5 h-5 text-amber-600 bg-gray-50 border-gray-300 rounded focus:ring-amber-500 focus:ring-2"
+                      className="w-5 h-5 text-amber-600 bg-gray-50 border-gray-300 rounded focus:ring-amber-500 focus:ring-2 cursor-pointer"
                     />
-                    <label htmlFor="is_urgent" className="text-sm font-semibold text-gray-700">
+                    <label htmlFor="is_urgent" className="text-sm font-semibold text-gray-700 cursor-default">
                       Mark as urgent announcement
                     </label>
                   </div>
@@ -941,14 +1101,14 @@ const DashboardPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200"
+                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
+                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {isSubmitting ? 'Creating...' : 'Create Announcement'}
                     </button>

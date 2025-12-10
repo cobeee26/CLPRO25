@@ -1,9 +1,22 @@
-import React from "react";
+import React, { useState } from "react";
 import LoginForm from "../components/LoginForm";
 import loginBg from "../assets/images/PLMUNBG.jpg";
 import plmunLogo from "../assets/images/PLMUNlogo.png";
 
 const LoginPage: React.FC = () => {
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const handleLoginSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setShowSuccessAlert(true);
+    
+    // Auto hide after 5 seconds
+    setTimeout(() => {
+      setShowSuccessAlert(false);
+    }, 5000);
+  };
+
   return (
     <div
       className="relative flex items-center justify-center min-h-screen w-full overflow-hidden"
@@ -72,7 +85,7 @@ const LoginPage: React.FC = () => {
             aria-label="User Authentication Form"
             className="mb-6"
           >
-            <LoginForm />
+            <LoginForm onLoginSuccess={handleLoginSuccess} />
           </section>
 
           {/* Footer */}
@@ -92,6 +105,60 @@ const LoginPage: React.FC = () => {
           </footer>
         </div>
       </div>
+
+      {/* Success Alert - Right Side Fixed */}
+      {showSuccessAlert && (
+        <div className="fixed top-6 right-6 z-50 animate-fade-in">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-xl border border-green-400 w-80 overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-white font-bold text-lg">Login Successful!</h3>
+                    <button
+                      onClick={() => setShowSuccessAlert(false)}
+                      className="text-white/80 hover:text-white cursor-pointer transition-colors"
+                      title="Dismiss"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="text-white/90 text-sm mt-1">{successMessage}</p>
+                </div>
+              </div>
+            </div>
+            {/* Progress Bar */}
+            <div className="h-1 bg-green-400">
+              <div 
+                className="h-full bg-white/30 animate-progress"
+                style={{
+                  animation: 'progress 2s linear forwards'
+                }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add custom animation for progress bar */}
+      <style>{`
+        @keyframes progress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+        .animate-progress {
+          animation: progress 1s linear forwards;
+        }
+      `}</style>
 
       {/* Skip link (Accessibility) */}
       <a

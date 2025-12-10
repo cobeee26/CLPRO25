@@ -769,6 +769,15 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             </div>
             <span className="ml-3 text-sm font-medium">Logout</span>
           </button>
+
+          {/* Developer Credits - NEW: Added caption below logout button */}
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <p className="text-xs text-gray-400 text-center">
+              Created by Allen Jefferson Orcino
+              <br />
+              Full Stack Developer
+            </p>
+          </div>
         </div>
       </div>
 

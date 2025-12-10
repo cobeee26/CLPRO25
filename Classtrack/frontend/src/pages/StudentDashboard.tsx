@@ -6,10 +6,8 @@ import DynamicHeader from "../components/DynamicHeader";
 import Sidebar from "../components/Sidebar";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
 
-// API configuration
 const API_BASE_URL = "http://localhost:8000";
 
-// Create axios instance with auth interceptor
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -19,7 +17,6 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
-// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -33,7 +30,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors
 apiClient.interceptors.response.use(
   (response) => {
     return response;
@@ -45,16 +41,15 @@ apiClient.interceptors.response.use(
       error.response?.data,
       error.message
     );
-    
+
     if (error.response?.status === 422) {
       console.error("📋 Validation Errors:", error.response.data.detail);
     }
-    
+
     return Promise.reject(error);
   }
 );
 
-// INTERFACES
 interface Assignment {
   id: number;
   name: string;
@@ -129,15 +124,15 @@ const StudentDashboard: React.FC = () => {
     classes: true,
   });
 
-  // Room Report Modal state
   const [showRoomReportModal, setShowRoomReportModal] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const [reportFormErrors, setReportFormErrors] = useState<{ [key: string]: string }>({});
+  const [reportFormErrors, setReportFormErrors] = useState<{
+    [key: string]: string;
+  }>({});
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Room report form state
   const [reportFormData, setReportFormData] = useState<RoomReportData>({
     class_id: "",
     is_clean_before: "",
@@ -145,25 +140,25 @@ const StudentDashboard: React.FC = () => {
     report_text: "",
   });
 
-  // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Form refs for controlled inputs
   const classIdRef = useRef<HTMLSelectElement>(null);
   const reportTextRef = useRef<HTMLTextAreaElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll indicators state
-  const [showScheduleScrollIndicator, setShowScheduleScrollIndicator] = useState(true);
-  const [showAnnouncementsScrollIndicator, setShowAnnouncementsScrollIndicator] = useState(true);
-  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] = useState(true);
+  const [showScheduleScrollIndicator, setShowScheduleScrollIndicator] =
+    useState(true);
+  const [
+    showAnnouncementsScrollIndicator,
+    setShowAnnouncementsScrollIndicator,
+  ] = useState(true);
+  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] =
+    useState(true);
 
-  // Scroll refs
   const scheduleScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
 
-  // Scroll handlers
   const handleScheduleScroll = () => {
     if (scheduleScrollRef.current) {
       const { scrollTop } = scheduleScrollRef.current;
@@ -197,15 +192,13 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Real-time assignment statistics calculation
   const assignmentStats = {
     total: assignments.length,
     submitted: 0,
     available: assignments.length,
-    pending: assignments.length
+    pending: assignments.length,
   };
 
-  // Helper function to construct full image URL
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -233,7 +226,6 @@ const StudentDashboard: React.FC = () => {
     return constructedUrl;
   };
 
-  // Helper function to get role icon
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -314,8 +306,6 @@ const StudentDashboard: React.FC = () => {
         );
     }
   };
-
-  // Logout function
   const handleLogout = () => {
     try {
       localStorage.clear();
@@ -325,13 +315,11 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // VIEW PROFILE FUNCTION
   const handleViewProfile = () => {
     navigate("/profile");
   };
 
   useEffect(() => {
-    // Check authentication and role
     const token = localStorage.getItem("authToken");
     const userRole = localStorage.getItem("userRole");
 
@@ -340,7 +328,6 @@ const StudentDashboard: React.FC = () => {
       return;
     }
 
-    // Load student data including assignments from API
     if (user) {
       loadStudentData();
     }
@@ -349,15 +336,14 @@ const StudentDashboard: React.FC = () => {
   const loadStudentData = async () => {
     try {
       console.log("🔄 Loading student data...");
-      
-      // Load classes first, then assignments and other data
+
       await loadStudentClasses();
       await Promise.all([
         loadStudentAssignments(),
         loadSchedules(),
         loadAnnouncements(),
       ]);
-      
+
       console.log("✅ Student data loaded successfully");
     } catch (error) {
       console.error("❌ Error loading student data:", error);
@@ -375,38 +361,46 @@ const StudentDashboard: React.FC = () => {
         console.log("✅ Classes API response:", response.data);
 
         if (response.status === 200 && Array.isArray(response.data)) {
-          const transformedClasses: Class[] = response.data.map((classItem: any) => ({
-            id: classItem.id,
-            name: classItem.name || `Class ${classItem.id}`,
-            code: classItem.code || `CODE-${classItem.id}`,
-            teacher_id: classItem.teacher_id || 0,
-            teacher_name: classItem.teacher_name || classItem.teacher_username || classItem.teacher?.username || 'Teacher',
-            description: classItem.description,
-            created_at: classItem.created_at || new Date().toISOString()
-          }));
-          
+          const transformedClasses: Class[] = response.data.map(
+            (classItem: any) => ({
+              id: classItem.id,
+              name: classItem.name || `Class ${classItem.id}`,
+              code: classItem.code || `CODE-${classItem.id}`,
+              teacher_id: classItem.teacher_id || 0,
+              teacher_name:
+                classItem.teacher_name ||
+                classItem.teacher_username ||
+                classItem.teacher?.username ||
+                "Teacher",
+              description: classItem.description,
+              created_at: classItem.created_at || new Date().toISOString(),
+            })
+          );
+
           console.log("📊 Transformed classes:", transformedClasses);
           setClasses(transformedClasses);
-          localStorage.setItem("student_classes", JSON.stringify(transformedClasses));
+          localStorage.setItem(
+            "student_classes",
+            JSON.stringify(transformedClasses)
+          );
         } else {
           console.warn("⚠️ Classes API returned unexpected response");
           setClasses([]);
         }
       } catch (error: any) {
         console.error("❌ Error loading classes from API:", error.message);
-        
-        // Fallback: Try to load from localStorage
+
         try {
-          const savedClasses = localStorage.getItem('student_classes');
+          const savedClasses = localStorage.getItem("student_classes");
           if (savedClasses) {
             const parsedClasses = JSON.parse(savedClasses);
-            console.log('🔄 Loaded classes from localStorage:', parsedClasses);
+            console.log("🔄 Loaded classes from localStorage:", parsedClasses);
             setClasses(parsedClasses);
           } else {
             setClasses([]);
           }
         } catch (localStorageError) {
-          console.error('Failed to load from localStorage:', localStorageError);
+          console.error("Failed to load from localStorage:", localStorageError);
           setClasses([]);
         }
       }
@@ -443,7 +437,7 @@ const StudentDashboard: React.FC = () => {
             teacher_name: assignment.teacher_name,
             due_date: assignment.due_date,
             points: assignment.points || 100,
-            assignment_type: assignment.assignment_type || "Homework"
+            assignment_type: assignment.assignment_type || "Homework",
           }));
 
           console.log("📝 Raw assignments from API:", assignmentsData);
@@ -452,28 +446,30 @@ const StudentDashboard: React.FC = () => {
         }
       } catch (error: any) {
         console.error("❌ Error loading assignments from API:", error.message);
-        
-        const savedAssignments = localStorage.getItem('student_assignments');
+
+        const savedAssignments = localStorage.getItem("student_assignments");
         if (savedAssignments) {
-          console.log('🔄 Using saved assignments from localStorage');
+          console.log("🔄 Using saved assignments from localStorage");
           assignmentsData = JSON.parse(savedAssignments);
         }
       }
 
-      // ENHANCE ASSIGNMENTS WITH CLASS DATA
       console.log("🔄 Enhancing assignments with class data...");
       console.log("📚 Available classes:", classes);
       console.log("📝 Assignments before enrichment:", assignmentsData);
 
-      const enrichedAssignments = assignmentsData.map(assignment => {
-        const matchingClass = classes.find(c => c.id === assignment.class_id);
-        
-        console.log(`📋 Assignment ${assignment.id}: class_id=${assignment.class_id}, matchingClass=`, matchingClass);
-        
+      const enrichedAssignments = assignmentsData.map((assignment) => {
+        const matchingClass = classes.find((c) => c.id === assignment.class_id);
+
+        console.log(
+          `📋 Assignment ${assignment.id}: class_id=${assignment.class_id}, matchingClass=`,
+          matchingClass
+        );
+
         let classCode = assignment.class_code;
         let className = assignment.class_name;
         let teacherName = assignment.teacher_name;
-        
+
         if (matchingClass) {
           classCode = matchingClass.code;
           className = matchingClass.name;
@@ -481,20 +477,23 @@ const StudentDashboard: React.FC = () => {
         } else {
           if (!classCode) classCode = `CODE-${assignment.class_id}`;
           if (!className) className = `Class ${assignment.class_id}`;
-          if (!teacherName) teacherName = 'Teacher';
+          if (!teacherName) teacherName = "Teacher";
         }
-        
+
         return {
           ...assignment,
           class_name: className,
           class_code: classCode,
-          teacher_name: teacherName
+          teacher_name: teacherName,
         };
       });
-      
+
       console.log("🎯 Enriched assignments:", enrichedAssignments);
       setAssignments(enrichedAssignments);
-      localStorage.setItem("student_assignments", JSON.stringify(enrichedAssignments));
+      localStorage.setItem(
+        "student_assignments",
+        JSON.stringify(enrichedAssignments)
+      );
       return enrichedAssignments;
     } catch (error: any) {
       console.error("❌ Error loading assignments:", error);
@@ -512,87 +511,121 @@ const StudentDashboard: React.FC = () => {
       console.log("📅 Loading student schedules...");
 
       try {
-        // Use the same endpoint as in your SchedulePage
         const response = await apiClient.get("/schedules/live");
         console.log("✅ Schedules API response:", response.data);
 
         if (response.status === 200) {
           let schedulesArray: any[] = [];
-          
+
           if (Array.isArray(response.data)) {
             schedulesArray = response.data;
-          } else if (response.data.schedules && Array.isArray(response.data.schedules)) {
+          } else if (
+            response.data.schedules &&
+            Array.isArray(response.data.schedules)
+          ) {
             schedulesArray = response.data.schedules;
           } else if (response.data.data && Array.isArray(response.data.data)) {
             schedulesArray = response.data.data;
-          } else if (response.data.student_schedules && Array.isArray(response.data.student_schedules)) {
+          } else if (
+            response.data.student_schedules &&
+            Array.isArray(response.data.student_schedules)
+          ) {
             schedulesArray = response.data.student_schedules;
-          } else if (response.data.class_schedules && Array.isArray(response.data.class_schedules)) {
+          } else if (
+            response.data.class_schedules &&
+            Array.isArray(response.data.class_schedules)
+          ) {
             schedulesArray = response.data.class_schedules;
           } else {
-            // Try to extract any array from the response
-            Object.keys(response.data).forEach(key => {
+            Object.keys(response.data).forEach((key) => {
               if (Array.isArray(response.data[key])) {
                 schedulesArray = response.data[key];
               }
             });
           }
-          
+
           console.log("📋 Extracted schedules array:", schedulesArray);
-          
-          // Transform schedules to match your ScheduleItem interface
-          const transformedSchedules: ScheduleItem[] = schedulesArray.map((item: any) => {
-            try {
-              // Parse schedule times
-              const startTime = new Date(item.start_time || item.startTime || new Date());
-              const endTime = new Date(item.end_time || item.endTime || new Date(startTime.getTime() + 2 * 60 * 60 * 1000)); // Default 2 hours
-              
-              // Determine status based on current time
-              const now = new Date();
-              let status: "Occupied" | "Clean" | "Needs Cleaning" = "Clean";
-              
-              if (now >= startTime && now <= endTime) {
-                status = "Occupied";
-              } else if (item.status) {
-                status = item.status;
+
+          const transformedSchedules: ScheduleItem[] = schedulesArray
+            .map((item: any) => {
+              try {
+                const startTime = new Date(
+                  item.start_time || item.startTime || new Date()
+                );
+                const endTime = new Date(
+                  item.end_time ||
+                    item.endTime ||
+                    new Date(startTime.getTime() + 2 * 60 * 60 * 1000)
+                ); 
+
+                const now = new Date();
+                let status: "Occupied" | "Clean" | "Needs Cleaning" = "Clean";
+
+                if (now >= startTime && now <= endTime) {
+                  status = "Occupied";
+                } else if (item.status) {
+                  status = item.status;
+                }
+
+                return {
+                  id:
+                    item.id ||
+                    item.schedule_id ||
+                    Math.floor(Math.random() * 1000),
+                  class_id: item.class_id || item.class?.id || 0,
+                  start_time: item.start_time || startTime.toISOString(),
+                  end_time: item.end_time || endTime.toISOString(),
+                  room_number:
+                    item.room_number ||
+                    item.room ||
+                    item.classroom ||
+                    `Room ${Math.floor(Math.random() * 100) + 100}`,
+                  status: status,
+                  class_name:
+                    item.class_name ||
+                    item.class?.name ||
+                    `Class ${item.class_id || "Unknown"}`,
+                  class_code:
+                    item.class_code ||
+                    item.class?.code ||
+                    `CODE-${item.class_id || "000"}`,
+                  teacher_name:
+                    item.teacher_name ||
+                    item.teacher?.name ||
+                    item.teacher_full_name ||
+                    "Teacher",
+                  teacher_full_name:
+                    item.teacher_full_name || item.teacher_name || "Teacher",
+                };
+              } catch (error) {
+                console.error("Error transforming schedule item:", item, error);
+                return null;
               }
-              
-              return {
-                id: item.id || item.schedule_id || Math.floor(Math.random() * 1000),
-                class_id: item.class_id || item.class?.id || 0,
-                start_time: item.start_time || startTime.toISOString(),
-                end_time: item.end_time || endTime.toISOString(),
-                room_number: item.room_number || item.room || item.classroom || `Room ${Math.floor(Math.random() * 100) + 100}`,
-                status: status,
-                class_name: item.class_name || item.class?.name || `Class ${item.class_id || 'Unknown'}`,
-                class_code: item.class_code || item.class?.code || `CODE-${item.class_id || '000'}`,
-                teacher_name: item.teacher_name || item.teacher?.name || item.teacher_full_name || "Teacher",
-                teacher_full_name: item.teacher_full_name || item.teacher_name || "Teacher"
-              };
-            } catch (error) {
-              console.error("Error transforming schedule item:", item, error);
-              return null;
-            }
-          }).filter(item => item !== null) as ScheduleItem[];
-          
+            })
+            .filter((item) => item !== null) as ScheduleItem[];
+
           console.log("🎯 Transformed schedules:", transformedSchedules);
-          
-          // Sort by date and time (earliest first)
+
           const sortedSchedules = transformedSchedules.sort((a, b) => {
-            return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+            return (
+              new Date(a.start_time).getTime() -
+              new Date(b.start_time).getTime()
+            );
           });
-          
+
           setSchedule(sortedSchedules);
-          console.log("✅ Schedules loaded successfully:", sortedSchedules.length, "items");
-          
+          console.log(
+            "✅ Schedules loaded successfully:",
+            sortedSchedules.length,
+            "items"
+          );
         } else {
           console.warn("⚠️ Schedules API returned unexpected response");
           setSchedule([]);
         }
       } catch (error: any) {
         console.error("❌ Error loading schedules from API:", error.message);
-        
-        // Create sample data for testing
+
         const mockSchedules: ScheduleItem[] = [
           {
             id: 1,
@@ -604,7 +637,7 @@ const StudentDashboard: React.FC = () => {
             class_name: "Mathematics",
             class_code: "MATH101",
             teacher_name: "Dr. Smith",
-            teacher_full_name: "Dr. John Smith"
+            teacher_full_name: "Dr. John Smith",
           },
           {
             id: 2,
@@ -616,22 +649,24 @@ const StudentDashboard: React.FC = () => {
             class_name: "Computer Science",
             class_code: "CS201",
             teacher_name: "Prof. Johnson",
-            teacher_full_name: "Prof. Jane Johnson"
+            teacher_full_name: "Prof. Jane Johnson",
           },
           {
             id: 3,
             class_id: 103,
-            start_time: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            start_time: new Date(
+              Date.now() + 24 * 60 * 60 * 1000
+            ).toISOString(),
             end_time: new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString(),
             room_number: "Room 303",
             status: "Clean",
             class_name: "Physics",
             class_code: "PHY301",
             teacher_name: "Dr. Wilson",
-            teacher_full_name: "Dr. Robert Wilson"
-          }
+            teacher_full_name: "Dr. Robert Wilson",
+          },
         ];
-        
+
         setSchedule(mockSchedules);
         console.log("✅ Using mock schedule data:", mockSchedules);
       }
@@ -655,9 +690,10 @@ const StudentDashboard: React.FC = () => {
 
         if (response.status === 200) {
           const responseData = response.data;
-          const announcementsArray = Array.isArray(responseData) ? responseData : 
-                                   (responseData.announcements || responseData.data || []);
-          
+          const announcementsArray = Array.isArray(responseData)
+            ? responseData
+            : responseData.announcements || responseData.data || [];
+
           if (Array.isArray(announcementsArray)) {
             setAnnouncements(announcementsArray);
           } else {
@@ -668,7 +704,10 @@ const StudentDashboard: React.FC = () => {
           setAnnouncements([]);
         }
       } catch (error: any) {
-        console.error("❌ Error loading announcements from API:", error.message);
+        console.error(
+          "❌ Error loading announcements from API:",
+          error.message
+        );
         setAnnouncements([]);
       }
     } catch (error) {
@@ -712,7 +751,7 @@ const StudentDashboard: React.FC = () => {
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-        hour12: true
+        hour12: true,
       });
     } catch (error) {
       return "Recent";
@@ -725,7 +764,7 @@ const StudentDashboard: React.FC = () => {
       return date.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
-        hour12: true
+        hour12: true,
       });
     } catch (error) {
       console.error("Error formatting time:", dateTimeString, error);
@@ -738,7 +777,7 @@ const StudentDashboard: React.FC = () => {
     try {
       const start = formatTime(startTime);
       const end = formatTime(endTime);
-      
+
       return `${start} - ${end}`;
     } catch (error) {
       return "Invalid time range";
@@ -752,19 +791,19 @@ const StudentDashboard: React.FC = () => {
       const today = new Date();
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
+
       if (date.toDateString() === today.toDateString()) {
         return "Today";
       }
-      
+
       if (date.toDateString() === tomorrow.toDateString()) {
         return "Tomorrow";
       }
-      
+
       return date.toLocaleDateString("en-US", {
         weekday: "short",
         month: "short",
-        day: "numeric"
+        day: "numeric",
       });
     } catch (error) {
       return "Invalid date";
@@ -778,7 +817,7 @@ const StudentDashboard: React.FC = () => {
       const now = new Date();
       const diffTime = date.getTime() - now.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays < 0) {
         return "Overdue";
       } else if (diffDays === 0) {
@@ -790,7 +829,7 @@ const StudentDashboard: React.FC = () => {
       } else {
         return date.toLocaleDateString("en-US", {
           month: "short",
-          day: "numeric"
+          day: "numeric",
         });
       }
     } catch (error) {
@@ -844,11 +883,11 @@ const StudentDashboard: React.FC = () => {
 
   // Assignment submission function
   const handleSubmitAssignment = (assignment: Assignment) => {
-    navigate("/student/assignments", { 
-      state: { 
+    navigate("/student/assignments", {
+      state: {
         selectedAssignment: assignment,
-        assignments: assignments
-      } 
+        assignments: assignments,
+      },
     });
   };
 
@@ -905,14 +944,16 @@ const StudentDashboard: React.FC = () => {
   const validateRoomReportForm = (): boolean => {
     const errors: { [key: string]: string } = {};
 
-    const { class_id, is_clean_before, is_clean_after, report_text } = reportFormData;
+    const { class_id, is_clean_before, is_clean_after, report_text } =
+      reportFormData;
 
     if (!class_id || class_id.trim() === "") {
       errors.class_id = "Please select a class/room";
     }
 
     if (!is_clean_before || is_clean_before.trim() === "") {
-      errors.is_clean_before = "Please indicate if the room was clean before use";
+      errors.is_clean_before =
+        "Please indicate if the room was clean before use";
     }
 
     if (!is_clean_after || is_clean_after.trim() === "") {
@@ -922,7 +963,8 @@ const StudentDashboard: React.FC = () => {
     if (!report_text || report_text.trim() === "") {
       errors.report_text = "Please provide a description of the report";
     } else if (report_text.trim().length < 10) {
-      errors.report_text = "Please provide a more detailed description (at least 10 characters)";
+      errors.report_text =
+        "Please provide a more detailed description (at least 10 characters)";
     }
 
     setReportFormErrors(errors);
@@ -943,7 +985,7 @@ const StudentDashboard: React.FC = () => {
 
       // Create FormData
       const formData = new FormData();
-      
+
       formData.append("class_id", reportFormData.class_id);
       formData.append("is_clean_before", reportFormData.is_clean_before);
       formData.append("is_clean_after", reportFormData.is_clean_after);
@@ -960,28 +1002,27 @@ const StudentDashboard: React.FC = () => {
       });
 
       console.log("✅ Room report submitted successfully:", response.data);
-      
+
       // Reload schedules to update status
       await loadSchedules();
-      
+
       // Close modal
       handleCloseRoomReportModal();
-      
+
       // Show improved success alert
-      setSuccessMessage("Awesome! 🎉 Your room report has been submitted successfully. The maintenance team will check it soon.");
+      setSuccessMessage("Your room report has been submitted successfully!");
       setShowSuccessAlert(true);
-      
+
       // Auto hide alert after 5 seconds
       setTimeout(() => {
         setShowSuccessAlert(false);
-      }, 5000);
-      
+      }, 3000);
     } catch (error: any) {
       console.error("❌ Error submitting room report:", error);
 
       if (error.response?.status === 422) {
         const apiErrors: { [key: string]: string } = {};
-        
+
         if (Array.isArray(error.response.data?.detail)) {
           error.response.data.detail.forEach((err: any) => {
             if (err.loc && err.loc.length > 1) {
@@ -989,8 +1030,8 @@ const StudentDashboard: React.FC = () => {
               apiErrors[fieldName] = err.msg;
             }
           });
-        } else if (typeof error.response.data?.detail === 'object') {
-          Object.keys(error.response.data.detail).forEach(field => {
+        } else if (typeof error.response.data?.detail === "object") {
+          Object.keys(error.response.data.detail).forEach((field) => {
             apiErrors[field] = error.response.data.detail[field];
           });
         } else if (error.response.data?.detail) {
@@ -998,7 +1039,7 @@ const StudentDashboard: React.FC = () => {
         } else {
           apiErrors.general = "Validation failed. Please check your input.";
         }
-        
+
         setReportFormErrors(apiErrors);
       } else {
         const errorMessage =
@@ -1006,7 +1047,7 @@ const StudentDashboard: React.FC = () => {
           error.response?.data?.message ||
           error.message ||
           "Oops! 😅 Something went wrong. Please try again.";
-        
+
         setReportFormErrors({ general: errorMessage });
       }
     } finally {
@@ -1056,7 +1097,9 @@ const StudentDashboard: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Student Portal</h1>
+              <h1 className="text-lg font-bold text-gray-900">
+                Student Portal
+              </h1>
               <p className="text-xs text-gray-600">
                 ClassTrack Learning Management System
               </p>
@@ -1138,38 +1181,6 @@ const StudentDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Success Alert */}
-        {showSuccessAlert && (
-          <div className="mx-4 mb-4 animate-fade-in">
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg border border-green-400 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-bold text-white">Great job! 🎉</h3>
-                  <p className="text-white/90">{successMessage}</p>
-                </div>
-                <div className="ml-auto pl-3">
-                  <button
-                    onClick={() => setShowSuccessAlert(false)}
-                    className="text-white/80 hover:text-white cursor-pointer"
-                    title="Dismiss"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
@@ -1336,7 +1347,7 @@ const StudentDashboard: React.FC = () => {
                   </div>
 
                   <div className="relative flex-1">
-                    <div 
+                    <div
                       className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                       ref={scheduleScrollRef}
                       onScroll={handleScheduleScroll}
@@ -1363,15 +1374,25 @@ const StudentDashboard: React.FC = () => {
                         <>
                           <div className="mb-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
                             <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              <svg
+                                className="w-4 h-4 text-blue-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
                               </svg>
                               <span className="text-sm text-blue-700">
                                 Showing {schedule.length} schedule(s)
                               </span>
                             </div>
                           </div>
-                          
+
                           {schedule.map((item) => (
                             <div
                               key={item.id}
@@ -1403,14 +1424,18 @@ const StudentDashboard: React.FC = () => {
                                     </span>
                                   </div>
                                   <p className="text-xs text-gray-600 mb-1">
-                                    {formatTeacherName(item.teacher_full_name)} | {item.room_number}
+                                    {formatTeacherName(item.teacher_full_name)}{" "}
+                                    | {item.room_number}
                                   </p>
                                   <p className="text-xs text-gray-500 mb-2">
                                     {item.class_code}
                                   </p>
                                   <div className="flex items-center justify-between">
                                     <p className="text-sm font-medium text-gray-900">
-                                      {formatTimeRange(item.start_time, item.end_time)}
+                                      {formatTimeRange(
+                                        item.start_time,
+                                        item.end_time
+                                      )}
                                     </p>
                                     <span
                                       className={`px-2 py-1 text-xs rounded-full border ${getRoomStatusColor(
@@ -1517,7 +1542,7 @@ const StudentDashboard: React.FC = () => {
                   </div>
 
                   <div className="relative flex-1">
-                    <div 
+                    <div
                       className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                       ref={announcementsScrollRef}
                       onScroll={handleAnnouncementsScroll}
@@ -1608,28 +1633,29 @@ const StudentDashboard: React.FC = () => {
                     </div>
 
                     {/* Scroll Indicator for Announcements */}
-                    {announcements.length > 3 && showAnnouncementsScrollIndicator && (
-                      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
-                        <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                          <svg
-                            className="w-3 h-3 text-orange-500 animate-bounce"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                            />
-                          </svg>
-                          <span className="text-xs text-gray-600">
-                            Scroll for more
-                          </span>
+                    {announcements.length > 3 &&
+                      showAnnouncementsScrollIndicator && (
+                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
+                          <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                            <svg
+                              className="w-3 h-3 text-orange-500 animate-bounce"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                              />
+                            </svg>
+                            <span className="text-xs text-gray-600">
+                              Scroll for more
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </div>
               </div>
@@ -1670,26 +1696,34 @@ const StudentDashboard: React.FC = () => {
                   {/* Assignment Statistics */}
                   <div className="mb-4 grid grid-cols-4 gap-2">
                     <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-200">
-                      <p className="text-lg font-bold text-blue-600">{assignmentStats.total}</p>
+                      <p className="text-lg font-bold text-blue-600">
+                        {assignmentStats.total}
+                      </p>
                       <p className="text-xs text-blue-700">Total</p>
                     </div>
                     <div className="bg-green-50 rounded-xl p-3 text-center border border-green-200">
-                      <p className="text-lg font-bold text-green-600">{assignmentStats.submitted}</p>
+                      <p className="text-lg font-bold text-green-600">
+                        {assignmentStats.submitted}
+                      </p>
                       <p className="text-xs text-green-700">Submitted</p>
                     </div>
                     <div className="bg-orange-50 rounded-xl p-3 text-center border border-orange-200">
-                      <p className="text-lg font-bold text-orange-600">{assignmentStats.available}</p>
+                      <p className="text-lg font-bold text-orange-600">
+                        {assignmentStats.available}
+                      </p>
                       <p className="text-xs text-orange-700">Available</p>
                     </div>
                     <div className="bg-purple-50 rounded-xl p-3 text-center border border-purple-200">
-                      <p className="text-lg font-bold text-purple-600">{assignmentStats.pending}</p>
+                      <p className="text-lg font-bold text-purple-600">
+                        {assignmentStats.pending}
+                      </p>
                       <p className="text-xs text-purple-700">Pending</p>
                     </div>
                   </div>
 
                   {/* Scrollable Assignments Area */}
                   <div className="relative flex-1">
-                    <div 
+                    <div
                       className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                       ref={assignmentsScrollRef}
                       onScroll={handleAssignmentsScroll}
@@ -1715,14 +1749,18 @@ const StudentDashboard: React.FC = () => {
                         </div>
                       ) : assignments.length > 0 ? (
                         assignments.map((assignment) => {
-                          const classCodeToDisplay = assignment.class_code || `CODE-${assignment.class_id}`;
-                          const classNameToDisplay = assignment.class_name || `Class ${assignment.class_id}`;
-                          const teacherDisplayName = assignment.teacher_name 
-                            ? (assignment.teacher_name.length > 15 
-                                ? assignment.teacher_name.substring(0, 12) + '...' 
-                                : assignment.teacher_name)
-                            : 'Teacher';
-                          
+                          const classCodeToDisplay =
+                            assignment.class_code ||
+                            `CODE-${assignment.class_id}`;
+                          const classNameToDisplay =
+                            assignment.class_name ||
+                            `Class ${assignment.class_id}`;
+                          const teacherDisplayName = assignment.teacher_name
+                            ? assignment.teacher_name.length > 15
+                              ? assignment.teacher_name.substring(0, 12) + "..."
+                              : assignment.teacher_name
+                            : "Teacher";
+
                           return (
                             <div
                               key={assignment.id}
@@ -1747,20 +1785,25 @@ const StudentDashboard: React.FC = () => {
                                   </h4>
 
                                   <p className="text-xs text-gray-600 leading-relaxed mb-2 line-clamp-2 break-words">
-                                    {assignment.description || "No description provided"}
+                                    {assignment.description ||
+                                      "No description provided"}
                                   </p>
 
                                   <div className="flex items-center justify-between text-xs text-gray-500">
                                     <div className="flex items-center gap-2">
                                       <span className="truncate max-w-[100px]">
-                                        Created: {formatDate(assignment.created_at)}
+                                        Created:{" "}
+                                        {formatDate(assignment.created_at)}
                                       </span>
                                       {assignment.due_date && (
-                                        <span className={`font-medium whitespace-nowrap ${
-                                          new Date(assignment.due_date) < new Date() 
-                                            ? "text-red-600"
-                                            : "text-green-600"
-                                        }`}>
+                                        <span
+                                          className={`font-medium whitespace-nowrap ${
+                                            new Date(assignment.due_date) <
+                                            new Date()
+                                              ? "text-red-600"
+                                              : "text-green-600"
+                                          }`}
+                                        >
                                           {formatDueDate(assignment.due_date)}
                                         </span>
                                       )}
@@ -1773,7 +1816,9 @@ const StudentDashboard: React.FC = () => {
                               </div>
 
                               <button
-                                onClick={() => handleSubmitAssignment(assignment)}
+                                onClick={() =>
+                                  handleSubmitAssignment(assignment)
+                                }
                                 className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg`}
                               >
                                 Submit Assignment
@@ -1804,28 +1849,29 @@ const StudentDashboard: React.FC = () => {
                     </div>
 
                     {/* Scroll Indicator for Assignments */}
-                    {assignments.length > 2 && showAssignmentsScrollIndicator && (
-                      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
-                        <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                          <svg
-                            className="w-3 h-3 text-green-500 animate-bounce"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                            />
-                          </svg>
-                          <span className="text-xs text-gray-600">
-                            Scroll for more
-                          </span>
+                    {assignments.length > 2 &&
+                      showAssignmentsScrollIndicator && (
+                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
+                          <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                            <svg
+                              className="w-3 h-3 text-green-500 animate-bounce"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                              />
+                            </svg>
+                            <span className="text-xs text-gray-600">
+                              Scroll for more
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </div>
               </div>
@@ -1936,9 +1982,7 @@ const StudentDashboard: React.FC = () => {
                     <p className="text-gray-900 font-semibold text-sm">
                       View Grades
                     </p>
-                    <p className="text-xs text-gray-600">
-                      Check your progress
-                    </p>
+                    <p className="text-xs text-gray-600">Check your progress</p>
                   </div>
                 </button>
 
@@ -2030,8 +2074,18 @@ const StudentDashboard: React.FC = () => {
               {reportFormErrors.general && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
                   <div className="flex items-start">
-                    <svg className="w-5 h-5 text-red-400 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-5 h-5 text-red-400 mt-0.5 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     <p className="text-red-700 text-sm">
                       {reportFormErrors.general}
@@ -2098,7 +2152,7 @@ const StudentDashboard: React.FC = () => {
                           }
                           className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
                         />
-                        <span className="text-gray-900">Clean 👍</span>
+                        <span className="text-gray-900">Clean </span>
                       </label>
                       <label className="flex items-center space-x-3 cursor-pointer">
                         <input
@@ -2114,7 +2168,7 @@ const StudentDashboard: React.FC = () => {
                           }
                           className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
                         />
-                        <span className="text-gray-900">Not Clean 👎</span>
+                        <span className="text-gray-900">Not Clean </span>
                       </label>
                     </div>
                     {reportFormErrors.is_clean_before && (
@@ -2144,7 +2198,7 @@ const StudentDashboard: React.FC = () => {
                           }
                           className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
                         />
-                        <span className="text-gray-900">Clean 👍</span>
+                        <span className="text-gray-900">Clean </span>
                       </label>
                       <label className="flex items-center space-x-3 cursor-pointer">
                         <input
@@ -2160,7 +2214,7 @@ const StudentDashboard: React.FC = () => {
                           }
                           className="w-4 h-4 text-orange-500 bg-white border-gray-300 focus:ring-orange-500 cursor-pointer"
                         />
-                        <span className="text-gray-900">Not Clean 👎</span>
+                        <span className="text-gray-900">Not Clean </span>
                       </label>
                     </div>
                     {reportFormErrors.is_clean_after && (
@@ -2232,7 +2286,7 @@ const StudentDashboard: React.FC = () => {
                         <p className="text-gray-600 text-sm">
                           {selectedPhoto
                             ? selectedPhoto.name
-                            : "📸 Click to upload photo evidence"}
+                            : "Click to upload photo evidence"}
                         </p>
                         <p className="text-gray-500 text-xs">
                           JPG, PNG, GIF, WebP (Max 10MB)
@@ -2300,13 +2354,89 @@ const StudentDashboard: React.FC = () => {
                   {isSubmittingReport && (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   )}
-                  {isSubmittingReport ? "Submitting..." : "📤 Submit Report"}
+                  {isSubmittingReport ? "Submitting..." : "Submit Report"}
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Success Alert - Right Side Fixed */}
+      {showSuccessAlert && (
+        <div className="fixed top-6 right-6 z-50 animate-fade-in">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-xl border border-green-400 w-80 overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-white font-bold text-lg">
+                      Success! 
+                    </h3>
+                    <button
+                      onClick={() => setShowSuccessAlert(false)}
+                      className="text-white/80 hover:text-white cursor-pointer transition-colors"
+                      title="Dismiss"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="text-white/90 text-sm mt-1">{successMessage}</p>
+                </div>
+              </div>
+            </div>
+            {/* Progress Bar */}
+            <div className="h-1 bg-green-400">
+              <div
+                className="h-full bg-white/30 animate-progress"
+                style={{
+                  animation: "progress 3s linear forwards",
+                }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add custom animation for progress bar */}
+      <style>{`
+        @keyframes progress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+        .animate-progress {
+          animation: progress 3s linear forwards;
+        }
+      `}</style>
     </div>
   );
 };
