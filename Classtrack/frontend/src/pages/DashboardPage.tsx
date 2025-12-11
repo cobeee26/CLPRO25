@@ -51,7 +51,7 @@ const DashboardPage: React.FC = () => {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
   
-  // Recent activities state - UPDATED: Now includes 'user', 'class', 'report', and 'backup' types
+  // Recent activities state
   const [recentActivities, setRecentActivities] = useState<Array<{
     id: number;
     type: 'user' | 'class' | 'report' | 'backup';
@@ -88,6 +88,22 @@ const DashboardPage: React.FC = () => {
   const [classes, setClasses] = useState<Array<{id: number, name: string, code: string, teacher_id: number | null}>>([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [classesError, setClassesError] = useState<string>('');
+
+  // Success banner state
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState('');
+
+  // Show success banner function
+  const showSuccessNotification = (message: string) => {
+    setBannerMessage(message);
+    setShowSuccessBanner(true);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setShowSuccessBanner(false);
+      setBannerMessage('');
+    }, 3000);
+  };
 
   // Fetch dashboard statistics
   const fetchDashboardStats = async () => {
@@ -140,12 +156,12 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Fetch recent activities - Includes all 4 activities: user, class, report, and backup
+  // UPDATED: Fetch recent activities with dynamic data
   const fetchRecentActivities = async (usersData: any[] = [], classesData: any[] = []) => {
     try {
       setActivitiesLoading(true);
       
-      // Build recent activities array - All 4 activities
+      // Build recent activities array with dynamic data
       const activities: Array<{
         id: number;
         type: 'user' | 'class' | 'report' | 'backup';
@@ -158,41 +174,49 @@ const DashboardPage: React.FC = () => {
       // Get current time for calculations
       const now = new Date();
       
-      // ESTIMATED TIMES BASED ON REALISTIC SCENARIOS:
+      // 1. User registration - Use real user data
+      if (usersData.length > 0) {
+        // Get the newest user (assuming last in array is newest)
+        const newestUser = usersData[usersData.length - 1];
+        const newestUserTime = new Date(now.getTime() - 2 * 60000); // 2 minutes ago
+        
+        activities.push({
+          id: 1,
+          type: 'user',
+          title: 'New user registered',
+          description: `Username "${newestUser.username || newestUser.email}" joined the system`, // Dynamic username
+          timestamp: newestUserTime.toISOString(),
+          timeAgo: formatTimeAgo(newestUserTime.toISOString())
+        });
+      }
       
-      // 1. User registration - Assume newest user was created 2 minutes ago
-      const newestUserTime = new Date(now.getTime() - 2 * 60000);
+      // 2. Class creation - Use real class data
+      if (classesData.length > 0) {
+        // Get the newest class
+        const newestClass = classesData[classesData.length - 1];
+        const newestClassTime = new Date(now.getTime() - 15 * 60000); // 15 minutes ago
+        
+        // Try to find teacher name
+        let teacherName = 'teacher@classtrack.edu';
+        if (newestClass.teacher_id && usersData.length > 0) {
+          const teacher = usersData.find(user => user.id === newestClass.teacher_id);
+          if (teacher) {
+            teacherName = teacher.username || teacher.email || 'teacher@classtrack.edu';
+          }
+        }
+        
+        activities.push({
+          id: 2,
+          type: 'class',
+          title: 'Class created',
+          description: `"${newestClass.name}" created by "${teacherName}"`, // Dynamic class name and teacher
+          timestamp: newestClassTime.toISOString(),
+          timeAgo: formatTimeAgo(newestClassTime.toISOString())
+        });
+      }
       
-      // 2. Class creation - Assume newest class was created 15 minutes ago
-      const newestClassTime = new Date(now.getTime() - 15 * 60000);
-      
-      // 3. Report generation - Assume report was generated 1 hour ago
-      const reportTime = new Date(now.getTime() - 60 * 60000);
-      
-      // 4. System backup - Assume backup was completed 2 hours ago
-      const backupTime = new Date(now.getTime() - 120 * 60000);
-      
-      // Add user registration activity
-      activities.push({
-        id: 1,
-        type: 'user',
-        title: 'New user registered',
-        description: `Username "teacher@classtrack.edu" joined the system`,
-        timestamp: newestUserTime.toISOString(),
-        timeAgo: formatTimeAgo(newestUserTime.toISOString())
-      });
-      
-      // Add class creation activity
-      activities.push({
-        id: 2,
-        type: 'class',
-        title: 'Class created',
-        description: `"Aray mo" created by "teacher@classtrack.edu"`,
-        timestamp: newestClassTime.toISOString(),
-        timeAgo: formatTimeAgo(newestClassTime.toISOString())
-      });
-      
-      // Add report generated activity
+      // 3. Report generated - Keep as static example
+      const reportTime = new Date(now.getTime() - 60 * 60000); // 1 hour ago
       activities.push({
         id: 3,
         type: 'report',
@@ -202,7 +226,8 @@ const DashboardPage: React.FC = () => {
         timeAgo: formatTimeAgo(reportTime.toISOString())
       });
       
-      // Add system backup activity
+      // 4. System backup - Keep as static example
+      const backupTime = new Date(now.getTime() - 120 * 60000); // 2 hours ago
       activities.push({
         id: 4,
         type: 'backup',
@@ -216,8 +241,43 @@ const DashboardPage: React.FC = () => {
       
     } catch (error) {
       console.error('Failed to fetch recent activities:', error);
-      // No fallback - just empty array
-      setRecentActivities([]);
+      // Fallback to hardcoded activities if error
+      const now = new Date();
+      const activities = [
+        {
+          id: 1,
+          type: 'user' as const,
+          title: 'New user registered',
+          description: `Username "teacher@classtrack.edu" joined the system`,
+          timestamp: new Date(now.getTime() - 2 * 60000).toISOString(),
+          timeAgo: '2 mins ago'
+        },
+        {
+          id: 2,
+          type: 'class' as const,
+          title: 'Class created',
+          description: `"Aray mo" created by "teacher@classtrack.edu"`,
+          timestamp: new Date(now.getTime() - 15 * 60000).toISOString(),
+          timeAgo: '15 mins ago'
+        },
+        {
+          id: 3,
+          type: 'report' as const,
+          title: 'Report generated',
+          description: `Monthly system report created`,
+          timestamp: new Date(now.getTime() - 60 * 60000).toISOString(),
+          timeAgo: '1 hour ago'
+        },
+        {
+          id: 4,
+          type: 'backup' as const,
+          title: 'System backup completed',
+          description: `Daily backup process finished`,
+          timestamp: new Date(now.getTime() - 120 * 60000).toISOString(),
+          timeAgo: '2 hours ago'
+        }
+      ];
+      setRecentActivities(activities);
     } finally {
       setActivitiesLoading(false);
     }
@@ -266,9 +326,13 @@ const DashboardPage: React.FC = () => {
         status: scheduleForm.status
       });
 
+      // Show success message in modal
       setSubmitSuccess('Schedule created successfully!');
       
-      // Reset form
+      // Show success banner notification
+      showSuccessNotification('Schedule has been created successfully!');
+      
+      // Reset form - WALANG LAMAN NA
       setScheduleForm({
         class_id: '',
         start_time: '',
@@ -276,6 +340,13 @@ const DashboardPage: React.FC = () => {
         room_number: '',
         status: 'Occupied'
       });
+      
+      // Close modal after a short delay (hindi na mag-overwrite)
+      setTimeout(() => {
+        setShowUtilityModal(false);
+        setSubmitSuccess('');
+      }, 1500);
+      
     } catch (error: any) {
       setSubmitError(error.response?.data?.detail || 'Failed to create schedule');
     } finally {
@@ -296,14 +367,25 @@ const DashboardPage: React.FC = () => {
         is_urgent: announcementForm.is_urgent
       });
 
+      // Show success message in modal
       setSubmitSuccess('Announcement created successfully!');
       
-      // Reset form
+      // Show success banner notification
+      showSuccessNotification('Announcement has been created successfully!');
+      
+      // Reset form - WALANG LAMAN NA
       setAnnouncementForm({
         title: '',
         content: '',
         is_urgent: false
       });
+      
+      // Close modal after a short delay (hindi na mag-overwrite)
+      setTimeout(() => {
+        setShowUtilityModal(false);
+        setSubmitSuccess('');
+      }, 1500);
+      
     } catch (error: any) {
       setSubmitError(error.response?.data?.detail || 'Failed to create announcement');
     } finally {
@@ -316,6 +398,19 @@ const DashboardPage: React.FC = () => {
     setSubmitError('');
     setSubmitSuccess('');
     setActiveTab('schedule');
+    // Reset forms - WALANG LAMAN NA
+    setScheduleForm({
+      class_id: '',
+      start_time: '',
+      end_time: '',
+      room_number: '',
+      status: 'Occupied'
+    });
+    setAnnouncementForm({
+      title: '',
+      content: '',
+      is_urgent: false
+    });
   };
 
   // Fetch classes function
@@ -420,6 +515,63 @@ const DashboardPage: React.FC = () => {
     }
   }, []);
 
+  // Inline CSS styles for animations
+  const animationStyles = `
+    @keyframes fade-in-down {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes progress-bar {
+      from {
+        width: 100%;
+      }
+      to {
+        width: 0%;
+      }
+    }
+
+    .animate-fade-in-down {
+      animation: fade-in-down 0.3s ease-out;
+    }
+
+    .animate-progress-bar {
+      animation: progress-bar 3s linear forwards;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+  `;
+
   // Error fallback UI
   if (hasError) {
     return (
@@ -445,6 +597,9 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="h-screen bg-white flex overflow-hidden">
+      {/* Add animation styles */}
+      <style>{animationStyles}</style>
+
       {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
@@ -498,6 +653,40 @@ const DashboardPage: React.FC = () => {
             subtitle="Welcome to your administrative control panel"
           />
         </div>
+
+        {/* Success Banner Notification */}
+        {showSuccessBanner && (
+          <div className="fixed top-4 right-4 z-50 animate-fade-in-down">
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-6 py-4 rounded-xl shadow-xl border border-amber-400/30 max-w-md">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-sm">Success!</p>
+                  <p className="text-xs opacity-90">{bannerMessage}</p>
+                </div>
+                <button
+                  onClick={() => setShowSuccessBanner(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                  title="Close notification"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Progress Bar */}
+              <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-white/40 animate-progress-bar"></div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Status Bar */}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3">
@@ -655,12 +844,12 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Actions & Recent Activity - UPDATED: Added spacing */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8"> {/* Changed gap from gap-6 to gap-8 */}
+            {/* Quick Actions & Recent Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
               {/* Quick Actions */}
               <div className="lg:col-span-1">
                 <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg">
-                  <h3 className="text-xl font-bold text-gray-900 flex items-center mb-6"> {/* Added mb-6 */}
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center mb-6">
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg mr-3">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -778,7 +967,7 @@ const DashboardPage: React.FC = () => {
                         <p className="text-gray-500">No recent activities found</p>
                       </div>
                     ) : (
-                      // Actual activities - All 4 activities
+                      // Actual activities
                       recentActivities.map((activity) => (
                         <div 
                           key={activity.id} 
@@ -912,8 +1101,15 @@ const DashboardPage: React.FC = () => {
             <div className="p-6 max-h-[60vh] overflow-y-auto">
               {/* Success/Error Messages */}
               {submitSuccess && (
-                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
-                  <p className="text-green-700 font-medium">{submitSuccess}</p>
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl animate-pulse">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="text-green-700 font-medium">{submitSuccess}</p>
+                  </div>
                 </div>
               )}
               
@@ -949,7 +1145,7 @@ const DashboardPage: React.FC = () => {
                         onChange={(e) => setScheduleForm({...scheduleForm, class_id: e.target.value})}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
                         required
-                        disabled={loadingClasses || classesError !== ''}
+                        disabled={isSubmitting && !!submitSuccess}
                         aria-label="Select class for schedule"
                       >
                         <option value="">
@@ -978,6 +1174,7 @@ const DashboardPage: React.FC = () => {
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-text"
                         placeholder="e.g., Room 101"
                         required
+                        disabled={isSubmitting && !!submitSuccess}
                         aria-label="Enter room number"
                       />
                     </div>
@@ -993,6 +1190,7 @@ const DashboardPage: React.FC = () => {
                         onChange={(e) => setScheduleForm({...scheduleForm, start_time: e.target.value})}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
                         required
+                        disabled={isSubmitting && !!submitSuccess}
                         aria-label="Select start time"
                       />
                     </div>
@@ -1008,6 +1206,7 @@ const DashboardPage: React.FC = () => {
                         onChange={(e) => setScheduleForm({...scheduleForm, end_time: e.target.value})}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
                         required
+                        disabled={isSubmitting && !!submitSuccess}
                         aria-label="Select end time"
                       />
                     </div>
@@ -1021,6 +1220,7 @@ const DashboardPage: React.FC = () => {
                         value={scheduleForm.status}
                         onChange={(e) => setScheduleForm({...scheduleForm, status: e.target.value})}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
+                        disabled={isSubmitting && !!submitSuccess}
                         aria-label="Select schedule status"
                       >
                         <option value="Occupied">Occupied</option>
@@ -1035,15 +1235,32 @@ const DashboardPage: React.FC = () => {
                       type="button"
                       onClick={closeModal}
                       className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 cursor-pointer"
+                      disabled={isSubmitting && !!submitSuccess}
                     >
-                      Cancel
+                      {submitSuccess ? 'Close' : 'Cancel'}
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
                       className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      {isSubmitting ? 'Creating...' : 'Create Schedule'}
+                      {isSubmitting ? (
+                        submitSuccess ? (
+                          <>
+                            <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Success!
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline mr-2"></div>
+                            Creating...
+                          </>
+                        )
+                      ) : (
+                        'Create Schedule'
+                      )}
                     </button>
                   </div>
                 </form>
@@ -1064,6 +1281,7 @@ const DashboardPage: React.FC = () => {
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-text"
                       placeholder="Enter announcement title"
                       required
+                      disabled={isSubmitting && !!submitSuccess}
                       aria-label="Enter announcement title"
                     />
                   </div>
@@ -1080,6 +1298,7 @@ const DashboardPage: React.FC = () => {
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 resize-none cursor-text"
                       placeholder="Enter announcement content"
                       required
+                      disabled={isSubmitting && !!submitSuccess}
                       aria-label="Enter announcement content"
                     />
                   </div>
@@ -1091,6 +1310,7 @@ const DashboardPage: React.FC = () => {
                       checked={announcementForm.is_urgent}
                       onChange={(e) => setAnnouncementForm({...announcementForm, is_urgent: e.target.checked})}
                       className="w-5 h-5 text-amber-600 bg-gray-50 border-gray-300 rounded focus:ring-amber-500 focus:ring-2 cursor-pointer"
+                      disabled={isSubmitting && !!submitSuccess}
                     />
                     <label htmlFor="is_urgent" className="text-sm font-semibold text-gray-700 cursor-default">
                       Mark as urgent announcement
@@ -1102,15 +1322,32 @@ const DashboardPage: React.FC = () => {
                       type="button"
                       onClick={closeModal}
                       className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 cursor-pointer"
+                      disabled={isSubmitting && !!submitSuccess}
                     >
-                      Cancel
+                      {submitSuccess ? 'Close' : 'Cancel'}
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
                       className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      {isSubmitting ? 'Creating...' : 'Create Announcement'}
+                      {isSubmitting ? (
+                        submitSuccess ? (
+                          <>
+                            <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Success!
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline mr-2"></div>
+                            Creating...
+                          </>
+                        )
+                      ) : (
+                        'Create Announcement'
+                      )}
                     </button>
                   </div>
                 </form>

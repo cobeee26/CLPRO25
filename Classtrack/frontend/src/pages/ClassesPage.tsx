@@ -66,6 +66,10 @@ const ClassesPage: React.FC = () => {
   const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
   const [globalSuccessMessage, setGlobalSuccessMessage] = useState<string | null>(null);
 
+  // Success banner state
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState('');
+
   // Helper function to get display name from user object
   const getDisplayName = (user: AppUser | any): string => {
     if (!user) return 'Unknown User';
@@ -87,6 +91,90 @@ const ClassesPage: React.FC = () => {
     const teacher = teachers.find(t => t.id === teacherId);
     return teacher ? getDisplayName(teacher) : `Teacher ${teacherId}`;
   };
+
+  // Show success banner function
+  const showSuccessNotification = (message: string) => {
+    setBannerMessage(message);
+    setShowSuccessBanner(true);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setShowSuccessBanner(false);
+      setBannerMessage('');
+    }, 3000);
+  };
+
+  // Inline CSS styles for animations
+  const animationStyles = `
+    @keyframes fade-in-down {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes progress-bar {
+      from {
+        width: 100%;
+      }
+      to {
+        width: 0%;
+      }
+    }
+
+    .animate-fade-in-down {
+      animation: fade-in-down 0.3s ease-out;
+    }
+
+    .animate-progress-bar {
+      animation: progress-bar 3s linear forwards;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes slide-in {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .animate-slide-in {
+      animation: slide-in 0.3s ease-out;
+    }
+  `;
 
   // Load teachers
   useEffect(() => {
@@ -231,18 +319,23 @@ const ClassesPage: React.FC = () => {
 
       await createClass(classData);
       
+      // Show success message in modal
       setSuccessMessage('✅ Class created successfully!');
-      setIsModalOpen(false);
+      
+      // Show success banner notification
+      showSuccessNotification(`Class "${classData.name}" has been created successfully!`);
+      
+      // Reset form - WALANG LAMAN NA
       setFormData({ name: '', code: '', teacher_id: undefined });
       
-      await refreshClassList();
-      
-      setGlobalSuccessMessage('Class created successfully!');
-      
+      // Close modal after a short delay
       setTimeout(() => {
+        setIsModalOpen(false);
         setSuccessMessage(null);
-        setGlobalSuccessMessage(null);
-      }, 3000);
+      }, 1500);
+      
+      // Refresh class list
+      await refreshClassList();
       
     } catch (err) {
       console.error('Failed to create class:', err);
@@ -275,18 +368,21 @@ const ClassesPage: React.FC = () => {
 
       await updateClass(editingClass.id, updateData);
       
+      // Show success message in modal
       setEditSuccessMessage('✅ Class updated successfully!');
-      setIsEditModalOpen(false);
-      setEditingClass(null);
       
-      await refreshClassList();
+      // Show success banner notification
+      showSuccessNotification(`Class "${updateData.name}" has been updated successfully!`);
       
-      setGlobalSuccessMessage('Class updated successfully!');
-      
+      // Close modal after a short delay
       setTimeout(() => {
+        setIsEditModalOpen(false);
+        setEditingClass(null);
         setEditSuccessMessage(null);
-        setGlobalSuccessMessage(null);
-      }, 3000);
+      }, 1500);
+      
+      // Refresh class list
+      await refreshClassList();
       
     } catch (err) {
       console.error('Failed to update class:', err);
@@ -307,18 +403,21 @@ const ClassesPage: React.FC = () => {
     try {
       await deleteClass(deletingClass.id);
       
+      // Show success message in modal
       setDeleteSuccessMessage('✅ Class deleted successfully!');
-      setIsDeleteModalOpen(false);
-      setDeletingClass(null);
       
-      await refreshClassList();
+      // Show success banner notification
+      showSuccessNotification(`Class "${deletingClass.name}" has been deleted successfully!`);
       
-      setGlobalSuccessMessage('Class deleted successfully!');
-      
+      // Close modal after a short delay
       setTimeout(() => {
+        setIsDeleteModalOpen(false);
+        setDeletingClass(null);
         setDeleteSuccessMessage(null);
-        setGlobalSuccessMessage(null);
-      }, 3000);
+      }, 1500);
+      
+      // Refresh class list
+      await refreshClassList();
       
     } catch (err) {
       console.error('Failed to delete class:', err);
@@ -336,12 +435,28 @@ const ClassesPage: React.FC = () => {
       code: classItem.code,
       teacher_id: classItem.teacher_id
     });
+    setEditFormError(null);
+    setEditSuccessMessage(null);
     setIsEditModalOpen(true);
   };
 
   const openDeleteModal = (classItem: Class) => {
     setDeletingClass(classItem);
+    setDeleteError(null);
+    setDeleteSuccessMessage(null);
     setIsDeleteModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setIsModalOpen(true);
+    setFormError(null);
+    setSuccessMessage(null);
+    // Reset form data
+    setFormData({
+      name: '',
+      code: '',
+      teacher_id: undefined
+    });
   };
 
   // Calculate assigned classes count
@@ -355,12 +470,40 @@ const ClassesPage: React.FC = () => {
 
   return (
     <div className="h-screen w-full bg-white overflow-hidden relative flex">
-      {globalSuccessMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-slide-in">
-          <svg className="w-5 h-5 text-green-100" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          <span className="font-medium">{globalSuccessMessage}</span>
+      {/* Add animation styles */}
+      <style>{animationStyles}</style>
+
+      {/* Success Banner Notification */}
+      {showSuccessBanner && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in-down">
+          <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-4 rounded-xl shadow-xl border border-emerald-400/30 max-w-md">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-sm">Success!</p>
+                <p className="text-xs opacity-90">{bannerMessage}</p>
+              </div>
+              <button
+                onClick={() => setShowSuccessBanner(false)}
+                className="text-white/80 hover:text-white transition-colors"
+                title="Close notification"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* Progress Bar */}
+            <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+              <div className="h-full bg-white/40 animate-progress-bar"></div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -465,7 +608,7 @@ const ClassesPage: React.FC = () => {
                 {currentUser?.role === 'admin' && (
                   <div className="pt-2">
                     <button
-                      onClick={() => setIsModalOpen(true)}
+                      onClick={openCreateModal}
                       className="w-full group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3 lg:py-4 px-4 lg:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl shadow-lg text-base lg:text-base border-2 border-emerald-400/50 cursor-pointer"
                       title="Create new class"
                       aria-label="Create new class"
@@ -638,7 +781,7 @@ const ClassesPage: React.FC = () => {
                         </div>
                         {!searchTerm && currentUser?.role === 'admin' && (
                           <button
-                            onClick={() => setIsModalOpen(true)}
+                            onClick={openCreateModal}
                             className="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold py-2 lg:py-3 px-4 lg:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 text-sm lg:text-base border-2 border-emerald-400/50 cursor-pointer"
                             title="Create your first class"
                             aria-label="Create your first class"
@@ -872,11 +1015,13 @@ const ClassesPage: React.FC = () => {
             )}
 
             {successMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 animate-pulse">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
+                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
                   <span className="font-medium">{successMessage}</span>
                 </div>
               </div>
@@ -895,6 +1040,7 @@ const ClassesPage: React.FC = () => {
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-text"
                   placeholder="Enter class name"
                   required
+                  disabled={formLoading && !!successMessage}
                 />
               </div>
 
@@ -910,6 +1056,7 @@ const ClassesPage: React.FC = () => {
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-text"
                   placeholder="Enter class code (e.g., MATH101)"
                   required
+                  disabled={formLoading && !!successMessage}
                 />
               </div>
 
@@ -923,6 +1070,7 @@ const ClassesPage: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, teacher_id: e.target.value ? parseInt(e.target.value) : undefined })}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-pointer"
                   aria-label="Select a teacher"
+                  disabled={formLoading && !!successMessage}
                 >
                   <option value="">Select a teacher (optional)</option>
                   {teachers.map((teacher) => (
@@ -940,8 +1088,9 @@ const ClassesPage: React.FC = () => {
                   className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors cursor-pointer"
                   title="Cancel class creation"
                   aria-label="Cancel creating new class"
+                  disabled={formLoading && !!successMessage}
                 >
-                  Cancel
+                  {successMessage ? 'Close' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
@@ -950,7 +1099,23 @@ const ClassesPage: React.FC = () => {
                   title={formLoading ? "Creating class..." : "Create new class"}
                   aria-label={formLoading ? "Creating class, please wait" : "Create new class"}
                 >
-                  {formLoading ? 'Creating...' : 'Create Class'}
+                  {formLoading ? (
+                    successMessage ? (
+                      <>
+                        <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Success!
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline mr-2"></div>
+                        Creating...
+                      </>
+                    )
+                  ) : (
+                    'Create Class'
+                  )}
                 </button>
               </div>
             </form>
@@ -976,11 +1141,13 @@ const ClassesPage: React.FC = () => {
             )}
 
             {editSuccessMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 animate-pulse">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
+                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
                   <span className="font-medium">{editSuccessMessage}</span>
                 </div>
               </div>
@@ -999,6 +1166,7 @@ const ClassesPage: React.FC = () => {
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-text"
                   placeholder="Enter class name"
                   required
+                  disabled={editFormLoading && !!editSuccessMessage}
                 />
               </div>
 
@@ -1014,6 +1182,7 @@ const ClassesPage: React.FC = () => {
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-text"
                   placeholder="Enter class code (e.g., MATH101)"
                   required
+                  disabled={editFormLoading && !!editSuccessMessage}
                 />
               </div>
 
@@ -1027,6 +1196,7 @@ const ClassesPage: React.FC = () => {
                   onChange={(e) => setEditFormData({ ...editFormData, teacher_id: e.target.value ? parseInt(e.target.value) : undefined })}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-pointer"
                   aria-label="Select a teacher for editing"
+                  disabled={editFormLoading && !!editSuccessMessage}
                 >
                   <option value="">Select a teacher (optional)</option>
                   {teachers.map((teacher) => (
@@ -1044,8 +1214,9 @@ const ClassesPage: React.FC = () => {
                   className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors cursor-pointer"
                   title="Cancel editing"
                   aria-label="Cancel editing class"
+                  disabled={editFormLoading && !!editSuccessMessage}
                 >
-                  Cancel
+                  {editSuccessMessage ? 'Close' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
@@ -1054,7 +1225,23 @@ const ClassesPage: React.FC = () => {
                   title={editFormLoading ? "Updating class..." : "Update class"}
                   aria-label={editFormLoading ? "Updating class, please wait" : "Update class"}
                 >
-                  {editFormLoading ? 'Updating...' : 'Update Class'}
+                  {editFormLoading ? (
+                    editSuccessMessage ? (
+                      <>
+                        <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Updated!
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline mr-2"></div>
+                        Updating...
+                      </>
+                    )
+                  ) : (
+                    'Update Class'
+                  )}
                 </button>
               </div>
             </form>
@@ -1080,11 +1267,13 @@ const ClassesPage: React.FC = () => {
             )}
 
             {deleteSuccessMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 animate-pulse">
                 <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
+                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
                   <span className="font-medium">{deleteSuccessMessage}</span>
                 </div>
               </div>
@@ -1106,8 +1295,9 @@ const ClassesPage: React.FC = () => {
                 className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors cursor-pointer"
                 title="Cancel deletion"
                 aria-label="Cancel class deletion"
+                disabled={deleteLoading && !!deleteSuccessMessage}
               >
-                Cancel
+                {deleteSuccessMessage ? 'Close' : 'Cancel'}
               </button>
               <button
                 onClick={handleDeleteClass}
@@ -1116,7 +1306,23 @@ const ClassesPage: React.FC = () => {
                 title={deleteLoading ? "Deleting class..." : "Delete class"}
                 aria-label={deleteLoading ? "Deleting class, please wait" : "Delete class"}
               >
-                {deleteLoading ? 'Deleting...' : 'Delete Class'}
+                {deleteLoading ? (
+                  deleteSuccessMessage ? (
+                    <>
+                      <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Deleted!
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline mr-2"></div>
+                      Deleting...
+                    </>
+                  )
+                ) : (
+                  'Delete Class'
+                )}
               </button>
             </div>
           </div>

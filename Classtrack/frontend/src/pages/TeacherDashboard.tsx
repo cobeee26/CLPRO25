@@ -67,6 +67,14 @@ interface Announcement {
   is_urgent: boolean;
 }
 
+// Success banner interface
+interface SuccessBanner {
+  id: string;
+  message: string;
+  type: 'announcement' | 'assignment' | 'class' | 'general';
+  timestamp: number;
+}
+
 interface AnnouncementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -308,6 +316,9 @@ const TeacherDashboard: React.FC = () => {
     announcements: true,
   });
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  
+  // SUCCESS BANNER STATES
+  const [successBanners, setSuccessBanners] = useState<SuccessBanner[]>([]);
 
   // Scroll indicators state
   const [showClassesScrollIndicator, setShowClassesScrollIndicator] = useState(true);
@@ -318,6 +329,35 @@ const TeacherDashboard: React.FC = () => {
   const classesScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-dismiss success banners
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setSuccessBanners(prev => 
+        prev.filter(banner => now - banner.timestamp < 5000) // Auto-dismiss after 5 seconds
+      );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Function to show success banner
+  const showSuccessBanner = (message: string, type: 'announcement' | 'assignment' | 'class' | 'general') => {
+    const newBanner: SuccessBanner = {
+      id: Date.now().toString() + Math.random().toString(36),
+      message,
+      type,
+      timestamp: Date.now()
+    };
+    
+    setSuccessBanners(prev => [...prev, newBanner].slice(-3)); // Keep only last 3 banners
+  };
+
+  // Function to manually dismiss a success banner
+  const dismissSuccessBanner = (id: string) => {
+    setSuccessBanners(prev => prev.filter(banner => banner.id !== id));
+  };
 
   // Scroll handlers
   const handleClassesScroll = () => {
@@ -683,6 +723,8 @@ const TeacherDashboard: React.FC = () => {
   const handleAnnouncementCreated = () => {
     // Refresh announcements list
     loadAnnouncements();
+    // Show success banner
+    showSuccessBanner("Announcement posted successfully! Students can see it now.", 'announcement');
   };
 
   // FIXED: Time formatting functions to handle AM/PM correctly - SAME AS STUDENT DASHBOARD
@@ -746,8 +788,71 @@ const TeacherDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex relative">
+      {/* SUCCESS BANNERS - Top Right */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-3 w-80 max-w-[calc(100%-2rem)]">
+        {successBanners.map((banner) => (
+          <div
+            key={banner.id}
+            className="relative p-4 rounded-xl border backdrop-blur-sm animate-fade-in-up bg-gradient-to-r from-green-50 to-green-100 border-green-200 shadow-lg"
+          >
+            {/* Progress Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1 overflow-hidden rounded-t-xl">
+              <div className="h-full bg-green-400" 
+              style={{ 
+                width: `${100 - ((Date.now() - banner.timestamp) / 5000 * 100)}%`,
+                transition: 'width 1s linear'
+              }}></div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-green-100">
+                {banner.type === 'announcement' ? (
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                  </svg>
+                ) : banner.type === 'assignment' ? (
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                ) : banner.type === 'class' ? (
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-semibold mb-1 text-green-800">
+                  {banner.type === 'announcement' ? 'Announcement Posted' :
+                   banner.type === 'assignment' ? 'Assignment Created' :
+                   banner.type === 'class' ? 'Class Created' : 'Success'}
+                </h4>
+                <p className="text-sm text-gray-700">{banner.message}</p>
+                <span className="text-xs text-gray-500 mt-1 block">
+                  Just now
+                </span>
+              </div>
+              
+              <button
+                onClick={() => dismissSuccessBanner(banner.id)}
+                className="flex-shrink-0 p-1 hover:bg-white/50 rounded-full transition-colors cursor-pointer"
+                title="Dismiss"
+              >
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center space-x-3">
             <div className="relative">
@@ -833,7 +938,7 @@ const TeacherDashboard: React.FC = () => {
 
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 ${
+        className={`fixed inset-y-0 left-0 z-30 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 transition-transform duration-300 ease-in-out`}
       >
@@ -843,7 +948,7 @@ const TeacherDashboard: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         {/* Fixed Desktop Header - SOLID BACKGROUND */}
-        <div className="hidden lg:block fixed top-0 right-0 left-64 z-30 bg-white border-b border-gray-200">
+        <div className="hidden lg:block fixed top-0 right-0 left-64 z-20 bg-white border-b border-gray-200">
           <DynamicHeader
             title="Teacher Portal"
             subtitle="ClassTrack Teaching Management System"
