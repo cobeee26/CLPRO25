@@ -669,7 +669,7 @@ const ClassesPage: React.FC = () => {
                           <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors duration-200">
                             {getAssignedClassesCount()}
                           </p>
-                          <p className="text-xs lg:text-sm text-gray-600 font-medium">Assigned Teachers</p>
+                          <p className="text-xs lg:text-sm text-gray-600 font-medium">Assigned Classes Teachers</p>
                         </div>
                       </div>
                     </div>
@@ -1062,7 +1062,7 @@ const ClassesPage: React.FC = () => {
 
               <div>
                 <label htmlFor="teacherSelect" className="block text-sm font-medium text-gray-700 mb-2">
-                  Assigned Teacher
+                  Assigned Classes Teacher
                 </label>
                 <select
                   id="teacherSelect"
@@ -1188,7 +1188,7 @@ const ClassesPage: React.FC = () => {
 
               <div>
                 <label htmlFor="editTeacherSelect" className="block text-sm font-medium text-gray-700 mb-2">
-                  Assigned Teacher
+                  Assigned Classes Teacher
                 </label>
                 <select
                   id="editTeacherSelect"
