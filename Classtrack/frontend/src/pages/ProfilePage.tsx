@@ -343,6 +343,7 @@ const ProfilePage: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // FIXED: Updated endpoint from /auth/profile to /users/me
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -354,7 +355,8 @@ const ProfilePage: React.FC = () => {
       setProfileLoading(true);
       setProfileSuccess(false);
 
-      await apiClient.put("/auth/profile", {
+      // FIX: Changed from /auth/profile to /users/me
+      await apiClient.put("/users/me", {
         first_name: profileData.first_name,
         last_name: profileData.last_name,
       });
@@ -422,6 +424,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // FIXED: Updated endpoint from /auth/upload-photo to /users/me/photo
   const handlePhotoUpload = async () => {
     if (!selectedPhoto) return;
 
@@ -431,7 +434,8 @@ const ProfilePage: React.FC = () => {
       const formData = new FormData();
       formData.append("photo", selectedPhoto);
 
-      await apiClient.post("/auth/upload-photo", formData, {
+      // FIX: Changed from /auth/upload-photo to /users/me/photo
+      await apiClient.post("/users/me/photo", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

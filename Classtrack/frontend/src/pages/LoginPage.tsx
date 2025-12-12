@@ -96,7 +96,7 @@ const LoginPage: React.FC = () => {
             </div>
             <div className="border-t border-slate-700 pt-3">
               <p className="text-xs text-slate-500 leading-relaxed">
-                © 2025 Pamantasan ng Lungsod ng Muntinlupa
+                © 2025 Classtrack Pro. All rights reserved.
               </p>
               <p className="text-[11px] text-slate-600 mt-1">
                 Student Information Management System

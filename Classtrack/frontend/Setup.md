@@ -35,4 +35,4 @@ git remote add upstream https://github.com/cobeee26/CLPRO25.git
 git checkout my-old-working-version
 
 # 3. Push your latest working version to GitHub
-
+git push upstream main --force
