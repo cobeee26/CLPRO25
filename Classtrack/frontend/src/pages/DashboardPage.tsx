@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import axios from 'axios';
 import { getAllUsers, getAllClasses } from '../services/authService';
+import Swal from 'sweetalert2';
 
 // API configuration
 const API_BASE_URL = 'http://localhost:8000';
@@ -30,12 +31,22 @@ apiClient.interceptors.request.use(
   }
 );
 
+// SweetAlert2 Configuration with Auto-Dismiss Timer
+const swalConfig = {
+  customClass: {
+    title: 'text-lg font-bold text-gray-900',
+    htmlContainer: 'text-sm text-gray-600',
+    confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    popup: 'rounded-xl border border-gray-200'
+  },
+  buttonsStyling: false,
+  background: '#ffffff'
+};
+
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   
-  // Error boundary state
-  const [hasError] = useState(false);
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUtilityModal, setShowUtilityModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'schedule' | 'announcement'>('schedule');
@@ -48,8 +59,9 @@ const DashboardPage: React.FC = () => {
     storageUsed: 2.4
   });
   
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   
   // Recent activities state
   const [recentActivities, setRecentActivities] = useState<Array<{
@@ -60,8 +72,6 @@ const DashboardPage: React.FC = () => {
     timestamp: string;
     timeAgo: string;
   }>>([]);
-  
-  const [activitiesLoading, setActivitiesLoading] = useState(false);
   
   // Schedule form state
   const [scheduleForm, setScheduleForm] = useState({
@@ -82,57 +92,171 @@ const DashboardPage: React.FC = () => {
   // Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState('');
   
   // Classes data for dropdown
   const [classes, setClasses] = useState<Array<{id: number, name: string, code: string, teacher_id: number | null}>>([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [classesError, setClassesError] = useState<string>('');
 
-  // Success banner state
-  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
-  const [bannerMessage, setBannerMessage] = useState('');
-
-  // Show success banner function
-  const showSuccessNotification = (message: string) => {
-    setBannerMessage(message);
-    setShowSuccessBanner(true);
+  // SweetAlert Helper Functions with Auto-Dismiss
+  const showSuccessAlert = (
+    title: string, 
+    text: string = '', 
+    type: 'schedule' | 'announcement' | 'logout' | 'refresh' = 'schedule',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const iconColor = type === 'logout' ? 'warning' : 'success';
+    const confirmButtonColor = type === 'logout' ? '#F59E0B' : '#10B981';
     
-    // Auto-hide after 3 seconds
-    setTimeout(() => {
-      setShowSuccessBanner(false);
-      setBannerMessage('');
-    }, 3000);
+    const alertConfig: any = {
+      title,
+      text,
+      icon: iconColor,
+      confirmButtonText: 'OK',
+      confirmButtonColor,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: `text-lg font-bold ${
+          type === 'logout' ? 'text-yellow-900' : 
+          type === 'refresh' ? 'text-blue-900' : 
+          'text-green-900'
+        }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${
+          type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+          type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+          'bg-green-500 hover:bg-green-600 text-white'
+        }`
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
   };
 
-  // Fetch dashboard statistics
-  const fetchDashboardStats = async () => {
-    try {
-      setStatsLoading(true);
-      setStatsError(null);
-      
-      // Fetch users and classes data
-      const [usersData, classesData] = await Promise.all([
-        getAllUsers(),
-        getAllClasses()
-      ]);
-      
-      setDashboardStats({
-        totalUsers: usersData.length,
-        activeClasses: classesData.length,
-        systemHealth: 98,
-        storageUsed: 2.4
-      });
-      
-      // After fetching stats, also fetch recent activities
-      await fetchRecentActivities(usersData, classesData);
-      
-    } catch (error) {
-      console.error('Failed to fetch dashboard stats:', error);
-      setStatsError('Failed to load dashboard statistics');
-    } finally {
-      setStatsLoading(false);
+  const showErrorAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 4000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'error',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#EF4444',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-red-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
     }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showConfirmDialog = (
+    title: string, 
+    text: string, 
+    confirmText: string = 'Yes, proceed',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#6B7280',
+      reverseButtons: true,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-gray-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer',
+        cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
+      }
+    };
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showLoadingAlert = (
+    title: string = 'Processing...',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = 3000;
+      alertConfig.timerProgressBar = true;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const closeAlert = () => {
+    Swal.close();
+  };
+
+  const showInfoAlert = (
+    title: string,
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-blue-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
   };
 
   // Function to format time ago
@@ -156,11 +280,54 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  // Fetch dashboard statistics
+  const fetchDashboardStats = async () => {
+    try {
+      console.log('🔄 Loading dashboard data...');
+      setIsInitialLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10);
+
+      updateLoadingProgress(1, 3);
+      
+      // Fetch users and classes data
+      const [usersData, classesData] = await Promise.all([
+        getAllUsers(),
+        getAllClasses()
+      ]);
+      
+      updateLoadingProgress(2, 3);
+      
+      setDashboardStats({
+        totalUsers: usersData.length,
+        activeClasses: classesData.length,
+        systemHealth: 98,
+        storageUsed: 2.4
+      });
+      
+      // After fetching stats, also fetch recent activities
+      await fetchRecentActivities(usersData, classesData);
+      
+      updateLoadingProgress(3, 3);
+      
+      setTimeout(() => {
+        setIsInitialLoading(false);
+        setLoadingProgress(100);
+      }, 500);
+      
+      console.log('✅ Dashboard data loaded successfully');
+      
+    } catch (error) {
+      console.error('❌ Failed to fetch dashboard stats:', error);
+      setHasInitialLoadError(true);
+      setIsInitialLoading(false);
+      showErrorAlert("Load Error", "Failed to load dashboard data. Please refresh the page.", true, 4000);
+    }
+  };
+
   // UPDATED: Fetch recent activities with dynamic data
   const fetchRecentActivities = async (usersData: any[] = [], classesData: any[] = []) => {
     try {
-      setActivitiesLoading(true);
-      
       // Build recent activities array with dynamic data
       const activities: Array<{
         id: number;
@@ -278,22 +445,27 @@ const DashboardPage: React.FC = () => {
         }
       ];
       setRecentActivities(activities);
-    } finally {
-      setActivitiesLoading(false);
     }
   };
 
   // Logout function
-  const handleLogout = () => {
-    try {
-      // Clear authentication data
-      localStorage.clear();
-      
-      // Force redirect to login page
-      window.location.href = '/login';
-    } catch (error) {
-      // Fallback: direct redirect
-      window.location.href = '/login';
+  const handleLogout = async () => {
+    const result = await showConfirmDialog(
+      'Confirm Logout',
+      'Are you sure you want to logout? You will need to log in again to access your dashboard.',
+      'Yes, logout'
+    );
+    
+    if (result.isConfirmed) {
+      try {
+        localStorage.clear();
+        showSuccessAlert('Logged Out', 'You have been successfully logged out.', 'logout', true, 1500);
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1500);
+      } catch (error) {
+        showErrorAlert('Logout Error', 'There was an issue logging out. Please try again.', true, 3000);
+      }
     }
   };
 
@@ -315,9 +487,16 @@ const DashboardPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitError('');
-    setSubmitSuccess('');
 
     try {
+      if (!scheduleForm.class_id || !scheduleForm.start_time || !scheduleForm.end_time || !scheduleForm.room_number) {
+        setSubmitError('Please fill in all required fields');
+        showErrorAlert('Validation Error', 'Please fill in all required fields', true, 3000);
+        return;
+      }
+
+      showLoadingAlert('Creating schedule...', false);
+      
       await apiClient.post('/schedules/', {
         class_id: parseInt(scheduleForm.class_id),
         start_time: scheduleForm.start_time,
@@ -326,13 +505,10 @@ const DashboardPage: React.FC = () => {
         status: scheduleForm.status
       });
 
-      // Show success message in modal
-      setSubmitSuccess('Schedule created successfully!');
+      closeAlert();
+      showSuccessAlert('Schedule Created!', 'Schedule has been created successfully.', 'schedule', true, 3000);
       
-      // Show success banner notification
-      showSuccessNotification('Schedule has been created successfully!');
-      
-      // Reset form - WALANG LAMAN NA
+      // Reset form
       setScheduleForm({
         class_id: '',
         start_time: '',
@@ -341,14 +517,16 @@ const DashboardPage: React.FC = () => {
         status: 'Occupied'
       });
       
-      // Close modal after a short delay (hindi na mag-overwrite)
+      // Close modal after a short delay
       setTimeout(() => {
         setShowUtilityModal(false);
-        setSubmitSuccess('');
-      }, 1500);
+      }, 1000);
       
     } catch (error: any) {
-      setSubmitError(error.response?.data?.detail || 'Failed to create schedule');
+      closeAlert();
+      const errorMessage = error.response?.data?.detail || 'Failed to create schedule';
+      setSubmitError(errorMessage);
+      showErrorAlert('Creation Error', errorMessage, true, 4000);
     } finally {
       setIsSubmitting(false);
     }
@@ -358,36 +536,42 @@ const DashboardPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitError('');
-    setSubmitSuccess('');
 
     try {
+      if (!announcementForm.title || !announcementForm.content) {
+        setSubmitError('Please fill in all required fields');
+        showErrorAlert('Validation Error', 'Please fill in all required fields', true, 3000);
+        return;
+      }
+
+      showLoadingAlert('Creating announcement...', false);
+      
       await apiClient.post('/announcements/', {
         title: announcementForm.title,
         content: announcementForm.content,
         is_urgent: announcementForm.is_urgent
       });
 
-      // Show success message in modal
-      setSubmitSuccess('Announcement created successfully!');
+      closeAlert();
+      showSuccessAlert('Announcement Created!', 'Announcement has been created successfully.', 'announcement', true, 3000);
       
-      // Show success banner notification
-      showSuccessNotification('Announcement has been created successfully!');
-      
-      // Reset form - WALANG LAMAN NA
+      // Reset form
       setAnnouncementForm({
         title: '',
         content: '',
         is_urgent: false
       });
       
-      // Close modal after a short delay (hindi na mag-overwrite)
+      // Close modal after a short delay
       setTimeout(() => {
         setShowUtilityModal(false);
-        setSubmitSuccess('');
-      }, 1500);
+      }, 1000);
       
     } catch (error: any) {
-      setSubmitError(error.response?.data?.detail || 'Failed to create announcement');
+      closeAlert();
+      const errorMessage = error.response?.data?.detail || 'Failed to create announcement';
+      setSubmitError(errorMessage);
+      showErrorAlert('Creation Error', errorMessage, true, 4000);
     } finally {
       setIsSubmitting(false);
     }
@@ -396,9 +580,8 @@ const DashboardPage: React.FC = () => {
   const closeModal = () => {
     setShowUtilityModal(false);
     setSubmitError('');
-    setSubmitSuccess('');
     setActiveTab('schedule');
-    // Reset forms - WALANG LAMAN NA
+    // Reset forms
     setScheduleForm({
       class_id: '',
       start_time: '',
@@ -429,6 +612,7 @@ const DashboardPage: React.FC = () => {
       console.error('Failed to fetch classes:', error);
       setClassesError('Failed to load classes. Please try again.');
       setClasses([]);
+      showErrorAlert('Load Error', 'Failed to load classes. Please try again.', true, 3000);
     } finally {
       setLoadingClasses(false);
     }
@@ -438,7 +622,6 @@ const DashboardPage: React.FC = () => {
   const openModal = () => {
     setShowUtilityModal(true);
     setSubmitError('');
-    setSubmitSuccess('');
     if (classes.length === 0 || classesError) {
       fetchClasses();
     }
@@ -506,90 +689,173 @@ const DashboardPage: React.FC = () => {
   // Fetch dashboard stats on component mount
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    if (token) {
-      fetchDashboardStats();
-      // Fetch classes on mount for better UX
-      if (classes.length === 0) {
-        fetchClasses();
-      }
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+    
+    fetchDashboardStats();
+    // Fetch classes on mount for better UX
+    if (classes.length === 0) {
+      fetchClasses();
     }
   }, []);
 
-  // Inline CSS styles for animations
-  const animationStyles = `
-    @keyframes fade-in-down {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes progress-bar {
-      from {
-        width: 100%;
-      }
-      to {
-        width: 0%;
-      }
-    }
-
-    .animate-fade-in-down {
-      animation: fade-in-down 0.3s ease-out;
-    }
-
-    .animate-progress-bar {
-      animation: progress-bar 3s linear forwards;
-    }
-
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.5;
-      }
-    }
-
-    .animate-pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-
-    @keyframes spin {
-      from {
-        transform: rotate(0deg);
-      }
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .animate-spin {
-      animation: spin 1s linear infinite;
-    }
-  `;
-
-  // Error fallback UI
-  if (hasError) {
+  // Loading Screen
+  if (isInitialLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-white">
-        <div className="text-center p-8 bg-gray-100 border border-gray-300 rounded-2xl shadow-xl">
-          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading Text */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Loading Admin Dashboard
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            Preparing system statistics and recent activities...
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading data...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-amber-500 to-orange-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Loading Steps */}
+        <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
+          {[
+            { text: "Users", color: "bg-blue-100 text-blue-600" },
+            { text: "Classes", color: "bg-green-100 text-green-600" },
+            { text: "Activities", color: "bg-orange-100 text-orange-600" },
+          ].map((step, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= ((index + 1) * 33)
+                  ? `${step.color} shadow-sm`
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {step.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Animation */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        </div>
+
+        {/* Loading Message */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            This might take a moment. Please wait...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error Screen
+  if (hasInitialLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2>
-          <p className="text-gray-600 mb-4">The dashboard encountered an error. Please refresh the page.</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 cursor-pointer"
-          >
-            Refresh Page
-          </button>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Unable to Load Dashboard
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            We encountered an issue while loading your dashboard data. This could be due to network issues or server problems.
+          </p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={fetchDashboardStats}
+              className="w-full px-6 py-3 bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Retry Loading Dashboard
+            </button>
+            
+            <button
+              onClick={() => window.location.href = "/login"}
+              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+            >
+              Return to Login
+            </button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
+            <ul className="text-sm text-gray-500 text-left space-y-1">
+              <li>• Check your internet connection</li>
+              <li>• Refresh the page (F5 or Ctrl+R)</li>
+              <li>• Clear browser cache and try again</li>
+              <li>• Contact system administrator if problem persists</li>
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -597,9 +863,6 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="h-screen bg-white flex overflow-hidden">
-      {/* Add animation styles */}
-      <style>{animationStyles}</style>
-
       {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
@@ -654,55 +917,25 @@ const DashboardPage: React.FC = () => {
           />
         </div>
 
-        {/* Success Banner Notification */}
-        {showSuccessBanner && (
-          <div className="fixed top-4 right-4 z-50 animate-fade-in-down">
-            <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-6 py-4 rounded-xl shadow-xl border border-amber-400/30 max-w-md">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <p className="font-bold text-sm">Success!</p>
-                  <p className="text-xs opacity-90">{bannerMessage}</p>
-                </div>
-                <button
-                  onClick={() => setShowSuccessBanner(false)}
-                  className="text-white/80 hover:text-white transition-colors"
-                  title="Close notification"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              {/* Progress Bar */}
-              <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-white/40 animate-progress-bar"></div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Status Bar */}
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3">
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-600 font-medium">System Active</span>
+                <span className="text-green-600 font-medium">
+                  System Active
+                </span>
               </div>
-              <div className="text-gray-600">
+              <div className="text-gray-500">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-blue-600 font-medium">Admin User</span>
+              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+              <span className="text-amber-600 font-medium">
+                Admin User
+              </span>
             </div>
           </div>
         </div>
@@ -726,7 +959,7 @@ const DashboardPage: React.FC = () => {
             {/* Stats Widgets */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {/* Total Users Card */}
-              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
+              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
                     <div className="absolute inset-0 bg-blue-50 rounded-2xl"></div>
@@ -737,33 +970,20 @@ const DashboardPage: React.FC = () => {
                     </div>
                   </div>
                   <span className="text-green-600 text-sm font-bold bg-green-100 border border-green-200 px-3 py-1 rounded-full">
-                    {statsLoading ? '...' : '+12%'}
+                    +12%
                   </span>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-600 mb-2 tracking-wide uppercase">Total Users</p>
-                  {statsLoading ? (
-                    <div className="animate-pulse">
-                      <div className="h-10 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    </div>
-                  ) : statsError ? (
-                    <div className="text-red-600 text-sm">
-                      Failed to load
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-4xl font-black mb-1 text-gray-900">
-                        {dashboardStats.totalUsers.toLocaleString()}
-                      </p>
-                      <p className="text-sm text-gray-500 font-medium">Active members</p>
-                    </>
-                  )}
+                  <p className="text-4xl font-black mb-1 text-gray-900">
+                    {dashboardStats.totalUsers.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-gray-500 font-medium">Active members</p>
                 </div>
               </div>
 
               {/* Active Classes Card */}
-              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
+              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
                     <div className="absolute inset-0 bg-green-50 rounded-2xl"></div>
@@ -774,33 +994,20 @@ const DashboardPage: React.FC = () => {
                     </div>
                   </div>
                   <span className="text-green-600 text-sm font-bold bg-green-100 border border-green-200 px-3 py-1 rounded-full">
-                    {statsLoading ? '...' : '+5%'}
+                    +5%
                   </span>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-600 mb-2 tracking-wide uppercase">Active Classes</p>
-                  {statsLoading ? (
-                    <div className="animate-pulse">
-                      <div className="h-10 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    </div>
-                  ) : statsError ? (
-                    <div className="text-red-600 text-sm">
-                      Failed to load
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-4xl font-black mb-1 text-gray-900">
-                        {dashboardStats.activeClasses}
-                      </p>
-                      <p className="text-sm text-gray-500 font-medium">Currently running</p>
-                    </>
-                  )}
+                  <p className="text-4xl font-black mb-1 text-gray-900">
+                    {dashboardStats.activeClasses}
+                  </p>
+                  <p className="text-sm text-gray-500 font-medium">Currently running</p>
                 </div>
               </div>
 
               {/* System Health Card */}
-              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
+              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
                     <div className="absolute inset-0 bg-purple-50 rounded-2xl"></div>
@@ -822,7 +1029,7 @@ const DashboardPage: React.FC = () => {
               </div>
 
               {/* Storage Used Card */}
-              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-pointer">
+              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
                     <div className="absolute inset-0 bg-orange-50 rounded-2xl"></div>
@@ -937,27 +1144,7 @@ const DashboardPage: React.FC = () => {
                     <span className="text-gray-900">Recent Activity</span>
                   </h3>
                   <div className="space-y-4">
-                    {activitiesLoading ? (
-                      // Loading skeleton for activities
-                      Array.from({ length: 4 }).map((_, index) => (
-                        <div key={index} className="group flex items-center space-x-4 p-4 bg-gray-50 rounded-2xl border border-gray-200">
-                          <div className="animate-pulse">
-                            <div className="w-12 h-12 bg-gray-200 rounded-2xl"></div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="animate-pulse">
-                              <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                              <div className="h-3 bg-gray-200 rounded w-48"></div>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="animate-pulse">
-                              <div className="h-6 bg-gray-200 rounded-full w-20"></div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : recentActivities.length === 0 ? (
+                    {recentActivities.length === 0 ? (
                       <div className="text-center py-8">
                         <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-2xl flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -996,7 +1183,7 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Additional Content to Ensure Scrolling */}
+            {/* Additional Content */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
@@ -1007,7 +1194,7 @@ const DashboardPage: React.FC = () => {
                 <span>System Overview</span>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-default">
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                       <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1019,7 +1206,7 @@ const DashboardPage: React.FC = () => {
                   <p className="text-xs text-gray-600">All systems operational and running smoothly</p>
                 </div>
                 
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-default">
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                       <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1031,7 +1218,7 @@ const DashboardPage: React.FC = () => {
                   <p className="text-xs text-gray-600">24/7 active user sessions across the platform</p>
                 </div>
                 
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-default">
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                       <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1050,27 +1237,29 @@ const DashboardPage: React.FC = () => {
 
       {/* Utility Modal */}
       {showUtilityModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  System Utility Data
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
+                  aria-label="Close modal"
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </div>
-                System Utility Data
-              </h2>
-              <button
-                onClick={closeModal}
-                className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer"
-                title="Close modal"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                </button>
+              </div>
             </div>
 
             {/* Tab Navigation */}
@@ -1099,29 +1288,16 @@ const DashboardPage: React.FC = () => {
 
             {/* Modal Content */}
             <div className="p-6 max-h-[60vh] overflow-y-auto">
-              {/* Success/Error Messages */}
-              {submitSuccess && (
-                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl animate-pulse">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <p className="text-green-700 font-medium">{submitSuccess}</p>
-                  </div>
-                </div>
-              )}
-              
+              {/* Error Messages */}
               {submitError && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-red-700 font-medium">{submitError}</p>
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl cursor-default">
+                  <p className="text-red-700 text-sm">{submitError}</p>
                 </div>
               )}
 
               {classesError && (
-                <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-xl">
-                  <p className="text-orange-700 font-medium">{classesError}</p>
+                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-xl cursor-default">
+                  <p className="text-orange-700 text-sm">{classesError}</p>
                   <button 
                     onClick={fetchClasses}
                     className="mt-2 px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-sm rounded-lg transition-colors duration-200 cursor-pointer"
@@ -1136,16 +1312,16 @@ const DashboardPage: React.FC = () => {
                 <form onSubmit={handleScheduleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="classSelect" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
+                      <label htmlFor="classSelect" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                         Select Class *
                       </label>
                       <select
                         id="classSelect"
                         value={scheduleForm.class_id}
                         onChange={(e) => setScheduleForm({...scheduleForm, class_id: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
                         required
-                        disabled={isSubmitting && !!submitSuccess}
+                        disabled={isSubmitting}
                         aria-label="Select class for schedule"
                       >
                         <option value="">
@@ -1163,7 +1339,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="roomNumber" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
+                      <label htmlFor="roomNumber" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                         Room Number *
                       </label>
                       <input
@@ -1171,16 +1347,16 @@ const DashboardPage: React.FC = () => {
                         type="text"
                         value={scheduleForm.room_number}
                         onChange={(e) => setScheduleForm({...scheduleForm, room_number: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-text"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-text"
                         placeholder="e.g., Room 101"
                         required
-                        disabled={isSubmitting && !!submitSuccess}
+                        disabled={isSubmitting}
                         aria-label="Enter room number"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="startTime" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
+                      <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                         Start Time *
                       </label>
                       <input
@@ -1188,15 +1364,15 @@ const DashboardPage: React.FC = () => {
                         type="datetime-local"
                         value={scheduleForm.start_time}
                         onChange={(e) => setScheduleForm({...scheduleForm, start_time: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
                         required
-                        disabled={isSubmitting && !!submitSuccess}
+                        disabled={isSubmitting}
                         aria-label="Select start time"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="endTime" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
+                      <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                         End Time *
                       </label>
                       <input
@@ -1204,23 +1380,23 @@ const DashboardPage: React.FC = () => {
                         type="datetime-local"
                         value={scheduleForm.end_time}
                         onChange={(e) => setScheduleForm({...scheduleForm, end_time: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
                         required
-                        disabled={isSubmitting && !!submitSuccess}
+                        disabled={isSubmitting}
                         aria-label="Select end time"
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label htmlFor="statusSelect" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
+                      <label htmlFor="statusSelect" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                         Status *
                       </label>
                       <select
                         id="statusSelect"
                         value={scheduleForm.status}
                         onChange={(e) => setScheduleForm({...scheduleForm, status: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-pointer"
-                        disabled={isSubmitting && !!submitSuccess}
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
+                        disabled={isSubmitting}
                         aria-label="Select schedule status"
                       >
                         <option value="Occupied">Occupied</option>
@@ -1230,37 +1406,24 @@ const DashboardPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex justify-end space-x-4 pt-4">
+                  <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 cursor-pointer"
-                      disabled={isSubmitting && !!submitSuccess}
+                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+                      disabled={isSubmitting}
                     >
-                      {submitSuccess ? 'Close' : 'Cancel'}
+                      Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed cursor-pointer"
+                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                     >
-                      {isSubmitting ? (
-                        submitSuccess ? (
-                          <>
-                            <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Success!
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline mr-2"></div>
-                            Creating...
-                          </>
-                        )
-                      ) : (
-                        'Create Schedule'
+                      {isSubmitting && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       )}
+                      {isSubmitting ? 'Creating...' : 'Create Schedule'}
                     </button>
                   </div>
                 </form>
@@ -1270,7 +1433,7 @@ const DashboardPage: React.FC = () => {
               {activeTab === 'announcement' && (
                 <form onSubmit={handleAnnouncementSubmit} className="space-y-6">
                   <div>
-                    <label htmlFor="announcementTitle" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
+                    <label htmlFor="announcementTitle" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                       Title *
                     </label>
                     <input
@@ -1278,16 +1441,16 @@ const DashboardPage: React.FC = () => {
                       type="text"
                       value={announcementForm.title}
                       onChange={(e) => setAnnouncementForm({...announcementForm, title: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 cursor-text"
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-text"
                       placeholder="Enter announcement title"
                       required
-                      disabled={isSubmitting && !!submitSuccess}
+                      disabled={isSubmitting}
                       aria-label="Enter announcement title"
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="announcementContent" className="block text-sm font-semibold text-gray-700 mb-2 cursor-default">
+                    <label htmlFor="announcementContent" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                       Content *
                     </label>
                     <textarea
@@ -1295,10 +1458,10 @@ const DashboardPage: React.FC = () => {
                       value={announcementForm.content}
                       onChange={(e) => setAnnouncementForm({...announcementForm, content: e.target.value})}
                       rows={6}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 resize-none cursor-text"
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-text"
                       placeholder="Enter announcement content"
                       required
-                      disabled={isSubmitting && !!submitSuccess}
+                      disabled={isSubmitting}
                       aria-label="Enter announcement content"
                     />
                   </div>
@@ -1309,45 +1472,32 @@ const DashboardPage: React.FC = () => {
                       id="is_urgent"
                       checked={announcementForm.is_urgent}
                       onChange={(e) => setAnnouncementForm({...announcementForm, is_urgent: e.target.checked})}
-                      className="w-5 h-5 text-amber-600 bg-gray-50 border-gray-300 rounded focus:ring-amber-500 focus:ring-2 cursor-pointer"
-                      disabled={isSubmitting && !!submitSuccess}
+                      className="w-5 h-5 text-amber-600 bg-white border-gray-300 rounded focus:ring-amber-500 focus:ring-2 cursor-pointer"
+                      disabled={isSubmitting}
                     />
-                    <label htmlFor="is_urgent" className="text-sm font-semibold text-gray-700 cursor-default">
+                    <label htmlFor="is_urgent" className="text-sm font-medium text-gray-700 cursor-default">
                       Mark as urgent announcement
                     </label>
                   </div>
 
-                  <div className="flex justify-end space-x-4 pt-4">
+                  <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 cursor-pointer"
-                      disabled={isSubmitting && !!submitSuccess}
+                      className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+                      disabled={isSubmitting}
                     >
-                      {submitSuccess ? 'Close' : 'Cancel'}
+                      Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed cursor-pointer"
+                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                     >
-                      {isSubmitting ? (
-                        submitSuccess ? (
-                          <>
-                            <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Success!
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline mr-2"></div>
-                            Creating...
-                          </>
-                        )
-                      ) : (
-                        'Create Announcement'
+                      {isSubmitting && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       )}
+                      {isSubmitting ? 'Creating...' : 'Create Announcement'}
                     </button>
                   </div>
                 </form>

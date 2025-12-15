@@ -4,6 +4,7 @@ import type { UserCreate, UserUpdate } from '../services/authService';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
+import Swal from 'sweetalert2';
 import './DashboardPage.css';
 
 interface User {
@@ -30,8 +31,11 @@ const UsersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('All');
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  // Loading states
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   
   // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,11 +59,205 @@ const UsersPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [editFormError, setEditFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [editSuccessMessage, setEditSuccessMessage] = useState<string | null>(null);
-  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
-  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
-  const [bannerMessage, setBannerMessage] = useState('');
+
+  // SweetAlert2 Configuration with Auto-Dismiss Timer
+  const swalConfig = {
+    customClass: {
+      title: 'text-lg font-bold text-gray-900',
+      htmlContainer: 'text-sm text-gray-600',
+      confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+      cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+      popup: 'rounded-xl border border-gray-200'
+    },
+    buttonsStyling: false,
+    background: '#ffffff'
+  };
+
+  // SweetAlert Helper Functions with Auto-Dismiss
+  const showSuccessAlert = (
+    title: string, 
+    text: string = '', 
+    type: 'create' | 'update' | 'delete' | 'general' = 'general',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const iconColor = 'success';
+    const confirmButtonColor = type === 'delete' ? '#EF4444' : '#10B981';
+    
+    const alertConfig: any = {
+      title,
+      text,
+      icon: iconColor,
+      confirmButtonText: 'OK',
+      confirmButtonColor,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: `text-lg font-bold ${
+          type === 'delete' ? 'text-red-900' : 
+          type === 'update' ? 'text-blue-900' : 
+          'text-green-900'
+        }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${
+          type === 'delete' ? 'bg-red-500 hover:bg-red-600 text-white cursor-pointer' :
+          type === 'update' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+          'bg-green-500 hover:bg-green-600 text-white'
+        }`
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showErrorAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 4000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'error',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#EF4444',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-red-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showConfirmDialog = (
+    title: string, 
+    text: string, 
+    confirmText: string = 'Yes, proceed',
+    confirmColor: string = '#EF4444',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: confirmColor,
+      cancelButtonColor: '#6B7280',
+      reverseButtons: true,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-gray-900',
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${
+          confirmColor === '#EF4444' ? 'bg-red-500 hover:bg-red-600 text-white cursor-pointer' :
+          confirmColor === '#10B981' ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer' :
+          'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+        }`,
+        cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
+      }
+    };
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showLoadingAlert = (
+    title: string = 'Processing...',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = 3000;
+      alertConfig.timerProgressBar = true;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const closeAlert = () => {
+    Swal.close();
+  };
+
+  const showDraggableAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 2500
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'success',
+      draggable: true,
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showInfoAlert = (
+    title: string,
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-blue-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
 
   // Format date function - FIXED to handle different months
   const formatDate = (dateString?: string): string => {
@@ -105,62 +303,88 @@ const UsersPage: React.FC = () => {
     return date.toISOString();
   };
 
-  // Show success banner function
-  const showSuccessNotification = (message: string) => {
-    setBannerMessage(message);
-    setShowSuccessBanner(true);
-    
-    // Auto-hide after 3 seconds
-    setTimeout(() => {
-      setShowSuccessBanner(false);
-      setBannerMessage('');
-    }, 3000);
+  // Update loading progress
+  const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
+  };
+
+  // Main data loading function
+  const loadUsersData = async () => {
+    try {
+      console.log("🔄 Loading users data...");
+      setIsInitialLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10);
+
+      // Step 1: Fetch users
+      updateLoadingProgress(1, 3);
+      await fetchUsers();
+
+      // Step 2: Process data
+      updateLoadingProgress(2, 3);
+
+      // Step 3: Complete loading
+      updateLoadingProgress(3, 3);
+      
+      // Complete loading
+      setTimeout(() => {
+        setIsInitialLoading(false);
+        setLoadingProgress(100);
+      }, 500);
+
+      console.log("✅ Users data loaded successfully");
+    } catch (error) {
+      console.error("❌ Error loading users data:", error);
+      setHasInitialLoadError(true);
+      setIsInitialLoading(false);
+      
+      showErrorAlert("Load Error", "Failed to load users data. Please refresh the page.", true, 4000);
+    }
   };
 
   // Fetch users data on component mount
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const apiUsers: ApiUser[] = await getAllUsers();
+  const fetchUsers = async () => {
+    try {
+      setLoadingProgress(25);
+      const apiUsers: ApiUser[] = await getAllUsers();
+      
+      // Transform API data to match our interface - USING REALISTIC DATES
+      const transformedUsers: User[] = apiUsers.map((apiUser, index) => {
+        // Try to use actual created_at date from backend first
+        let dateCreated = apiUser.created_at;
         
-        // Transform API data to match our interface - USING REALISTIC DATES
-        const transformedUsers: User[] = apiUsers.map((apiUser, index) => {
-          // Try to use actual created_at date from backend first
-          let dateCreated = apiUser.created_at;
-          
-          // If no created_at from backend, generate realistic date
-          if (!dateCreated) {
-            dateCreated = generateRealisticDate(apiUser.id, apiUser.role, index);
-          }
-          
-          return {
-            id: apiUser.id,
-            username: apiUser.username || apiUser.email || 'Unknown',
-            role: apiUser.role || 'student',
-            dateCreated: dateCreated,
-            status: 'Active' as const
-          };
-        });
+        // If no created_at from backend, generate realistic date
+        if (!dateCreated) {
+          dateCreated = generateRealisticDate(apiUser.id, apiUser.role, index);
+        }
         
-        // Sort by date created (newest first)
-        transformedUsers.sort((a, b) => {
-          const dateA = new Date(a.dateCreated || 0).getTime();
-          const dateB = new Date(b.dateCreated || 0).getTime();
-          return dateB - dateA; // Descending order (newest first)
-        });
-        
-        setUsers(transformedUsers);
-      } catch (err) {
-        console.error('Failed to fetch users:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch users');
-      } finally {
-        setLoading(false);
-      }
-    };
+        return {
+          id: apiUser.id,
+          username: apiUser.username || apiUser.email || 'Unknown',
+          role: apiUser.role || 'student',
+          dateCreated: dateCreated,
+          status: 'Active' as const
+        };
+      });
+      
+      // Sort by date created (newest first)
+      transformedUsers.sort((a, b) => {
+        const dateA = new Date(a.dateCreated || 0).getTime();
+        const dateB = new Date(b.dateCreated || 0).getTime();
+        return dateB - dateA; // Descending order (newest first)
+      });
+      
+      setUsers(transformedUsers);
+      setLoadingProgress(75);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+      throw err;
+    }
+  };
 
-    fetchUsers();
+  useEffect(() => {
+    loadUsersData();
   }, []);
 
   // Force center alignment on mount and resize
@@ -224,7 +448,6 @@ const UsersPage: React.FC = () => {
         role: userToEdit.role as 'Teacher' | 'Student'
       });
       setEditFormError(null);
-      setEditSuccessMessage(null);
       setIsEditModalOpen(true);
     }
   };
@@ -234,7 +457,6 @@ const UsersPage: React.FC = () => {
     if (userToDelete) {
       setDeletingUser(userToDelete);
       setDeleteError(null);
-      setDeleteSuccessMessage(null);
       setIsDeleteModalOpen(true);
     }
   };
@@ -242,7 +464,6 @@ const UsersPage: React.FC = () => {
   const handleCreateUser = () => {
     setIsModalOpen(true);
     setFormError(null);
-    setSuccessMessage(null);
     // Reset form data - walang laman na
     setFormData({
       username: '',
@@ -254,7 +475,6 @@ const UsersPage: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setFormError(null);
-    setSuccessMessage(null);
     // Reset form data pag sinara ang modal - walang laman na
     setFormData({
       username: '',
@@ -267,9 +487,10 @@ const UsersPage: React.FC = () => {
     e.preventDefault();
     setFormLoading(true);
     setFormError(null);
-    setSuccessMessage(null);
 
     try {
+      showLoadingAlert("Creating user...", false);
+
       // Prepare user data for API call
       const userData: UserCreate = {
         username: formData.username,
@@ -280,53 +501,30 @@ const UsersPage: React.FC = () => {
       // Call the API to create user
       const createdUser = await createUserByAdmin(userData);
       
-      // Show success message in modal
-      setSuccessMessage(`User "${createdUser.username}" created successfully!`);
+      closeAlert();
       
-      // Show success banner notification
-      showSuccessNotification(`User "${createdUser.username}" has been created successfully!`);
+      // Show success alert
+      await showSuccessAlert(
+        "User Created!",
+        `User "${createdUser.username}" has been created successfully.`,
+        'create',
+        true,
+        3000
+      );
       
       // Refresh the users list
-      const updatedUsers: ApiUser[] = await getAllUsers();
-      const transformedUsers: User[] = updatedUsers.map((apiUser, index) => {
-        // Generate realistic date for new user
-        let dateCreated = apiUser.created_at;
-        if (!dateCreated) {
-          dateCreated = generateRealisticDate(apiUser.id, apiUser.role, index);
-        }
-        
-        return {
-          id: apiUser.id,
-          username: apiUser.username || apiUser.email || 'Unknown',
-          role: apiUser.role || 'student',
-          dateCreated: dateCreated,
-          status: 'Active' as const
-        };
-      });
+      await fetchUsers();
       
-      // Sort by date created (newest first)
-      transformedUsers.sort((a, b) => {
-        const dateA = new Date(a.dateCreated || 0).getTime();
-        const dateB = new Date(b.dateCreated || 0).getTime();
-        return dateB - dateA;
-      });
+      handleCloseModal();
       
-      setUsers(transformedUsers);
-      
-      // Reset form data - BLANK NA ANG FORM
-      setFormData({
-        username: '',
-        password: '',
-        role: 'Student'
-      });
-      
-      // Close modal after success (hindi na mag-overwrite)
+      // Show draggable success alert
       setTimeout(() => {
-        setIsModalOpen(false);
-        setSuccessMessage(null);
-      }, 1500);
-      
+        showDraggableAlert("Success!", `User "${createdUser.username}" created successfully!`, true, 2000);
+      }, 100);
+
     } catch (err: any) {
+      closeAlert();
+      
       let errorMessage = 'User creation failed. Please check the input and try again.';
       
       if (err instanceof Error) {
@@ -346,6 +544,7 @@ const UsersPage: React.FC = () => {
       }
       
       setFormError(errorMessage);
+      showErrorAlert("Creation Failed", errorMessage, true, 4000);
     } finally {
       setFormLoading(false);
     }
@@ -371,7 +570,6 @@ const UsersPage: React.FC = () => {
     setIsEditModalOpen(false);
     setEditingUser(null);
     setEditFormError(null);
-    setEditSuccessMessage(null);
     setEditFormData({
       username: '',
       password: '',
@@ -383,58 +581,57 @@ const UsersPage: React.FC = () => {
     setIsDeleteModalOpen(false);
     setDeletingUser(null);
     setDeleteError(null);
-    setDeleteSuccessMessage(null);
   };
 
   const handleConfirmDelete = async () => {
     if (!deletingUser) return;
     
+    // Show confirmation dialog
+    const result = await showConfirmDialog(
+      'Confirm Delete',
+      `Are you sure you want to delete user "${deletingUser.username}"? This action cannot be undone.`,
+      'Yes, delete user',
+      '#EF4444'
+    );
+    
+    if (!result.isConfirmed) {
+      handleCloseDeleteModal();
+      return;
+    }
+
     setDeleteLoading(true);
     setDeleteError(null);
-    setDeleteSuccessMessage(null);
 
     try {
+      showLoadingAlert("Deleting user...", false);
+
       // Call the API to delete user
       await deleteUserByAdmin(deletingUser.id);
       
-      // Show success message in modal
-      setDeleteSuccessMessage(`User "${deletingUser.username}" deleted successfully!`);
+      closeAlert();
       
-      // Show success banner notification
-      showSuccessNotification(`User "${deletingUser.username}" has been deleted successfully!`);
+      // Show success alert
+      await showSuccessAlert(
+        "User Deleted!",
+        `User "${deletingUser.username}" has been deleted successfully.`,
+        'delete',
+        true,
+        3000
+      );
       
       // Refresh the users list
-      const updatedUsers: ApiUser[] = await getAllUsers();
-      const transformedUsers: User[] = updatedUsers.map((apiUser, index) => {
-        let dateCreated = apiUser.created_at;
-        if (!dateCreated) {
-          dateCreated = generateRealisticDate(apiUser.id, apiUser.role, index);
-        }
-        
-        return {
-          id: apiUser.id,
-          username: apiUser.username || apiUser.email || 'Unknown',
-          role: apiUser.role || 'student',
-          dateCreated: dateCreated,
-          status: 'Active' as const
-        };
-      });
+      await fetchUsers();
       
-      // Sort by date created (newest first)
-      transformedUsers.sort((a, b) => {
-        const dateA = new Date(a.dateCreated || 0).getTime();
-        const dateB = new Date(b.dateCreated || 0).getTime();
-        return dateB - dateA;
-      });
+      handleCloseDeleteModal();
       
-      setUsers(transformedUsers);
-      
-      // Close modal after a short delay to show success message
+      // Show draggable success alert
       setTimeout(() => {
-        handleCloseDeleteModal();
-      }, 1500);
-      
+        showDraggableAlert("Deleted!", `User "${deletingUser.username}" deleted successfully!`, true, 2000);
+      }, 100);
+
     } catch (err: any) {
+      closeAlert();
+      
       let errorMessage = 'User deletion failed. Please try again.';
       
       if (err instanceof Error) {
@@ -454,6 +651,7 @@ const UsersPage: React.FC = () => {
       }
       
       setDeleteError(errorMessage);
+      showErrorAlert("Deletion Failed", errorMessage, true, 4000);
     } finally {
       setDeleteLoading(false);
     }
@@ -463,9 +661,10 @@ const UsersPage: React.FC = () => {
     e.preventDefault();
     setEditFormLoading(true);
     setEditFormError(null);
-    setEditSuccessMessage(null);
 
     try {
+      showLoadingAlert("Updating user...", false);
+
       // Prepare user data for API call (only include password if provided)
       const updateData: UserUpdate = {
         username: editFormData.username,
@@ -484,44 +683,30 @@ const UsersPage: React.FC = () => {
 
       const updatedUser = await updateUserByAdmin(editingUser.id, updateData);
       
-      // Show success message in modal
-      setEditSuccessMessage(`User "${updatedUser.username}" updated successfully!`);
+      closeAlert();
       
-      // Show success banner notification
-      showSuccessNotification(`User "${updatedUser.username}" has been updated successfully!`);
+      // Show success alert
+      await showSuccessAlert(
+        "User Updated!",
+        `User "${updatedUser.username}" has been updated successfully.`,
+        'update',
+        true,
+        3000
+      );
       
       // Refresh the users list
-      const updatedUsers: ApiUser[] = await getAllUsers();
-      const transformedUsers: User[] = updatedUsers.map((apiUser, index) => {
-        let dateCreated = apiUser.created_at;
-        if (!dateCreated) {
-          dateCreated = generateRealisticDate(apiUser.id, apiUser.role, index);
-        }
-        
-        return {
-          id: apiUser.id,
-          username: apiUser.username || apiUser.email || 'Unknown',
-          role: apiUser.role || 'student',
-          dateCreated: dateCreated,
-          status: 'Active' as const
-        };
-      });
+      await fetchUsers();
       
-      // Sort by date created (newest first)
-      transformedUsers.sort((a, b) => {
-        const dateA = new Date(a.dateCreated || 0).getTime();
-        const dateB = new Date(b.dateCreated || 0).getTime();
-        return dateB - dateA;
-      });
+      handleCloseEditModal();
       
-      setUsers(transformedUsers);
-      
-      // Close modal after a short delay to show success message
+      // Show draggable success alert
       setTimeout(() => {
-        handleCloseEditModal();
-      }, 1500);
-      
+        showDraggableAlert("Updated!", `User "${updatedUser.username}" updated successfully!`, true, 2000);
+      }, 100);
+
     } catch (err: any) {
+      closeAlert();
+      
       let errorMessage = 'User update failed. Please check the input and try again.';
       
       if (err instanceof Error) {
@@ -541,73 +726,174 @@ const UsersPage: React.FC = () => {
       }
       
       setEditFormError(errorMessage);
+      showErrorAlert("Update Failed", errorMessage, true, 4000);
     } finally {
       setEditFormLoading(false);
     }
   };
 
-  // Inline CSS styles for animations
-  const animationStyles = `
-    @keyframes fade-in-down {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+  // Loading Screen
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-blue-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
+        </div>
 
-    @keyframes progress-bar {
-      from {
-        width: 100%;
-      }
-      to {
-        width: 0%;
-      }
-    }
+        {/* Loading Text */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Loading Users Management
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            Preparing user data, loading tables and configurations...
+          </p>
+        </div>
 
-    .animate-fade-in-down {
-      animation: fade-in-down 0.3s ease-out;
-    }
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading data...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-emerald-500 to-blue-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
 
-    .animate-progress-bar {
-      animation: progress-bar 3s linear forwards;
-    }
+        {/* Loading Steps */}
+        <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
+          {[
+            { text: "Users", color: "bg-emerald-100 text-emerald-600" },
+            { text: "Filters", color: "bg-blue-100 text-blue-600" },
+            { text: "Tables", color: "bg-purple-100 text-purple-600" },
+          ].map((step, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= ((index + 1) * 33)
+                  ? `${step.color} shadow-sm`
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {step.text}
+            </div>
+          ))}
+        </div>
 
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.5;
-      }
-    }
+        {/* Loading Animation */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        </div>
 
-    .animate-pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
+        {/* Loading Message */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            This might take a moment. Please wait...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-    @keyframes spin {
-      from {
-        transform: rotate(0deg);
-      }
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .animate-spin {
-      animation: spin 1s linear infinite;
-    }
-  `;
+  // Error Screen
+  if (hasInitialLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Unable to Load Users
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            We encountered an issue while loading users data. This could be due to network issues or server problems.
+          </p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={loadUsersData}
+              className="w-full px-6 py-3 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Retry Loading Users
+            </button>
+            
+            <button
+              onClick={() => window.history.back()}
+              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+            >
+              Go Back
+            </button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
+            <ul className="text-sm text-gray-500 text-left space-y-1">
+              <li>• Check your internet connection</li>
+              <li>• Refresh the page (F5 or Ctrl+R)</li>
+              <li>• Clear browser cache and try again</li>
+              <li>• Contact system administrator if problem persists</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen flex flex-col lg:flex-row overflow-y-auto bg-white font-inter">
-      {/* Add animation styles */}
-      <style>{animationStyles}</style>
-
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
         <div className="flex items-center space-x-3 cursor-default">
@@ -647,40 +933,6 @@ const UsersPage: React.FC = () => {
             subtitle="View and manage all system users"
           />
         </div>
-
-        {/* Success Banner Notification */}
-        {showSuccessBanner && (
-          <div className="fixed top-4 right-4 z-50 animate-fade-in-down">
-            <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-4 rounded-xl shadow-xl border border-emerald-400/30 max-w-md">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <p className="font-bold text-sm">Success!</p>
-                  <p className="text-xs opacity-90">{bannerMessage}</p>
-                </div>
-                <button
-                  onClick={() => setShowSuccessBanner(false)}
-                  className="text-white/80 hover:text-white transition-colors"
-                  title="Close notification"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              {/* Progress Bar */}
-              <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-white/40 animate-progress-bar"></div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8 min-h-0">
@@ -797,40 +1049,136 @@ const UsersPage: React.FC = () => {
 
             {/* Professional Users Table - MOBILE OPTIMIZED */}
             <div className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-              {loading ? (
-                <div className="flex items-center justify-center py-8 sm:py-12">
-                  <div className="flex flex-col items-center space-y-2 sm:space-y-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 border-3 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
-                    <p className="text-gray-600 font-medium text-xs sm:text-sm cursor-default">Loading users...</p>
+              <div className="overflow-x-auto">
+                {/* Mobile Card View */}
+                <div className="block lg:hidden">
+                  <div className="space-y-3 p-3 sm:p-4">
+                    {filteredUsers.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-gray-700 font-semibold text-sm cursor-default">No users found</p>
+                            <p className="text-gray-500 text-xs mt-1 cursor-default">
+                              {searchTerm || filterRole !== 'All' 
+                                ? 'Try adjusting your search or filter criteria' 
+                                : 'No users have been created yet'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <div key={user.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-300">
+                          {/* User Header */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <div className={`h-10 w-10 rounded-lg flex items-center justify-center shadow ${
+                                user.role === 'Admin' 
+                                  ? 'bg-gradient-to-br from-red-500 to-red-600' 
+                                  : user.role === 'Teacher'
+                                  ? 'bg-gradient-to-br from-blue-500 to-blue-600'
+                                  : 'bg-gradient-to-br from-emerald-500 to-emerald-600'
+                              }`}>
+                                <span className="text-sm font-bold text-white">
+                                  {user.username.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-semibold text-gray-900 truncate max-w-[120px] cursor-default">
+                                  {user.username}
+                                </h3>
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <span className={`inline-flex px-2 py-0.5 text-xs font-bold rounded ${
+                                    user.role === 'Admin' 
+                                      ? 'bg-red-100 text-red-700 border border-red-200' 
+                                      : user.role === 'Teacher'
+                                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                      : 'bg-green-100 text-green-700 border border-green-200'
+                                  } cursor-default`}>
+                                    {user.role}
+                                  </span>
+                                  <span className={`inline-flex px-2 py-0.5 text-xs font-bold rounded ${
+                                    user.status === 'Active' 
+                                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                                      : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                  } cursor-default`}>
+                                    {user.status}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* User Details */}
+                          <div className="space-y-2 mb-3">
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span className="cursor-default">Date Created:</span>
+                              <span className="font-semibold cursor-default">
+                                {formatDate(user.dateCreated)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-200">
+                            <button
+                              onClick={() => handleEditUser(user.id)}
+                              className="text-blue-600 hover:text-blue-700 transition-all duration-300 p-1.5 rounded hover:bg-blue-100 hover:scale-105 text-xs flex items-center space-x-1 cursor-pointer"
+                              title="Edit User"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="text-red-600 hover:text-red-700 transition-all duration-300 p-1.5 rounded hover:bg-red-100 hover:scale-105 text-xs flex items-center space-x-1 cursor-pointer"
+                              title="Delete User"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-              ) : error ? (
-                <div className="flex items-center justify-center py-8 sm:py-12">
-                  <div className="flex flex-col items-center space-y-2 sm:space-y-3 text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-red-600 font-semibold text-sm sm:text-base cursor-default">Failed to load users</p>
-                      <p className="text-gray-500 text-xs mt-1 cursor-default">{error}</p>
-                    </div>
-                    <button 
-                      onClick={() => window.location.reload()} 
-                      className="px-2 py-1 sm:px-3 sm:py-1.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-200 transition-colors text-xs sm:text-sm cursor-pointer"
-                    >
-                      Try Again
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  {/* Mobile Card View */}
-                  <div className="block lg:hidden">
-                    <div className="space-y-3 p-3 sm:p-4">
-                      {filteredUsers.length === 0 ? (
-                        <div className="text-center py-8">
+
+                {/* Desktop Table View */}
+                <table className="hidden lg:table min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                    <tr>
+                      <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
+                        Username
+                      </th>
+                      <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
+                        Role
+                      </th>
+                      <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
+                        Status
+                      </th>
+                      <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
+                        Date Created
+                      </th>
+                      <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-12 text-center">
                           <div className="flex flex-col items-center space-y-3">
                             <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                               <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -838,7 +1186,7 @@ const UsersPage: React.FC = () => {
                               </svg>
                             </div>
                             <div>
-                              <p className="text-gray-700 font-semibold text-sm cursor-default">No users found</p>
+                              <p className="text-gray-700 font-semibold text-base cursor-default">No users found</p>
                               <p className="text-gray-500 text-xs mt-1 cursor-default">
                                 {searchTerm || filterRole !== 'All' 
                                   ? 'Try adjusting your search or filter criteria' 
@@ -847,221 +1195,96 @@ const UsersPage: React.FC = () => {
                               </p>
                             </div>
                           </div>
-                        </div>
-                      ) : (
-                        filteredUsers.map((user) => (
-                          <div key={user.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-300">
-                            {/* User Header */}
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center space-x-3">
-                                <div className={`h-10 w-10 rounded-lg flex items-center justify-center shadow ${
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-gray-50 transition-all duration-300 group">
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className={`h-10 w-10 rounded-lg flex items-center justify-center shadow group-hover:shadow-md transition-all duration-300 ${
                                   user.role === 'Admin' 
-                                    ? 'bg-gradient-to-br from-red-500 to-red-600' 
+                                    ? 'bg-gradient-to-br from-red-500 to-red-600 group-hover:from-red-400 group-hover:to-red-500' 
                                     : user.role === 'Teacher'
-                                    ? 'bg-gradient-to-br from-blue-500 to-blue-600'
-                                    : 'bg-gradient-to-br from-emerald-500 to-emerald-600'
+                                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 group-hover:from-blue-400 group-hover:to-blue-500'
+                                    : 'bg-gradient-to-br from-emerald-500 to-emerald-600 group-hover:from-emerald-400 group-hover:to-emerald-500'
                                 }`}>
-                                  <span className="text-sm font-bold text-white">
+                                  <span className="text-sm font-bold text-white cursor-default">
                                     {user.username.charAt(0).toUpperCase()}
                                   </span>
                                 </div>
-                                <div>
-                                  <h3 className="text-sm font-semibold text-gray-900 truncate max-w-[120px] cursor-default">
-                                    {user.username}
-                                  </h3>
-                                  <div className="flex items-center space-x-2 mt-1">
-                                    <span className={`inline-flex px-2 py-0.5 text-xs font-bold rounded ${
-                                      user.role === 'Admin' 
-                                        ? 'bg-red-100 text-red-700 border border-red-200' 
-                                        : user.role === 'Teacher'
-                                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                        : 'bg-green-100 text-green-700 border border-green-200'
-                                    } cursor-default`}>
-                                      {user.role}
-                                    </span>
-                                    <span className={`inline-flex px-2 py-0.5 text-xs font-bold rounded ${
-                                      user.status === 'Active' 
-                                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-                                        : 'bg-gray-100 text-gray-700 border border-gray-200'
-                                    } cursor-default`}>
-                                      {user.status}
-                                    </span>
-                                  </div>
+                              </div>
+                              <div className="ml-3">
+                                <div className="text-sm font-semibold text-gray-900 group-hover:text-gray-800 transition-colors duration-300 cursor-default">
+                                  {user.username}
                                 </div>
-                              </div>
-                            </div>
-
-                            {/* User Details */}
-                            <div className="space-y-2 mb-3">
-                              <div className="flex justify-between text-xs text-gray-600">
-                                <span className="cursor-default">Date Created:</span>
-                                <span className="font-semibold cursor-default">
-                                  {formatDate(user.dateCreated)}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-200">
-                              <button
-                                onClick={() => handleEditUser(user.id)}
-                                className="text-blue-600 hover:text-blue-700 transition-all duration-300 p-1.5 rounded hover:bg-blue-100 hover:scale-105 text-xs flex items-center space-x-1 cursor-pointer"
-                                title="Edit User"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                <span>Edit</span>
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="text-red-600 hover:text-red-700 transition-all duration-300 p-1.5 rounded hover:bg-red-100 hover:scale-105 text-xs flex items-center space-x-1 cursor-pointer"
-                                title="Delete User"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Desktop Table View */}
-                  <table className="hidden lg:table min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                      <tr>
-                        <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
-                          Username
-                        </th>
-                        <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
-                          Role
-                        </th>
-                        <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
-                          Status
-                        </th>
-                        <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
-                          Date Created
-                        </th>
-                        <th className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-default">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredUsers.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-12 text-center">
-                            <div className="flex flex-col items-center space-y-3">
-                              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                                </svg>
-                              </div>
-                              <div>
-                                <p className="text-gray-700 font-semibold text-base cursor-default">No users found</p>
-                                <p className="text-gray-500 text-xs mt-1 cursor-default">
-                                  {searchTerm || filterRole !== 'All' 
-                                    ? 'Try adjusting your search or filter criteria' 
-                                    : 'No users have been created yet'
-                                  }
-                                </p>
                               </div>
                             </div>
                           </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-lg ${
+                              user.role === 'Admin' 
+                                ? 'bg-red-100 text-red-700 border border-red-200 group-hover:bg-red-200' 
+                                : user.role === 'Teacher'
+                                ? 'bg-blue-100 text-blue-700 border border-blue-200 group-hover:bg-blue-200'
+                                : 'bg-green-100 text-green-700 border border-green-200 group-hover:bg-green-200'
+                            } transition-all duration-300 cursor-default`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-lg ${
+                              user.status === 'Active' 
+                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 group-hover:bg-emerald-200' 
+                                : 'bg-gray-100 text-gray-700 border border-gray-200 group-hover:bg-gray-200'
+                            } transition-all duration-300 cursor-default`}>
+                              {user.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold group-hover:text-gray-900 transition-colors duration-300 cursor-default">
+                            {formatDate(user.dateCreated)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleEditUser(user.id)}
+                                className="text-blue-600 hover:text-blue-700 transition-all duration-300 p-2 rounded-lg hover:bg-blue-100 hover:scale-105 hover:shadow hover:shadow-blue-500/20 cursor-pointer"
+                                title="Edit User"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-red-600 hover:text-red-700 transition-all duration-300 p-2 rounded-lg hover:bg-red-100 hover:scale-105 hover:shadow hover:shadow-red-500/20 cursor-pointer"
+                                title="Delete User"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                      ) : (
-                        filteredUsers.map((user) => (
-                          <tr key={user.id} className="hover:bg-gray-50 transition-all duration-300 group">
-                            <td className="px-4 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10">
-                                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center shadow group-hover:shadow-md transition-all duration-300 ${
-                                    user.role === 'Admin' 
-                                      ? 'bg-gradient-to-br from-red-500 to-red-600 group-hover:from-red-400 group-hover:to-red-500' 
-                                      : user.role === 'Teacher'
-                                      ? 'bg-gradient-to-br from-blue-500 to-blue-600 group-hover:from-blue-400 group-hover:to-blue-500'
-                                      : 'bg-gradient-to-br from-emerald-500 to-emerald-600 group-hover:from-emerald-400 group-hover:to-emerald-500'
-                                  }`}>
-                                    <span className="text-sm font-bold text-white cursor-default">
-                                      {user.username.charAt(0).toUpperCase()}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="ml-3">
-                                  <div className="text-sm font-semibold text-gray-900 group-hover:text-gray-800 transition-colors duration-300 cursor-default">
-                                    {user.username}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-lg ${
-                                user.role === 'Admin' 
-                                  ? 'bg-red-100 text-red-700 border border-red-200 group-hover:bg-red-200' 
-                                  : user.role === 'Teacher'
-                                  ? 'bg-blue-100 text-blue-700 border border-blue-200 group-hover:bg-blue-200'
-                                  : 'bg-green-100 text-green-700 border border-green-200 group-hover:bg-green-200'
-                              } transition-all duration-300 cursor-default`}>
-                                {user.role}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-lg ${
-                                user.status === 'Active' 
-                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 group-hover:bg-emerald-200' 
-                                  : 'bg-gray-100 text-gray-700 border border-gray-200 group-hover:bg-gray-200'
-                              } transition-all duration-300 cursor-default`}>
-                                {user.status}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold group-hover:text-gray-900 transition-colors duration-300 cursor-default">
-                              {formatDate(user.dateCreated)}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={() => handleEditUser(user.id)}
-                                  className="text-blue-600 hover:text-blue-700 transition-all duration-300 p-2 rounded-lg hover:bg-blue-100 hover:scale-105 hover:shadow hover:shadow-blue-500/20 cursor-pointer"
-                                  title="Edit User"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteUser(user.id)}
-                                  className="text-red-600 hover:text-red-700 transition-all duration-300 p-2 rounded-lg hover:bg-red-100 hover:scale-105 hover:shadow hover:shadow-red-500/20 cursor-pointer"
-                                  title="Delete User"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                  
-                  {/* Professional Table Footer */}
-                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-t border-gray-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-                      <div className="text-xs sm:text-sm text-gray-600 font-semibold cursor-default">
-                        Showing <span className="font-bold text-gray-900 bg-gray-200 px-1.5 py-0.5 rounded cursor-default">{filteredUsers.length}</span> of <span className="font-bold text-gray-900 bg-gray-200 px-1.5 py-0.5 rounded cursor-default">{users.length}</span> users
-                      </div>
-                      <div className="text-xs sm:text-sm text-gray-600 font-semibold cursor-default">
-                        Total: <span className="font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded border border-emerald-200 cursor-default">{users.length}</span> users
-                      </div>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+                
+                {/* Professional Table Footer */}
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-t border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                    <div className="text-xs sm:text-sm text-gray-600 font-semibold cursor-default">
+                      Showing <span className="font-bold text-gray-900 bg-gray-200 px-1.5 py-0.5 rounded cursor-default">{filteredUsers.length}</span> of <span className="font-bold text-gray-900 bg-gray-200 px-1.5 py-0.5 rounded cursor-default">{users.length}</span> users
+                    </div>
+                    <div className="text-xs sm:text-sm text-gray-600 font-semibold cursor-default">
+                      Total: <span className="font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded border border-emerald-200 cursor-default">{users.length}</span> users
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </main>
@@ -1098,19 +1321,6 @@ const UsersPage: React.FC = () => {
                 </div>
               )}
 
-              {successMessage && (
-                <div className="mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg animate-pulse">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <p className="text-emerald-700 text-xs font-medium cursor-default">{successMessage}</p>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-3">
                 {/* Role Selection */}
                 <div>
@@ -1124,7 +1334,7 @@ const UsersPage: React.FC = () => {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-300 text-sm font-medium shadow-sm focus:shadow-emerald-500/20 appearance-none cursor-pointer"
                     required
-                    disabled={formLoading && !!successMessage}
+                    disabled={formLoading}
                   >
                     <option value="Student">Student</option>
                     <option value="Teacher">Teacher</option>
@@ -1145,7 +1355,7 @@ const UsersPage: React.FC = () => {
                     placeholder="Enter username or email address"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-300 text-sm font-medium shadow-sm focus:shadow-emerald-500/20 cursor-text"
                     required
-                    disabled={formLoading && !!successMessage}
+                    disabled={formLoading}
                   />
                 </div>
 
@@ -1164,7 +1374,7 @@ const UsersPage: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-300 text-sm font-medium shadow-sm focus:shadow-emerald-500/20 cursor-text"
                     minLength={6}
                     required
-                    disabled={formLoading && !!successMessage}
+                    disabled={formLoading}
                   />
                 </div>
               </div>
@@ -1175,9 +1385,9 @@ const UsersPage: React.FC = () => {
                   type="button"
                   onClick={handleCloseModal}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 rounded-lg transition-all duration-300 font-medium text-sm cursor-pointer"
-                  disabled={formLoading && !!successMessage}
+                  disabled={formLoading}
                 >
-                  {successMessage ? 'Close' : 'Cancel'}
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -1185,19 +1395,10 @@ const UsersPage: React.FC = () => {
                   className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center space-x-1 text-sm cursor-pointer"
                 >
                   {formLoading ? (
-                    successMessage ? (
-                      <>
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Success!</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Creating...</span>
-                      </>
-                    )
+                    <>
+                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Creating...</span>
+                    </>
                   ) : (
                     <>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1244,19 +1445,6 @@ const UsersPage: React.FC = () => {
                 </div>
               )}
 
-              {editSuccessMessage && (
-                <div className="mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg animate-pulse">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <p className="text-emerald-700 text-xs font-medium cursor-default">{editSuccessMessage}</p>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-3">
                 {/* Role Selection */}
                 <div>
@@ -1270,7 +1458,7 @@ const UsersPage: React.FC = () => {
                     onChange={handleEditInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-300 text-sm font-medium shadow-sm focus:shadow-emerald-500/20 appearance-none cursor-pointer"
                     required
-                    disabled={editFormLoading && !!editSuccessMessage}
+                    disabled={editFormLoading}
                   >
                     <option value="Student">Student</option>
                     <option value="Teacher">Teacher</option>
@@ -1291,7 +1479,7 @@ const UsersPage: React.FC = () => {
                     placeholder="Enter username or email address"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-300 text-sm font-medium shadow-sm focus:shadow-emerald-500/20 cursor-text"
                     required
-                    disabled={editFormLoading && !!editSuccessMessage}
+                    disabled={editFormLoading}
                   />
                 </div>
 
@@ -1309,7 +1497,7 @@ const UsersPage: React.FC = () => {
                     placeholder="Leave empty to keep current password"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-300 text-sm font-medium shadow-sm focus:shadow-emerald-500/20 cursor-text"
                     minLength={6}
-                    disabled={editFormLoading && !!editSuccessMessage}
+                    disabled={editFormLoading}
                   />
                   <p className="text-xs text-gray-500 mt-1 cursor-default">Only enter a new password if you want to change it</p>
                 </div>
@@ -1321,9 +1509,9 @@ const UsersPage: React.FC = () => {
                   type="button"
                   onClick={handleCloseEditModal}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 rounded-lg transition-all duration-300 font-medium text-sm cursor-pointer"
-                  disabled={editFormLoading && !!editSuccessMessage}
+                  disabled={editFormLoading}
                 >
-                  {editSuccessMessage ? 'Close' : 'Cancel'}
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -1331,19 +1519,10 @@ const UsersPage: React.FC = () => {
                   className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow hover:shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center space-x-1 text-sm cursor-pointer"
                 >
                   {editFormLoading ? (
-                    editSuccessMessage ? (
-                      <>
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Updated!</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Saving...</span>
-                      </>
-                    )
+                    <>
+                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Saving...</span>
+                    </>
                   ) : (
                     <>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1390,19 +1569,6 @@ const UsersPage: React.FC = () => {
                 </div>
               )}
 
-              {deleteSuccessMessage && (
-                <div className="mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg animate-pulse">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <p className="text-emerald-700 text-xs font-medium cursor-default">{deleteSuccessMessage}</p>
-                  </div>
-                </div>
-              )}
-
               {/* User Info */}
               <div className="mb-4">
                 <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -1437,9 +1603,9 @@ const UsersPage: React.FC = () => {
                   type="button"
                   onClick={handleCloseDeleteModal}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 rounded-lg transition-all duration-300 font-medium text-sm cursor-pointer"
-                  disabled={deleteLoading && !!deleteSuccessMessage}
+                  disabled={deleteLoading}
                 >
-                  {deleteSuccessMessage ? 'Close' : 'Cancel'}
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -1448,19 +1614,10 @@ const UsersPage: React.FC = () => {
                   className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow hover:shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center space-x-1 text-sm cursor-pointer"
                 >
                   {deleteLoading ? (
-                    deleteSuccessMessage ? (
-                      <>
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Deleted!</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Deleting...</span>
-                      </>
-                    )
+                    <>
+                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Deleting...</span>
+                    </>
                   ) : (
                     <>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

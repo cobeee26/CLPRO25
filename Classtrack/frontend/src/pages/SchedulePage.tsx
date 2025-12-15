@@ -1,11 +1,85 @@
 import React, { useState, useEffect } from 'react';
 import { authService, getAllClasses, getTeacherClasses, getStudentSchedule } from '../services/authService';
-import type { ScheduleCreate, Class, ScheduleEnrichedResponse, ScheduleResponse } from '../services/authService';
+import type { ScheduleCreate, ScheduleEnrichedResponse } from '../services/authService';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
+import Swal from 'sweetalert2';
 import './DashboardPage.css';
+
+// Interface para sa Class na galing sa API
+interface ApiClass {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Extended interface para sa lokal na Class
+interface Class extends ApiClass {
+  status: string;
+  assignedTeacher: string;
+}
+
+interface StudentPerformance {
+  student_id: number;
+  student_name: string;
+  class_id: number;
+  class_name: string;
+  average_grade_in_class: number;
+  total_assignments_submitted: number;
+  total_assignments_available: number;
+  submission_rate: number;
+}
+
+interface ClassPerformance {
+  class_id: number;
+  class_name: string;
+  class_code: string;
+  total_students: number;
+  total_assignments: number;
+  average_grade: number;
+  submission_rate: number;
+  students: StudentPerformance[];
+}
+
+interface TeacherReports {
+  class_performance: ClassPerformance[];
+  student_performance: StudentPerformance[];
+  summary: {
+    total_classes: number;
+    total_students: number;
+    overall_average_grade: number;
+    overall_submission_rate: number;
+  };
+}
+
+// Extended User interface to include name property
+interface ExtendedUser {
+  id: number;
+  email: string;
+  role: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+}
+
+// SweetAlert2 Configuration with Auto-Dismiss Timer
+const swalConfig = {
+  customClass: {
+    title: 'text-lg font-bold text-gray-900',
+    htmlContainer: 'text-sm text-gray-600',
+    confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    popup: 'rounded-xl border border-gray-200'
+  },
+  buttonsStyling: false,
+  background: '#ffffff'
+};
 
 const SchedulePage: React.FC = () => {
   const { user } = useUser();
@@ -15,6 +89,11 @@ const SchedulePage: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Enhanced loading states
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,17 +130,307 @@ const SchedulePage: React.FC = () => {
   const [editFormError, setEditFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   
-  // SUCCESS BANNER STATES - SEPARATE FROM ERROR/SCHEDULE BANNERS
-  const [successBanner, setSuccessBanner] = useState<{
-    message: string;
-    type: 'create' | 'update' | 'delete' | 'refresh' | 'cleanliness';
-  } | null>(null);
-
   // Timepicker states
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [showEditStartTimePicker, setShowEditStartTimePicker] = useState(false);
   const [showEditEndTimePicker, setShowEditEndTimePicker] = useState(false);
+
+  // SweetAlert Helper Functions with Auto-Dismiss
+  const showSuccessAlert = (
+    title: string, 
+    text: string = '', 
+    type: 'create' | 'update' | 'delete' | 'refresh' | 'cleanliness' | 'logout' = 'create',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const iconColor = type === 'delete' || type === 'logout' ? 'warning' : 'success';
+    const confirmButtonColor = type === 'delete' || type === 'logout' ? '#F59E0B' : '#10B981';
+    
+    const alertConfig: any = {
+      title,
+      text,
+      icon: iconColor,
+      confirmButtonText: 'OK',
+      confirmButtonColor,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: `text-lg font-bold ${
+          type === 'delete' || type === 'logout' ? 'text-yellow-900' : 
+          type === 'refresh' || type === 'cleanliness' ? 'text-blue-900' : 
+          'text-green-900'
+        }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${
+          type === 'delete' || type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+          type === 'refresh' || type === 'cleanliness' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+          'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+        }`
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showErrorAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 4000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'error',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#EF4444',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-red-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showConfirmDialog = (
+    title: string, 
+    text: string, 
+    confirmText: string = 'Yes, proceed',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#6B7280',
+      reverseButtons: true,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-gray-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer',
+        cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
+      }
+    };
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showLoadingAlert = (
+    title: string = 'Processing...',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = 3000;
+      alertConfig.timerProgressBar = true;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const closeAlert = () => {
+    Swal.close();
+  };
+
+  const showInfoAlert = (
+    title: string,
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-blue-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  // Update loading progress
+  const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
+  };
+
+  // Helper function to convert API class to local Class type
+  const convertApiClassToLocalClass = (apiClass: any): Class => {
+    return {
+      id: apiClass.id || apiClass.class_id || 0,
+      name: apiClass.name || apiClass.class_name || '',
+      code: apiClass.code || apiClass.class_code || '',
+      description: apiClass.description || '',
+      createdAt: apiClass.createdAt || apiClass.created_at || '',
+      updatedAt: apiClass.updatedAt || apiClass.updated_at || '',
+      status: apiClass.status || 'active',
+      assignedTeacher: apiClass.assignedTeacher || apiClass.teacher_name || apiClass.teacher_full_name || ''
+    };
+  };
+
+  // Enhanced loading function
+  const loadScheduleData = async () => {
+    try {
+      console.log('🔄 Loading schedule data...');
+      setIsInitialLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10);
+
+      updateLoadingProgress(1, 3);
+      
+      if (!user) {
+        showErrorAlert("Session Expired", "Please login again", true, 2000);
+        setTimeout(() => window.location.href = "/login", 2000);
+        return;
+      }
+
+      console.log('🔄 Loading unified schedule data...');
+      console.log('👤 Current user role:', user?.role);
+
+      let schedulesData: any[] = [];
+
+      // EVERYONE uses the same main schedules endpoint
+      try {
+        console.log('📅 Loading unified schedules for all roles...');
+        schedulesData = await authService.getSchedulesLive();
+        console.log('✅ Unified schedules loaded:', schedulesData);
+      } catch (error) {
+        console.error('❌ Unified schedules failed, trying role-specific endpoints:', error);
+        
+        // Fallback to role-specific endpoints if unified fails
+        if (user?.role === 'admin') {
+          schedulesData = await authService.getSchedulesLive();
+        } else if (user?.role === 'teacher') {
+          const teacherData = await getTeacherClasses();
+          const teacherDataObj = teacherData as any;
+          schedulesData = teacherDataObj.schedules || [];
+        } else if (user?.role === 'student') {
+          const studentData = await loadStudentData();
+          schedulesData = studentData.schedulesData;
+        }
+      }
+
+      console.log('📅 Final schedules data:', schedulesData);
+
+      // Convert schedules to enriched format
+      const enrichedSchedules = Array.isArray(schedulesData) 
+        ? schedulesData.map(schedule => convertToEnrichedSchedule(schedule))
+        : [];
+      
+      console.log('📅 Enriched schedules:', enrichedSchedules);
+
+      // For students: Use the student schedule directly
+      let finalSchedules = enrichedSchedules;
+      if (user?.role === 'student') {
+        // Try to get student schedule directly
+        try {
+          const studentScheduleData = await getStudentSchedule();
+          console.log('🎓 Student schedule data:', studentScheduleData);
+          
+          if (studentScheduleData.length > 0) {
+            finalSchedules = studentScheduleData.map(schedule => convertToEnrichedSchedule(schedule));
+            console.log('🎯 Using enhanced student schedule:', finalSchedules);
+          }
+        } catch (error) {
+          console.warn('⚠️ Could not load direct student schedule, using filtered schedules');
+        }
+      }
+
+      setSchedules(finalSchedules);
+
+      updateLoadingProgress(2, 3);
+      
+      // Load classes for form dropdowns (admin/teacher only)
+      if (user?.role !== 'student') {
+        try {
+          let classesData: any[] = [];
+          if (user?.role === 'admin') {
+            const apiClasses = await getAllClasses();
+            classesData = Array.isArray(apiClasses) 
+              ? apiClasses.map(convertApiClassToLocalClass)
+              : [];
+          } else if (user?.role === 'teacher') {
+            const teacherData = await getTeacherClasses();
+            const teacherDataObj = teacherData as any;
+            const rawClasses = Array.isArray(teacherDataObj) ? teacherDataObj : teacherDataObj?.classes || [];
+            classesData = rawClasses.map(convertApiClassToLocalClass);
+          }
+          setClasses(classesData);
+        } catch (error) {
+          console.warn('⚠️ Could not load classes for form');
+        }
+      }
+
+      updateLoadingProgress(3, 3);
+
+      if (finalSchedules.length === 0) {
+        console.log('ℹ️ No schedules found for current user');
+      } else {
+        console.log(`✅ Loaded ${finalSchedules.length} schedules for ${user?.role}`);
+      }
+
+      setTimeout(() => {
+        setIsInitialLoading(false);
+        setLoading(false);
+        setLoadingProgress(100);
+      }, 500);
+      
+      console.log('✅ Schedule data loaded successfully');
+      
+    } catch (err: any) {
+      console.error('❌ Error loading schedule data:', err);
+      setHasInitialLoadError(true);
+      setIsInitialLoading(false);
+      setLoading(false);
+      const errorMsg = err.response?.data?.detail || 'Failed to load data. Please try again.';
+      setError(errorMsg);
+      showErrorAlert('Load Error', errorMsg, true, 4000);
+    }
+  };
 
   // Generate time options for the timepicker in 12-hour format
   const generateTimeOptions = () => {
@@ -119,29 +488,14 @@ const SchedulePage: React.FC = () => {
     return `${time12.time} ${period}`;
   };
 
-  // Function to show success banner with auto-dismiss
-  const showSuccessBanner = (message: string, type: 'create' | 'update' | 'delete' | 'refresh' | 'cleanliness') => {
-    setSuccessBanner({ message, type });
-    
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-      setSuccessBanner(null);
-    }, 5000);
-  };
-
-  // Function to manually dismiss success banner
-  const dismissSuccessBanner = () => {
-    setSuccessBanner(null);
-  };
-
   useEffect(() => {
-    loadData();
+    loadScheduleData();
     
     // Listen for room report updates
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'room_report_submitted') {
         console.log('🔄 Room report submitted, reloading schedules...');
-        loadData();
+        loadScheduleData();
       }
     };
     
@@ -156,7 +510,7 @@ const SchedulePage: React.FC = () => {
   useEffect(() => {
     if (isModalOpen && classes.length === 0) {
       console.log('🔄 Modal opened with no classes, reloading data...');
-      loadData();
+      loadScheduleData();
     }
   }, [isModalOpen]);
 
@@ -185,31 +539,6 @@ const SchedulePage: React.FC = () => {
       cleanliness_after: schedule.cleanliness_after || schedule.is_clean_after || 'Unknown',
       last_report_time: schedule.last_report_time || schedule.report_time || null
     };
-  };
-
-  // FIXED: Simplified function to load room reports - removed non-existent method calls
-  const loadRoomReports = async () => {
-    try {
-      console.log('📋 Attempting to load room reports...');
-      // Using direct API call or empty array if method doesn't exist
-      // Since getLatestRoomReports doesn't exist, return empty array
-      return [];
-    } catch (error) {
-      console.warn('⚠️ Could not load room reports:', error);
-      return [];
-    }
-  };
-
-  // FIXED: Simplified function to refresh cleanliness - removed non-existent method calls
-  const refreshScheduleCleanliness = async (scheduleId: number) => {
-    try {
-      console.log(`🔍 Checking cleanliness for schedule ${scheduleId}...`);
-      // Since getScheduleCleanliness doesn't exist, return null
-      return null;
-    } catch (error) {
-      console.warn(`⚠️ Could not refresh cleanliness for schedule ${scheduleId}:`, error);
-      return null;
-    }
   };
 
   // FIXED: Improved student data loader with proper TypeScript typing
@@ -267,103 +596,11 @@ const SchedulePage: React.FC = () => {
     return { schedulesData };
   };
 
-  // FIXED: Unified Data Loading for All Roles with proper TypeScript
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('🔄 Loading unified schedule data...');
-      console.log('👤 Current user role:', user?.role);
-
-      let schedulesData: any[] = [];
-
-      // EVERYONE uses the same main schedules endpoint
-      try {
-        console.log('📅 Loading unified schedules for all roles...');
-        schedulesData = await authService.getSchedulesLive();
-        console.log('✅ Unified schedules loaded:', schedulesData);
-      } catch (error) {
-        console.error('❌ Unified schedules failed, trying role-specific endpoints:', error);
-        
-        // Fallback to role-specific endpoints if unified fails
-        if (user?.role === 'admin') {
-          schedulesData = await authService.getSchedulesLive();
-        } else if (user?.role === 'teacher') {
-          const teacherData = await getTeacherClasses();
-          // FIXED: Proper TypeScript handling for teacher data
-          const teacherDataObj = teacherData as any;
-          schedulesData = teacherDataObj.schedules || [];
-        } else if (user?.role === 'student') {
-          const studentData = await loadStudentData();
-          schedulesData = studentData.schedulesData;
-        }
-      }
-
-      console.log('📅 Final schedules data:', schedulesData);
-
-      // Convert schedules to enriched format
-      const enrichedSchedules = Array.isArray(schedulesData) 
-        ? schedulesData.map(schedule => convertToEnrichedSchedule(schedule))
-        : [];
-      
-      console.log('📅 Enriched schedules:', enrichedSchedules);
-
-      // For students: Use the student schedule directly
-      let finalSchedules = enrichedSchedules;
-      if (user?.role === 'student') {
-        // Try to get student schedule directly
-        try {
-          const studentScheduleData = await getStudentSchedule();
-          console.log('🎓 Student schedule data:', studentScheduleData);
-          
-          if (studentScheduleData.length > 0) {
-            finalSchedules = studentScheduleData.map(schedule => convertToEnrichedSchedule(schedule));
-            console.log('🎯 Using enhanced student schedule:', finalSchedules);
-          }
-        } catch (error) {
-          console.warn('⚠️ Could not load direct student schedule, using filtered schedules');
-        }
-      }
-
-      setSchedules(finalSchedules);
-
-      // Load classes for form dropdowns (admin/teacher only)
-      if (user?.role !== 'student') {
-        try {
-          let classesData: Class[] = [];
-          if (user?.role === 'admin') {
-            classesData = await getAllClasses();
-          } else if (user?.role === 'teacher') {
-            const teacherData = await getTeacherClasses();
-            // FIXED: Proper TypeScript handling for teacher classes
-            const teacherDataObj = teacherData as any;
-            classesData = Array.isArray(teacherDataObj) ? teacherDataObj : teacherDataObj?.classes || [];
-          }
-          setClasses(classesData);
-        } catch (error) {
-          console.warn('⚠️ Could not load classes for form');
-        }
-      }
-
-      if (finalSchedules.length === 0) {
-        console.log('ℹ️ No schedules found for current user');
-      } else {
-        console.log(`✅ Loaded ${finalSchedules.length} schedules for ${user?.role}`);
-      }
-
-    } catch (err: any) {
-      console.error('❌ Error loading data:', err);
-      setError(err.response?.data?.detail || 'Failed to load data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // FIXED: Simplified function to manually refresh cleanliness
   const handleRefreshCleanliness = async (scheduleId: number) => {
     console.log(`🔄 Manual refresh requested for schedule ${scheduleId}`);
     // Since the method doesn't exist, just reload all data
-    await loadData();
+    await loadScheduleData();
     return false;
   };
 
@@ -371,12 +608,14 @@ const SchedulePage: React.FC = () => {
   const refreshAllCleanliness = async () => {
     try {
       console.log('🔄 Refreshing cleanliness for all schedules...');
-      // Just reload all data
-      await loadData();
-      showSuccessBanner('Cleanliness status refreshed successfully!', 'cleanliness');
+      showLoadingAlert('Refreshing cleanliness status...');
+      await loadScheduleData();
+      closeAlert();
+      showSuccessAlert('Cleanliness Refreshed!', 'All schedule cleanliness status has been refreshed successfully.', 'cleanliness', true, 3000);
     } catch (error) {
       console.error('❌ Error refreshing all cleanliness:', error);
-      setError('Failed to refresh cleanliness status');
+      closeAlert();
+      showErrorAlert('Refresh Failed', 'Failed to refresh cleanliness status', true, 3000);
     }
   };
 
@@ -428,27 +667,32 @@ const SchedulePage: React.FC = () => {
 
     if (!formData.class_id || formData.class_id === 0) {
       setFormError('Please select a valid class');
+      showErrorAlert('Validation Error', 'Please select a valid class', true, 3000);
       return;
     }
 
     if (!formData.start_date || !formData.start_time || !formData.end_date || !formData.end_time || !formData.room_number) {
       setFormError('Please fill in all required fields');
+      showErrorAlert('Validation Error', 'Please fill in all required fields', true, 3000);
       return;
     }
 
     const selectedClass = classes.find(c => c.id === formData.class_id);
     if (!selectedClass) {
       setFormError(`Selected class is no longer valid. Please refresh the page and try again.`);
+      showErrorAlert('Validation Error', 'Selected class is no longer valid. Please refresh the page and try again.', true, 3000);
       return;
     }
 
     try {
       setFormLoading(true);
       setFormError(null);
+      showLoadingAlert('Creating schedule...', false);
+      
       await authService.createSchedule(scheduleData);
       
-      // Show success banner
-      showSuccessBanner('Schedule created successfully!', 'create');
+      closeAlert();
+      showSuccessAlert('Schedule Created!', 'New schedule has been created successfully.', 'create', true, 3000);
       
       setIsModalOpen(false);
       setFormData({
@@ -462,10 +706,13 @@ const SchedulePage: React.FC = () => {
         room_number: '',
         status: 'Occupied'
       });
-      await loadData();
+      await loadScheduleData();
     } catch (err: any) {
       console.error('❌ Error creating schedule:', err);
-      setFormError(err.response?.data?.detail || 'Failed to create schedule');
+      closeAlert();
+      const errorMsg = err.response?.data?.detail || 'Failed to create schedule';
+      setFormError(errorMsg);
+      showErrorAlert('Create Failed', errorMsg, true, 4000);
     } finally {
       setFormLoading(false);
     }
@@ -505,6 +752,7 @@ const SchedulePage: React.FC = () => {
     
     if (!editingSchedule || !editFormData.class_id || !editFormData.start_date || !editFormData.start_time || !editFormData.end_date || !editFormData.end_time || !editFormData.room_number) {
       setEditFormError('Please fill in all required fields');
+      showErrorAlert('Validation Error', 'Please fill in all required fields', true, 3000);
       return;
     }
 
@@ -519,26 +767,39 @@ const SchedulePage: React.FC = () => {
     try {
       setEditFormLoading(true);
       setEditFormError(null);
+      showLoadingAlert('Updating schedule...', false);
+      
       await authService.updateSchedule(editingSchedule.id, scheduleData);
       
-      // Show success banner
-      showSuccessBanner('Schedule updated successfully!', 'update');
+      closeAlert();
+      showSuccessAlert('Schedule Updated!', 'Schedule has been updated successfully.', 'update', true, 3000);
       
       setIsEditModalOpen(false);
       setEditingSchedule(null);
-      await loadData();
+      await loadScheduleData();
     } catch (err: any) {
       console.error('Error updating schedule:', err);
-      setEditFormError(err.response?.data?.detail || 'Failed to update schedule');
+      closeAlert();
+      const errorMsg = err.response?.data?.detail || 'Failed to update schedule';
+      setEditFormError(errorMsg);
+      showErrorAlert('Update Failed', errorMsg, true, 4000);
     } finally {
       setEditFormLoading(false);
     }
   };
 
-  const handleDeleteSchedule = (schedule: ScheduleEnrichedResponse) => {
-    setDeletingSchedule(schedule);
-    setIsDeleteModalOpen(true);
-    setDeleteError(null);
+  const handleDeleteSchedule = async (schedule: ScheduleEnrichedResponse) => {
+    const result = await showConfirmDialog(
+      'Delete Schedule?',
+      `Are you sure you want to delete the schedule for "${schedule.class_name}" in ${schedule.room_number}? This action cannot be undone.`,
+      'Yes, delete it'
+    );
+    
+    if (result.isConfirmed) {
+      setDeletingSchedule(schedule);
+      setIsDeleteModalOpen(true);
+      setDeleteError(null);
+    }
   };
 
   const confirmDeleteSchedule = async () => {
@@ -547,17 +808,22 @@ const SchedulePage: React.FC = () => {
     try {
       setDeleteLoading(true);
       setDeleteError(null);
+      showLoadingAlert('Deleting schedule...', false);
+      
       await authService.deleteSchedule(deletingSchedule.id);
       
-      // Show success banner
-      showSuccessBanner('Schedule deleted successfully!', 'delete');
+      closeAlert();
+      showSuccessAlert('Schedule Deleted!', 'Schedule has been deleted successfully.', 'delete', true, 3000);
       
       setIsDeleteModalOpen(false);
       setDeletingSchedule(null);
-      await loadData();
+      await loadScheduleData();
     } catch (err: any) {
       console.error('Error deleting schedule:', err);
-      setDeleteError(err.response?.data?.detail || 'Failed to delete schedule');
+      closeAlert();
+      const errorMsg = err.response?.data?.detail || 'Failed to delete schedule';
+      setDeleteError(errorMsg);
+      showErrorAlert('Delete Failed', errorMsg, true, 4000);
     } finally {
       setDeleteLoading(false);
     }
@@ -598,21 +864,161 @@ const SchedulePage: React.FC = () => {
     schedule.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Debug logging
-  console.log('📊 Current schedules state:', schedules);
-  console.log('🔍 Filtered schedules:', filteredSchedules);
-  console.log('🎯 FINAL SCHEDULES FOR RENDERING:', {
-    totalSchedules: schedules.length,
-    filteredSchedules: filteredSchedules.length,
-    userRole: user?.role
-  });
-
-  if (loading) {
+  // Loading Screen (similar to Dashboard)
+  if (isInitialLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading schedules...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-purple-400 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading Text */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Loading Your Schedule Manager
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            Preparing your class schedules and timetable...
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading schedules...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Loading Steps */}
+        <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
+          {[
+            { text: "Schedules", color: "bg-blue-100 text-blue-600" },
+            { text: "Classes", color: "bg-purple-100 text-purple-600" },
+            { text: "Teachers", color: "bg-green-100 text-green-600" },
+          ].map((step, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= ((index + 1) * 33)
+                  ? `${step.color} shadow-sm`
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {step.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Animation */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        </div>
+
+        {/* Loading Message */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Loading your timetable and class information...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error Screen (similar to Dashboard)
+  if (hasInitialLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Unable to Load Schedules
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            We encountered an issue while loading your schedule data. This could be due to network issues or server problems.
+          </p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={loadScheduleData}
+              className="w-full px-6 py-3 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Retry Loading Schedules
+            </button>
+            
+            <button
+              onClick={() => window.location.href = "/login"}
+              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+            >
+              Return to Login
+            </button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
+            <ul className="text-sm text-gray-500 text-left space-y-1">
+              <li>• Check your internet connection</li>
+              <li>• Refresh the page (F5 or Ctrl+R)</li>
+              <li>• Clear browser cache and try again</li>
+              <li>• Contact system administrator if problem persists</li>
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -636,10 +1042,29 @@ const SchedulePage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('userRole');
-                localStorage.removeItem('userId');
-                window.location.href = '/login';
+                const handleLogout = async () => {
+                  const result = await showConfirmDialog(
+                    'Confirm Logout',
+                    'Are you sure you want to logout? You will need to log in again to access your schedule.',
+                    'Yes, logout'
+                  );
+                  
+                  if (result.isConfirmed) {
+                    try {
+                      localStorage.removeItem('authToken');
+                      localStorage.removeItem('userRole');
+                      localStorage.removeItem('userId');
+                      showSuccessAlert('Logged Out', 'You have been successfully logged out.', 'logout', true, 1500);
+                      setTimeout(() => {
+                        window.location.href = '/login';
+                      }, 1500);
+                    } catch (error) {
+                      showErrorAlert('Logout Error', 'There was an issue logging out. Please try again.', true, 3000);
+                    }
+                  }
+                };
+                
+                handleLogout();
               }}
               className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
               title="Logout"
@@ -676,82 +1101,33 @@ const SchedulePage: React.FC = () => {
           />
         </div>
 
+        {/* Status Bar (similar to Dashboard) */}
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-600 font-medium">
+                  {loading ? 'Loading...' : 'Schedule Active'}
+                </span>
+              </div>
+              <div className="text-gray-500">
+                Last updated: {new Date().toLocaleTimeString()}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+              <span className="text-purple-600 font-medium">
+                {user?.role === 'admin' ? 'Administrator' : user?.role === 'teacher' ? 'Teacher' : 'Student'}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Main Content */}
         <main className="flex-1 bg-transparent p-4 lg:p-6 pt-14 lg:pt-4 overflow-hidden">
           <div className="max-w-7xl mx-auto h-full flex flex-col">
-            {/* SUCCESS BANNER - SEPARATE FROM ERROR BANNER */}
-            {successBanner && (
-              <div className={`mb-3 border rounded-lg p-3 animate-fade-in-up ${
-                successBanner.type === 'create' || successBanner.type === 'update' 
-                  ? 'bg-green-50 border-green-200' 
-                  : successBanner.type === 'delete'
-                  ? 'bg-yellow-50 border-yellow-200'
-                  : 'bg-blue-50 border-blue-200'
-              }`}>
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg className={`h-5 w-5 ${
-                      successBanner.type === 'create' || successBanner.type === 'update' 
-                        ? 'text-green-400' 
-                        : successBanner.type === 'delete'
-                        ? 'text-yellow-400'
-                        : 'text-blue-400'
-                    }`} viewBox="0 0 20 20" fill="currentColor">
-                      {successBanner.type === 'delete' ? (
-                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                      ) : successBanner.type === 'refresh' || successBanner.type === 'cleanliness' ? (
-                        <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                      ) : (
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      )}
-                    </svg>
-                  </div>
-                  <div className="ml-3 flex-1">
-                    <h3 className={`text-sm font-medium ${
-                      successBanner.type === 'create' || successBanner.type === 'update' 
-                        ? 'text-green-800' 
-                        : successBanner.type === 'delete'
-                        ? 'text-yellow-800'
-                        : 'text-blue-800'
-                    }`}>
-                      {successBanner.type === 'create' ? 'Schedule Created' : 
-                       successBanner.type === 'update' ? 'Schedule Updated' : 
-                       successBanner.type === 'delete' ? 'Schedule Deleted' : 
-                       successBanner.type === 'cleanliness' ? 'Cleanliness Refreshed' : 'Success'}
-                    </h3>
-                    <div className={`mt-1 text-sm ${
-                      successBanner.type === 'create' || successBanner.type === 'update' 
-                        ? 'text-green-700' 
-                        : successBanner.type === 'delete'
-                        ? 'text-yellow-700'
-                        : 'text-blue-700'
-                    }`}>
-                      {successBanner.message}
-                    </div>
-                  </div>
-                  <div className="ml-auto pl-3">
-                    <button
-                      onClick={dismissSuccessBanner}
-                      className={`inline-flex ${
-                        successBanner.type === 'create' || successBanner.type === 'update' 
-                          ? 'text-green-400 hover:text-green-600' 
-                          : successBanner.type === 'delete'
-                          ? 'text-yellow-400 hover:text-yellow-600'
-                          : 'text-blue-400 hover:text-blue-600'
-                      } cursor-pointer transition-colors`}
-                      title="Dismiss message"
-                    >
-                      <span className="sr-only">Dismiss</span>
-                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ERROR BANNER - SEPARATE FROM SUCCESS BANNER */}
+            {/* ERROR BANNER */}
             {error && (
               <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
                 <div className="flex">
@@ -813,7 +1189,7 @@ const SchedulePage: React.FC = () => {
                       Refresh Cleanliness
                     </button>
                     <button
-                      onClick={loadData}
+                      onClick={loadScheduleData}
                       disabled={loading}
                       className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
                       title="Refresh schedules"

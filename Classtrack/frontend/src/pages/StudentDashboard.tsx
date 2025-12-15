@@ -5,6 +5,7 @@ import { useUser } from "../contexts/UserContext";
 import DynamicHeader from "../components/DynamicHeader";
 import Sidebar from "../components/Sidebar";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
+import Swal from 'sweetalert2';
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -117,12 +118,9 @@ const StudentDashboard: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
 
-  const [loadingStates, setLoadingStates] = useState({
-    assignments: true,
-    schedule: true,
-    announcements: true,
-    classes: true,
-  });
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   const [showRoomReportModal, setShowRoomReportModal] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
@@ -130,9 +128,7 @@ const StudentDashboard: React.FC = () => {
     [key: string]: string;
   }>({});
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
-  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-
+  
   const [reportFormData, setReportFormData] = useState<RoomReportData>({
     class_id: "",
     is_clean_before: "",
@@ -158,6 +154,200 @@ const StudentDashboard: React.FC = () => {
   const scheduleScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
+
+  // SweetAlert2 Configuration with Auto-Dismiss Timer
+  const swalConfig = {
+    customClass: {
+      title: 'text-lg font-bold text-gray-900',
+      htmlContainer: 'text-sm text-gray-600',
+      confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+      cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+      popup: 'rounded-xl border border-gray-200'
+    },
+    buttonsStyling: false,
+    background: '#ffffff'
+  };
+
+  // SweetAlert Helper Functions with Auto-Dismiss
+  const showSuccessAlert = (
+    title: string, 
+    text: string = '', 
+    type: 'room_report' | 'logout' | 'refresh' | 'assignment' = 'room_report',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const iconColor = type === 'logout' ? 'warning' : 'success';
+    const confirmButtonColor = type === 'logout' ? '#F59E0B' : '#10B981';
+    
+    const alertConfig: any = {
+      title,
+      text,
+      icon: iconColor,
+      confirmButtonText: 'OK',
+      confirmButtonColor,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: `text-lg font-bold ${
+          type === 'logout' ? 'text-yellow-900' : 
+          type === 'refresh' ? 'text-blue-900' : 
+          'text-green-900'
+        }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${
+          type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+          type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+          'bg-green-500 hover:bg-green-600 text-white'
+        }`
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showErrorAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 4000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'error',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#EF4444',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-red-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showConfirmDialog = (
+    title: string, 
+    text: string, 
+    confirmText: string = 'Yes, proceed',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#6B7280',
+      reverseButtons: true,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-gray-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer',
+        cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
+      }
+    };
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showLoadingAlert = (
+    title: string = 'Processing...',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = 3000;
+      alertConfig.timerProgressBar = true;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const closeAlert = () => {
+    Swal.close();
+  };
+
+  const showDraggableAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 2500
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'success',
+      draggable: true,
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showInfoAlert = (
+    title: string,
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-blue-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
 
   const handleScheduleScroll = () => {
     if (scheduleScrollRef.current) {
@@ -306,12 +496,24 @@ const StudentDashboard: React.FC = () => {
         );
     }
   };
-  const handleLogout = () => {
-    try {
-      localStorage.clear();
-      window.location.href = "/login";
-    } catch (error) {
-      window.location.href = "/login";
+
+  const handleLogout = async () => {
+    const result = await showConfirmDialog(
+      'Confirm Logout',
+      'Are you sure you want to logout? You will need to log in again to access your dashboard.',
+      'Yes, logout'
+    );
+    
+    if (result.isConfirmed) {
+      try {
+        localStorage.clear();
+        showSuccessAlert('Logged Out', 'You have been successfully logged out.', 'logout', true, 1500);
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1500);
+      } catch (error) {
+        showErrorAlert('Logout Error', 'There was an issue logging out. Please try again.', true, 3000);
+      }
     }
   };
 
@@ -333,27 +535,53 @@ const StudentDashboard: React.FC = () => {
     }
   }, [navigate, user]);
 
+  const updateLoadingProgress = (step: number, totalSteps: number = 4) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
+  };
+
   const loadStudentData = async () => {
     try {
       console.log("🔄 Loading student data...");
+      setIsInitialLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10); // Start at 10%
 
+      // Step 1: Load classes
+      updateLoadingProgress(1, 4);
       await loadStudentClasses();
-      await Promise.all([
-        loadStudentAssignments(),
-        loadSchedules(),
-        loadAnnouncements(),
-      ]);
+
+      // Step 2: Load assignments
+      updateLoadingProgress(2, 4);
+      await loadStudentAssignments();
+
+      // Step 3: Load schedules
+      updateLoadingProgress(3, 4);
+      await loadSchedules();
+
+      // Step 4: Load announcements
+      updateLoadingProgress(4, 4);
+      await loadAnnouncements();
+
+      // Complete loading
+      setTimeout(() => {
+        setIsInitialLoading(false);
+        setLoadingProgress(100);
+      }, 500);
 
       console.log("✅ Student data loaded successfully");
     } catch (error) {
       console.error("❌ Error loading student data:", error);
+      setHasInitialLoadError(true);
+      setIsInitialLoading(false);
+      
+      showErrorAlert("Load Error", "Failed to load dashboard data. Please refresh the page.", true, 4000);
     }
   };
 
   // Function to load student classes from API
   const loadStudentClasses = async () => {
     try {
-      setLoadingStates((prev) => ({ ...prev, classes: true }));
       console.log("📚 Loading classes for student from API...");
 
       try {
@@ -407,15 +635,13 @@ const StudentDashboard: React.FC = () => {
     } catch (error: any) {
       console.error("❌ Error loading classes:", error);
       setClasses([]);
-    } finally {
-      setLoadingStates((prev) => ({ ...prev, classes: false }));
+      throw error; // Re-throw to be caught in main function
     }
   };
 
   // Function to load student assignments from API
   const loadStudentAssignments = async (): Promise<Assignment[]> => {
     try {
-      setLoadingStates((prev) => ({ ...prev, assignments: true }));
       console.log("📝 Loading assignments for student from API...");
 
       let assignmentsData: Assignment[] = [];
@@ -498,16 +724,13 @@ const StudentDashboard: React.FC = () => {
     } catch (error: any) {
       console.error("❌ Error loading assignments:", error);
       setAssignments([]);
-      return [];
-    } finally {
-      setLoadingStates((prev) => ({ ...prev, assignments: false }));
+      throw error; // Re-throw to be caught in main function
     }
   };
 
   // FIXED FUNCTION TO LOAD SCHEDULES FROM YOUR SCHEDULE PAGE
   const loadSchedules = async () => {
     try {
-      setLoadingStates((prev) => ({ ...prev, schedule: true }));
       console.log("📅 Loading student schedules...");
 
       try {
@@ -673,15 +896,13 @@ const StudentDashboard: React.FC = () => {
     } catch (error) {
       console.error("❌ Error loading schedules:", error);
       setSchedule([]);
-    } finally {
-      setLoadingStates((prev) => ({ ...prev, schedule: false }));
+      throw error; 
     }
   };
 
   // Function to load announcements from API
   const loadAnnouncements = async () => {
     try {
-      setLoadingStates((prev) => ({ ...prev, announcements: true }));
       console.log("📢 Loading announcements from API...");
 
       try {
@@ -713,16 +934,18 @@ const StudentDashboard: React.FC = () => {
     } catch (error) {
       console.error("❌ Error loading announcements:", error);
       setAnnouncements([]);
-    } finally {
-      setLoadingStates((prev) => ({ ...prev, announcements: false }));
+      throw error; // Re-throw to be caught in main function
     }
   };
 
   // Real-time sync for assignments
   useEffect(() => {
+    if (isInitialLoading) return;
+
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "assignments_updated") {
         console.log("🔄 Storage change detected, reloading assignments...");
+        showInfoAlert("New Assignments", "New assignments are available!", true, 2000);
         loadStudentAssignments();
       }
     };
@@ -739,7 +962,7 @@ const StudentDashboard: React.FC = () => {
       window.removeEventListener("storage", handleStorageChange);
       clearInterval(refreshInterval);
     };
-  }, [classes]);
+  }, [classes, isInitialLoading]);
 
   // Time formatting functions
   const formatDate = (dateString: string) => {
@@ -921,6 +1144,7 @@ const StudentDashboard: React.FC = () => {
         setReportFormErrors({
           photo: "Please select a valid image file (JPG, PNG, GIF, or WebP)",
         });
+        showErrorAlert("Invalid File", "Please select a valid image file (JPG, PNG, GIF, or WebP)", true, 3000);
         return;
       }
 
@@ -928,6 +1152,7 @@ const StudentDashboard: React.FC = () => {
         setReportFormErrors({
           photo: "File size must be less than 10MB",
         });
+        showErrorAlert("File Too Large", "File size must be less than 10MB", true, 3000);
         return;
       }
 
@@ -968,10 +1193,16 @@ const StudentDashboard: React.FC = () => {
     }
 
     setReportFormErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0];
+      showErrorAlert("Validation Error", firstError, true, 3000);
+    }
+    
     return Object.keys(errors).length === 0;
   };
 
-  // Room report submission with improved alert
+  // Room report submission with SweetAlert
   const handleSubmitRoomReport = async () => {
     if (!validateRoomReportForm() || !user) {
       return;
@@ -980,10 +1211,11 @@ const StudentDashboard: React.FC = () => {
     try {
       setIsSubmittingReport(true);
       setReportFormErrors({});
+      
+      showLoadingAlert("Submitting room report...", false);
 
       console.log("📤 Submitting room report with data:", reportFormData);
 
-      // Create FormData
       const formData = new FormData();
 
       formData.append("class_id", reportFormData.class_id);
@@ -1003,22 +1235,27 @@ const StudentDashboard: React.FC = () => {
 
       console.log("✅ Room report submitted successfully:", response.data);
 
-      // Reload schedules to update status
+      closeAlert();
+
       await loadSchedules();
 
-      // Close modal
       handleCloseRoomReportModal();
 
-      // Show improved success alert
-      setSuccessMessage("Your room report has been submitted successfully!");
-      setShowSuccessAlert(true);
-
-      // Auto hide alert after 5 seconds
+      showSuccessAlert(
+        "Room Report Submitted!",
+        "Your room condition report has been submitted successfully.",
+        'room_report',
+        true,
+        3000
+      );
+      
       setTimeout(() => {
-        setShowSuccessAlert(false);
-      }, 3000);
+        showDraggableAlert("Successful!", "Room report submitted successfully!", true, 2000);
+      }, 100);
+
     } catch (error: any) {
       console.error("❌ Error submitting room report:", error);
+      closeAlert();
 
       if (error.response?.status === 422) {
         const apiErrors: { [key: string]: string } = {};
@@ -1041,6 +1278,13 @@ const StudentDashboard: React.FC = () => {
         }
 
         setReportFormErrors(apiErrors);
+        
+        if (apiErrors.general) {
+          showErrorAlert("Submission Error", apiErrors.general, true, 4000);
+        } else if (Object.keys(apiErrors).length > 0) {
+          const firstError = Object.values(apiErrors)[0];
+          showErrorAlert("Validation Error", firstError, true, 4000);
+        }
       } else {
         const errorMessage =
           error.response?.data?.detail ||
@@ -1049,6 +1293,7 @@ const StudentDashboard: React.FC = () => {
           "Oops! 😅 Something went wrong. Please try again.";
 
         setReportFormErrors({ general: errorMessage });
+        showErrorAlert("Submission Failed", errorMessage, true, 4000);
       }
     } finally {
       setIsSubmittingReport(false);
@@ -1057,21 +1302,188 @@ const StudentDashboard: React.FC = () => {
 
   // Refresh assignments data when classes are loaded
   useEffect(() => {
-    if (classes.length > 0) {
+    if (classes.length > 0 && !isInitialLoading) {
       console.log("🔄 Classes loaded, automatically enriching assignments...");
       loadStudentAssignments();
     }
-  }, [classes]);
+  }, [classes, isInitialLoading]);
 
-  // Show loading screen while user data is being fetched
+  // Loading Screen
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 14l9-5-9-5-9 5 9 5z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading Text */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Loading Your Student Dashboard
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            Preparing your schedule, assignments, and announcements...
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading data...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Loading Steps */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
+          {[
+            { text: "Classes", color: "bg-blue-100 text-blue-600" },
+            { text: "Assignments", color: "bg-green-100 text-green-600" },
+            { text: "Schedule", color: "bg-purple-100 text-purple-600" },
+            { text: "Announcements", color: "bg-orange-100 text-orange-600" },
+          ].map((step, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= ((index + 1) * 25)
+                  ? `${step.color} shadow-sm`
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {step.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Animation */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
+        </div>
+
+        {/* Loading Message */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            This might take a moment. Please wait...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error Screen
+  if (hasInitialLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Unable to Load Dashboard
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            We encountered an issue while loading your dashboard data. This could be due to network issues or server problems.
+          </p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={loadStudentData}
+              className="w-full px-6 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Retry Loading Dashboard
+            </button>
+            
+            <button
+              onClick={() => navigate("/login")}
+              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+            >
+              Return to Login
+            </button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
+            <ul className="text-sm text-gray-500 text-left space-y-1">
+              <li>• Check your internet connection</li>
+              <li>• Refresh the page (F5 or Ctrl+R)</li>
+              <li>• Clear browser cache and try again</li>
+              <li>• Contact system administrator if problem persists</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
+          <p className="text-gray-600">Verifying your session...</p>
           <p className="text-gray-500 text-sm mt-2">
-            Please wait while we fetch your data
+            Please wait while we authenticate your account
           </p>
         </div>
       </div>
@@ -1313,7 +1725,7 @@ const StudentDashboard: React.FC = () => {
 
             {/* Dashboard Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {/* Schedule Section - WORKING VERSION */}
+              {/* Schedule Section */}
               <div className="lg:col-span-1">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
@@ -1352,25 +1764,7 @@ const StudentDashboard: React.FC = () => {
                       ref={scheduleScrollRef}
                       onScroll={handleScheduleScroll}
                     >
-                      {loadingStates.schedule ? (
-                        <div className="space-y-3">
-                          {[1, 2, 3].map((i) => (
-                            <div
-                              key={i}
-                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
-                            >
-                              <div className="flex items-start space-x-3">
-                                <div className="w-10 h-10 bg-gray-300 rounded-xl animate-pulse"></div>
-                                <div className="flex-1">
-                                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-1/2 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-2/3 animate-pulse"></div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : schedule.length > 0 ? (
+                      {schedule.length > 0 ? (
                         <>
                           <div className="mb-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
                             <div className="flex items-center gap-2">
@@ -1547,26 +1941,7 @@ const StudentDashboard: React.FC = () => {
                       ref={announcementsScrollRef}
                       onScroll={handleAnnouncementsScroll}
                     >
-                      {loadingStates.announcements ? (
-                        <div className="space-y-3">
-                          {[1, 2, 3].map((i) => (
-                            <div
-                              key={i}
-                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
-                            >
-                              <div className="flex items-start space-x-3">
-                                <div className="w-3 h-3 bg-gray-300 rounded-full mt-2 animate-pulse"></div>
-                                <div className="flex-1">
-                                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-full mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-2/3 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-1/3 animate-pulse"></div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : announcements.length > 0 ? (
+                      {announcements.length > 0 ? (
                         announcements.map((announcement) => (
                           <div
                             key={announcement.id}
@@ -1728,26 +2103,7 @@ const StudentDashboard: React.FC = () => {
                       ref={assignmentsScrollRef}
                       onScroll={handleAssignmentsScroll}
                     >
-                      {loadingStates.assignments ? (
-                        <div className="space-y-3">
-                          {[1, 2, 3, 4].map((i) => (
-                            <div
-                              key={i}
-                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
-                            >
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-1/2 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-full mb-2 animate-pulse"></div>
-                                </div>
-                                <div className="w-16 h-6 bg-gray-300 rounded-full ml-2 animate-pulse"></div>
-                              </div>
-                              <div className="h-8 bg-gray-300 rounded-xl w-full animate-pulse"></div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : assignments.length > 0 ? (
+                      {assignments.length > 0 ? (
                         assignments.map((assignment) => {
                           const classCodeToDisplay =
                             assignment.class_code ||
@@ -2361,82 +2717,6 @@ const StudentDashboard: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Success Alert - Right Side Fixed */}
-      {showSuccessAlert && (
-        <div className="fixed top-6 right-6 z-50 animate-fade-in">
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-xl border border-green-400 w-80 overflow-hidden">
-            <div className="p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-6 h-6 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3 flex-1">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-white font-bold text-lg">
-                      Success! 
-                    </h3>
-                    <button
-                      onClick={() => setShowSuccessAlert(false)}
-                      className="text-white/80 hover:text-white cursor-pointer transition-colors"
-                      title="Dismiss"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                  <p className="text-white/90 text-sm mt-1">{successMessage}</p>
-                </div>
-              </div>
-            </div>
-            {/* Progress Bar */}
-            <div className="h-1 bg-green-400">
-              <div
-                className="h-full bg-white/30 animate-progress"
-                style={{
-                  animation: "progress 3s linear forwards",
-                }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add custom animation for progress bar */}
-      <style>{`
-        @keyframes progress {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-        .animate-progress {
-          animation: progress 3s linear forwards;
-        }
-      `}</style>
     </div>
   );
 };

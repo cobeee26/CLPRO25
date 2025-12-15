@@ -6,11 +6,11 @@ import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import { getTeacherAssignments, getTeacherClasses, authService, getStudentClassesAll } from '../services/authService';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
+import Swal from 'sweetalert2';
 
 // API configuration
 const API_BASE_URL = 'http://localhost:8000';
 
-// Create axios instance with auth interceptor
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -18,7 +18,6 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
@@ -58,82 +57,225 @@ interface CreateAssignmentRequest {
   class_id: number;
 }
 
-// Success banner interface
-interface SuccessBanner {
-  id: string;
-  message: string;
-  type: 'create' | 'update' | 'delete' | 'refresh';
-  timestamp: number;
-}
+// SweetAlert2 Configuration with Auto-Dismiss Timer
+const swalConfig = {
+  customClass: {
+    title: 'text-lg font-bold text-gray-900',
+    htmlContainer: 'text-sm text-gray-600',
+    confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    popup: 'rounded-xl border border-gray-200'
+  },
+  buttonsStyling: false,
+  background: '#ffffff'
+};
 
 const AssignmentPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   
-  // Delete confirmation modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [assignmentToDelete, setAssignmentToDelete] = useState<Assignment | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
-  // SUCCESS BANNER STATES
-  const [successBanners, setSuccessBanners] = useState<SuccessBanner[]>([]);
-  
-  // Form refs for controlled inputs
   const nameRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const classRef = useRef<HTMLSelectElement>(null);
 
-  // Auto-dismiss success banners
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setSuccessBanners(prev => 
-        prev.filter(banner => now - banner.timestamp < 5000) // Auto-dismiss after 5 seconds
-      );
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Function to show success banner
-  const showSuccessBanner = (message: string, type: 'create' | 'update' | 'delete' | 'refresh') => {
-    const newBanner: SuccessBanner = {
-      id: Date.now().toString() + Math.random().toString(36),
-      message,
-      type,
-      timestamp: Date.now()
-    };
+  // SweetAlert Helper Functions with Auto-Dismiss
+  const showSuccessAlert = (
+    title: string, 
+    text: string = '', 
+    type: 'create' | 'update' | 'delete' | 'refresh' = 'create',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const iconColor = type === 'delete' ? 'warning' : 'success';
+    const confirmButtonColor = type === 'delete' ? '#d33' : '#10B981';
     
-    setSuccessBanners(prev => [...prev, newBanner].slice(-3)); // Keep only last 3 banners
+    const alertConfig: any = {
+      title,
+      text,
+      icon: iconColor,
+      confirmButtonText: 'OK',
+      confirmButtonColor,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: `text-lg font-bold ${
+          type === 'delete' ? 'text-yellow-900' : 
+          type === 'refresh' ? 'text-blue-900' : 
+          'text-green-900'
+        }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${
+          type === 'delete' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+          type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+          'bg-green-500 hover:bg-green-600 text-white'
+        }`
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
   };
 
-  // Function to manually dismiss a success banner
-  const dismissSuccessBanner = (id: string) => {
-    setSuccessBanners(prev => prev.filter(banner => banner.id !== id));
+  const showErrorAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 4000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'error',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#EF4444',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-red-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
   };
 
-  // Logout function
-  const handleLogout = () => {
-    try {
-      localStorage.clear();
-      window.location.href = '/login';
-    } catch (error) {
-      window.location.href = '/login';
+  const showConfirmDialog = (
+    title: string, 
+    text: string, 
+    confirmText: string = 'Yes, proceed',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#6B7280',
+      reverseButtons: true,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-gray-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer',
+        cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
+      }
+    };
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showLoadingAlert = (
+    title: string = 'Processing...',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = 3000;
+      alertConfig.timerProgressBar = true;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const closeAlert = () => {
+    Swal.close();
+  };
+
+  const showInfoAlert = (
+    title: string,
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-blue-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
+  };
+
+  const handleLogout = async () => {
+    const result = await showConfirmDialog(
+      'Confirm Logout',
+      'Are you sure you want to logout? You will need to log in again to access your dashboard.',
+      'Yes, logout'
+    );
+    
+    if (result.isConfirmed) {
+      try {
+        localStorage.clear();
+        showSuccessAlert('Logged Out', 'You have been successfully logged out.', 'delete', true, 1500);
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1500);
+      } catch (error) {
+        showErrorAlert('Logout Error', 'There was an issue logging out. Please try again.', true, 3000);
+      }
     }
   };
 
-  // Load assignment data when user is available
   useEffect(() => {
     if (!user) {
       return;
@@ -147,7 +289,6 @@ const AssignmentPage: React.FC = () => {
     loadAssignmentData();
   }, [user, navigate]);
 
-  // Handle keyboard events for modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && showDeleteModal) {
@@ -161,24 +302,23 @@ const AssignmentPage: React.FC = () => {
     };
   }, [showDeleteModal]);
 
-  // Real-time sync with localStorage
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'assignments_updated') {
         console.log('🔄 Storage change detected, reloading assignments...');
+        showInfoAlert('New Assignments', 'New assignments are available!', true, 2000);
         loadAssignmentData();
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
     
-    // Set up periodic refresh for students to see teacher updates
     let refreshInterval: NodeJS.Timeout;
     if (user?.role === 'student') {
       refreshInterval = setInterval(() => {
         console.log('🔄 Student: Periodic assignment refresh');
         loadAssignmentData();
-      }, 10000); // Refresh every 10 seconds
+      }, 10000); 
     }
 
     return () => {
@@ -189,31 +329,37 @@ const AssignmentPage: React.FC = () => {
 
   const loadAssignmentData = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      if (!user) {
-        console.log('User not available yet, waiting...');
-        return;
-      }
-      
-      console.log('🔄 Loading assignment data for user:', user.username, 'role:', user.role);
-      
-      // Load classes first, then assignments to ensure we have class data for enrichment
+      console.log('🔄 Loading assignment data...');
+      setIsInitialLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10);
+
+      // Step 1: Load classes
+      updateLoadingProgress(1, 3);
       const loadedClasses = await loadClasses();
+
+      // Step 2: Load assignments
+      updateLoadingProgress(2, 3);
       await loadAssignments(loadedClasses);
-      
+
+      // Complete loading
+      updateLoadingProgress(3, 3);
+      setTimeout(() => {
+        setIsInitialLoading(false);
+        setLoadingProgress(100);
+      }, 500);
+
       console.log('✅ Assignment data loaded successfully');
 
     } catch (error) {
       console.error('❌ Error loading assignment data:', error);
-      setError('Failed to load assignment data. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setHasInitialLoadError(true);
+      setIsInitialLoading(false);
+      
+      showErrorAlert("Load Error", "Failed to load assignment data. Please refresh the page.", true, 4000);
     }
   };
 
-  // IMPROVED CLASS LOADING FUNCTION - FIXED FOR BOTH TEACHER AND STUDENT
   const loadClasses = async (): Promise<Class[]> => {
     try {
       console.log('📚 Loading classes from API...');
@@ -221,7 +367,6 @@ const AssignmentPage: React.FC = () => {
       let classesData: Class[] = [];
       
       if (user?.role === 'teacher') {
-        // TEACHER: Use working teacher API endpoint
         try {
           const response = await apiClient.get('/teachers/me/classes');
           console.log('📊 Teacher classes API response:', response.data);
@@ -271,7 +416,6 @@ const AssignmentPage: React.FC = () => {
           }
         }
       } else if (user?.role === 'student') {
-        // STUDENT: Use getStudentClassesAll to get class names and codes
         try {
           console.log('🎓 Loading student classes using getStudentClassesAll...');
           const studentClassesData = await getStudentClassesAll();
@@ -289,7 +433,6 @@ const AssignmentPage: React.FC = () => {
         } catch (apiError: any) {
           console.warn('⚠️ Student classes API failed:', apiError.response?.status, apiError.message);
           
-          // Try to get classes from assignments data
           try {
             console.log('🔄 Trying to get classes from assignments data...');
             const assignmentsResponse = await apiClient.get('/assignments/student/');
@@ -313,8 +456,6 @@ const AssignmentPage: React.FC = () => {
           }
         }
       }
-      
-      // If no classes from API, use synchronized classes from localStorage
       if (classesData.length === 0) {
         const savedClasses = localStorage.getItem('synchronized_classes');
         if (savedClasses) {
@@ -326,14 +467,12 @@ const AssignmentPage: React.FC = () => {
       console.log('✅ Final classes loaded:', classesData);
       setClasses(classesData);
       
-      // Sync to localStorage for consistency
       localStorage.setItem('synchronized_classes', JSON.stringify(classesData));
       
       return classesData;
     } catch (error) {
       console.error('❌ Error loading classes:', error);
       
-      // Fallback to localStorage data
       const savedClasses = localStorage.getItem('synchronized_classes');
       if (savedClasses) {
         const fallbackClasses = JSON.parse(savedClasses);
@@ -346,7 +485,6 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // IMPROVED ASSIGNMENT LOADING WITH PROPER CLASS CODE
   const loadAssignments = async (loadedClasses: Class[] = []): Promise<Assignment[]> => {
     try {
       console.log('📝 Loading assignments for:', user?.role);
@@ -354,13 +492,12 @@ const AssignmentPage: React.FC = () => {
       let assignmentsData: Assignment[] = [];
       
       try {
-        // USE WORKING ENDPOINTS FOR BOTH ROLES
         let endpoint = '';
         
         if (user?.role === 'teacher') {
-          endpoint = '/assignments/'; // Teacher sees ALL assignments
+          endpoint = '/assignments/'; 
         } else if (user?.role === 'student') {
-          endpoint = '/assignments/student/'; // Student sees ALL assignments from ALL teachers
+          endpoint = '/assignments/student/'; 
         }
         
         console.log('🌐 Calling endpoint:', endpoint);
@@ -369,7 +506,6 @@ const AssignmentPage: React.FC = () => {
         
         if (Array.isArray(response.data)) {
           assignmentsData = response.data.map((assignment: any) => {
-            // Get class info from the loaded classes or from assignment data
             const classInfo = loadedClasses.find(c => c.id === assignment.class_id) || 
                             classes.find(c => c.id === assignment.class_id);
             
@@ -383,7 +519,6 @@ const AssignmentPage: React.FC = () => {
               creator_id: assignment.creator_id,
               created_at: assignment.created_at || new Date().toISOString(),
               class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
-              // FIXED: Use actual class code from API or fallback
               class_code: assignment.class_code || classInfo?.code || `CLASS-${assignment.class_id}`,
               teacher_name: assignment.teacher_name || assignment.creator?.username || classInfo?.teacher_name || 'Teacher'
             };
@@ -393,20 +528,17 @@ const AssignmentPage: React.FC = () => {
       } catch (apiError: any) {
         console.warn('⚠️ API call failed:', apiError.response?.status, apiError.message);
         
-        // Use synchronized assignments from localStorage
         const savedAssignments = localStorage.getItem('synchronized_assignments');
         if (savedAssignments) {
           console.log('🔄 Using synchronized assignments from localStorage');
           assignmentsData = JSON.parse(savedAssignments);
         } else {
-          // Default fallback data with multiple teachers
           assignmentsData = getFallbackAssignments(loadedClasses);
         }
         
         console.log('🔄 Using fallback data for demonstration');
       }
       
-      // ENRICH ASSIGNMENTS WITH CLASS NAMES AND CODES FROM LOADED CLASSES
       const classesToUse = loadedClasses.length > 0 ? loadedClasses : classes;
       if (classesToUse.length > 0) {
         assignmentsData = assignmentsData.map(assignment => {
@@ -416,14 +548,12 @@ const AssignmentPage: React.FC = () => {
           return {
             ...assignment,
             class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
-            // FIXED: Ensure class_code is properly assigned
             class_code: assignment.class_code || classInfo?.code || `CLASS-${assignment.class_id}`,
             teacher_name: classInfo?.teacher_name || assignment.teacher_name || 'Teacher'
           };
         });
       }
       
-      // SYNC TO LOCAL STORAGE FOR CONSISTENCY
       localStorage.setItem('synchronized_assignments', JSON.stringify(assignmentsData));
       
       console.log('📝 Final assignments for', user?.role + ':', assignmentsData.length, 'assignments');
@@ -436,16 +566,13 @@ const AssignmentPage: React.FC = () => {
     } catch (error) {
       console.error('❌ Error loading assignments:', error);
       
-      // Use fallback data as last resort
       const fallbackData = getFallbackAssignments(classes);
       setAssignments(fallbackData);
       return fallbackData;
     }
   };
 
-  // FALLBACK ASSIGNMENTS WITH PROPER CLASS CODES
   const getFallbackAssignments = (currentClasses: Class[] = []): Assignment[] => {
-    // Use current classes for fallback data
     if (currentClasses.length > 0) {
       return currentClasses.map((classItem: Class, index: number) => ({
         id: index + 1,
@@ -455,16 +582,13 @@ const AssignmentPage: React.FC = () => {
         creator_id: classItem.teacher_id || 1,
         created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
         class_name: classItem.name,
-        class_code: classItem.code, // Use actual class code
+        class_code: classItem.code, 
         teacher_name: classItem.teacher_name || 'Teacher'
       }));
     }
     
-    // Get classes from state or localStorage for fallback data
     const storedClasses = classes.length > 0 ? classes : 
       JSON.parse(localStorage.getItem('synchronized_classes') || '[]');
-    
-    // If we have classes, use them for fallback data
     if (storedClasses.length > 0) {
       return storedClasses.map((classItem: Class, index: number) => ({
         id: index + 1,
@@ -474,12 +598,11 @@ const AssignmentPage: React.FC = () => {
         creator_id: classItem.teacher_id || 1,
         created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
         class_name: classItem.name,
-        class_code: classItem.code, // Use actual class code
+        class_code: classItem.code, 
         teacher_name: classItem.teacher_name || 'Teacher'
       }));
     }
     
-    // Default fallback if no classes available
     return [
       {
         id: 1,
@@ -517,18 +640,13 @@ const AssignmentPage: React.FC = () => {
     ];
   };
 
-  // SYNC FUNCTION TO UPDATE ALL CLIENTS
   const syncAssignmentsAcrossClients = (updatedAssignments: Assignment[]) => {
-    // Update local state
     setAssignments(updatedAssignments);
     
-    // Save to localStorage for persistence
     localStorage.setItem('synchronized_assignments', JSON.stringify(updatedAssignments));
     
-    // Trigger storage event for other tabs/windows
     localStorage.setItem('assignments_updated', Date.now().toString());
     
-    // Remove the trigger after a short delay
     setTimeout(() => {
       localStorage.removeItem('assignments_updated');
     }, 100);
@@ -548,7 +666,6 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  // HELPER FUNCTIONS TO USE CLASSES STATE
   const getClassName = (classId: number): string => {
     const classItem = classes.find((c) => c.id === classId);
     return classItem ? classItem.name : 'Unknown Class';
@@ -569,16 +686,14 @@ const AssignmentPage: React.FC = () => {
   };
 
   const handleEditAssignment = (assignment: Assignment) => {
-    // CHECK IF USER OWNS THE ASSIGNMENT BEFORE EDITING
     if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
-      alert('You can only edit assignments that you created.');
+      showErrorAlert('Permission Denied', 'You can only edit assignments that you created.', true, 3000);
       return;
     }
     
     setEditingAssignment(assignment);
     setShowCreateModal(true);
     
-    // Set form values when editing
     setTimeout(() => {
       if (nameRef.current) nameRef.current.value = assignment.name;
       if (descriptionRef.current) descriptionRef.current.value = assignment.description || '';
@@ -587,77 +702,72 @@ const AssignmentPage: React.FC = () => {
   };
 
   const handleDeleteAssignment = (assignment: Assignment) => {
-    // CHECK IF USER OWNS THE ASSIGNMENT BEFORE DELETING
     if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
-      alert('You can only delete assignments that you created.');
+      showErrorAlert('Permission Denied', 'You can only delete assignments that you created.', true, 3000);
       return;
     }
     
-    setAssignmentToDelete(assignment);
-    setShowDeleteModal(true);
+    showConfirmDialog(
+      'Are you sure?',
+      `You are about to delete "${assignment.name}". This will also delete all related submissions and cannot be undone.`,
+      'Yes, delete it!'
+    ).then((confirmed) => {
+      if (confirmed) {
+        deleteAssignmentConfirmed(assignment);
+      }
+    });
   };
 
-  // Teacher assignment management function
   const handleManageAssignment = (assignment: Assignment) => {
-    // CHECK IF USER OWNS THE ASSIGNMENT
     if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
-      alert('You can only manage assignments that you created.');
+      showErrorAlert('Permission Denied', 'You can only manage assignments that you created.', true, 3000);
       return;
     }
     navigate(`/teacher/assignments/${assignment.id}`);
   };
 
-  // View submissions function
   const handleViewSubmissions = (assignment: Assignment) => {
-    // CHECK IF USER OWNS THE ASSIGNMENT
     if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
-      alert('You can only view submissions for assignments that you created.');
+      showErrorAlert('Permission Denied', 'You can only view submissions for assignments that you created.', true, 3000);
       return;
     }
     navigate(`/teacher/assignments/${assignment.id}/submissions`);
   };
 
-  // Function for students to view assignment details
   const handleViewAssignment = (assignment: Assignment) => {
     navigate(`/student/assignments/${assignment.id}`);
   };
 
-  // Function for students to submit work
   const handleSubmitWork = (assignment: Assignment) => {
     navigate(`/student/assignments/${assignment.id}/submit`);
   };
 
-  // DELETE WITH PROPER SYNC
-  const confirmDeleteAssignment = async () => {
-    if (!assignmentToDelete) return;
-    
+  const deleteAssignmentConfirmed = async (assignment: Assignment) => {
     setIsDeleting(true);
     try {
-      console.log('🗑️  Deleting assignment:', assignmentToDelete.id);
-      
-      // Try API delete first
+      console.log('🗑️  Deleting assignment:', assignment.id);
+
+      showLoadingAlert('Deleting assignment...', false);
+
       try {
-        await apiClient.delete(`/assignments/${assignmentToDelete.id}`);
+        await apiClient.delete(`/assignments/${assignment.id}`);
         console.log('✅ Assignment deleted successfully via API');
       } catch (apiError) {
         console.warn('⚠️ API delete failed, updating local state only');
       }
       
-      // USE SYNC FUNCTION INSTEAD OF DIRECT STATE UPDATE
-      const updatedAssignments = assignments.filter(a => a.id !== assignmentToDelete.id);
+      const updatedAssignments = assignments.filter(a => a.id !== assignment.id);
       syncAssignmentsAcrossClients(updatedAssignments);
       
-      // Show success banner
-      showSuccessBanner(`Assignment "${assignmentToDelete.name}" deleted successfully!`, 'delete');
+      closeAlert();
+      showSuccessAlert(`Assignment Deleted!`, `"${assignment.name}" has been deleted successfully.`, 'delete', true, 3000);
       
       console.log('✅ Assignment removed and synchronized');
       
-      setShowDeleteModal(false);
-      setAssignmentToDelete(null);
-      
     } catch (error: any) {
       console.error('Error deleting assignment:', error);
-      alert('Failed to delete assignment. Please try again.');
+      closeAlert();
+      showErrorAlert('Error!', 'Failed to delete assignment. Please try again.', true, 3000);
     } finally {
       setIsDeleting(false);
     }
@@ -693,10 +803,15 @@ const AssignmentPage: React.FC = () => {
     }
     
     setFormErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0];
+      showErrorAlert('Validation Error', firstError, true, 3000);
+    }
+    
     return Object.keys(errors).length === 0;
   };
 
-  // SUBMIT WITH CLASS NAME ENRICHMENT
   const handleSubmitAssignment = async () => {
     if (!validateForm()) {
       return;
@@ -713,12 +828,12 @@ const AssignmentPage: React.FC = () => {
 
       console.log('Submitting assignment with data:', formData);
 
-      // Get class info for enrichment
       const selectedClass = classes.find(c => c.id === formData.class_id);
       
       if (editingAssignment) {
-        // Update existing assignment
         console.log('📝 Updating assignment via API:', editingAssignment.id);
+        
+        showLoadingAlert('Updating assignment...', false);
         
         let updatedAssignment: Assignment;
         
@@ -748,18 +863,18 @@ const AssignmentPage: React.FC = () => {
           };
         }
         
-        // USE SYNC FUNCTION FOR CONSISTENT UPDATES
         const updatedAssignments = assignments.map(a => 
           a.id === editingAssignment.id ? updatedAssignment : a
         );
         syncAssignmentsAcrossClients(updatedAssignments);
         
-        // Show success banner
-        showSuccessBanner('Assignment updated successfully!', 'update');
+        closeAlert();
+        showSuccessAlert('Assignment Updated!', 'Assignment has been updated successfully.', 'update', true, 3000);
         
       } else {
-        // Create new assignment
         console.log('📝 Creating new assignment...');
+        
+        showLoadingAlert('Creating assignment...', false);
         
         let newAssignment: Assignment;
         
@@ -781,7 +896,7 @@ const AssignmentPage: React.FC = () => {
         } catch (apiError) {
           console.warn('⚠️ API create failed, creating local assignment only');
           newAssignment = {
-            id: Date.now(), // Generate unique ID
+            id: Date.now(), 
             name: formData.name,
             description: formData.description || null,
             class_id: formData.class_id,
@@ -792,19 +907,21 @@ const AssignmentPage: React.FC = () => {
             teacher_name: user?.username || selectedClass?.teacher_name || getTeacherName(formData.class_id)
           };
         }
-        
-        // USE SYNC FUNCTION FOR CONSISTENT UPDATES
         const updatedAssignments = [...assignments, newAssignment];
         syncAssignmentsAcrossClients(updatedAssignments);
         
-        // Show success banner
-        showSuccessBanner('Assignment created successfully!', 'create');
+        closeAlert();
+        showSuccessAlert('Assignment Created!', 'New assignment has been created successfully.', 'create', true, 3000);
       }
 
       handleCloseModal();
       
     } catch (error: any) {
       console.error('Error saving assignment:', error);
+      
+      closeAlert();
+      
+      let errorMessage = 'Failed to save assignment. Please try again.';
       
       if (error.response?.status === 422 && error.response?.data?.detail) {
         const apiErrors: {[key: string]: string} = {};
@@ -814,29 +931,194 @@ const AssignmentPage: React.FC = () => {
           }
         });
         setFormErrors(apiErrors);
+        errorMessage = Object.values(apiErrors).join('\n');
       } else if (error.response?.status === 400) {
-        setFormErrors({ general: error.response.data.detail || 'Invalid data provided. Please check your inputs.' });
+        errorMessage = error.response.data.detail || 'Invalid data provided. Please check your inputs.';
       } else if (error.response?.status === 500) {
-        setFormErrors({ general: 'Server error occurred. Please try again later.' });
-      } else {
-        setFormErrors({ general: 'Failed to save assignment. Please try again.' });
+        errorMessage = 'Server error occurred. Please try again later.';
       }
+      
+      showErrorAlert('Error!', errorMessage, true, 4000);
+      
+      setFormErrors({ general: errorMessage });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Filter assignments for teacher (only show their own) and student (show all)
   const displayAssignments = user?.role === 'teacher' 
     ? assignments.filter(assignment => assignment.creator_id === user.id)
     : assignments;
 
-  if (isLoading) {
+  // Loading Screen
+  if (isInitialLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center cursor-default">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-red-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading Text */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Loading Your Assignments
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            Fetching your classes and assignments...
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading data...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-red-500 to-purple-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Loading Steps */}
+        <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
+          {[
+            { text: "Classes", color: "bg-red-100 text-red-600" },
+            { text: "Assignments", color: "bg-green-100 text-green-600" },
+            { text: "Synchronizing", color: "bg-purple-100 text-purple-600" },
+          ].map((step, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= ((index + 1) * 33)
+                  ? `${step.color} shadow-sm`
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {step.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Animation */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        </div>
+
+        {/* Loading Message */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            This might take a moment. Please wait...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error Screen
+  if (hasInitialLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Unable to Load Assignments
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            We encountered an issue while loading your assignment data. This could be due to network issues or server problems.
+          </p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={loadAssignmentData}
+              className="w-full px-6 py-3 bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Retry Loading Assignments
+            </button>
+            
+            <button
+              onClick={() => navigate("/login")}
+              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+            >
+              Return to Login
+            </button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
+            <ul className="text-sm text-gray-500 text-left space-y-1">
+              <li>• Check your internet connection</li>
+              <li>• Refresh the page (F5 or Ctrl+R)</li>
+              <li>• Clear browser cache and try again</li>
+              <li>• Contact system administrator if problem persists</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading assignments...</p>
+          <p className="text-gray-600">Verifying your session...</p>
+          <p className="text-gray-500 text-sm mt-2">
+            Please wait while we authenticate your account
+          </p>
         </div>
       </div>
     );
@@ -844,89 +1126,9 @@ const AssignmentPage: React.FC = () => {
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden cursor-default">
-      {/* SUCCESS BANNERS - Right Side */}
-      <div className="fixed right-4 top-20 z-50 flex flex-col gap-3 w-80 max-w-[calc(100%-2rem)]">
-        {successBanners.map((banner) => (
-          <div
-            key={banner.id}
-            className={`relative p-4 rounded-xl border backdrop-blur-sm animate-fade-in-up ${
-              banner.type === 'create'
-                ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-200 shadow-lg'
-                : banner.type === 'update'
-                ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 shadow-lg'
-                : banner.type === 'delete'
-                ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200 shadow-lg'
-                : 'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 shadow-lg'
-            }`}
-          >
-            {/* Progress Bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 overflow-hidden rounded-t-xl">
-              <div className={`h-full ${
-                banner.type === 'create' ? 'bg-green-400' :
-                banner.type === 'update' ? 'bg-blue-400' :
-                banner.type === 'delete' ? 'bg-yellow-400' : 'bg-purple-400'
-              }`} 
-              style={{ 
-                width: `${100 - ((Date.now() - banner.timestamp) / 5000 * 100)}%`,
-                transition: 'width 1s linear'
-              }}></div>
-            </div>
-            
-            <div className="flex items-start gap-3">
-              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                banner.type === 'create' ? 'bg-green-100' :
-                banner.type === 'update' ? 'bg-blue-100' :
-                banner.type === 'delete' ? 'bg-yellow-100' : 'bg-purple-100'
-              }`}>
-                <svg className={`w-5 h-5 ${
-                  banner.type === 'create' ? 'text-green-600' :
-                  banner.type === 'update' ? 'text-blue-600' :
-                  banner.type === 'delete' ? 'text-yellow-600' : 'text-purple-600'
-                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {banner.type === 'delete' ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  )}
-                </svg>
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <h4 className={`text-sm font-semibold mb-1 ${
-                  banner.type === 'create' ? 'text-green-800' :
-                  banner.type === 'update' ? 'text-blue-800' :
-                  banner.type === 'delete' ? 'text-yellow-800' : 'text-purple-800'
-                }`}>
-                  {banner.type === 'create' ? 'Assignment Created' :
-                   banner.type === 'update' ? 'Assignment Updated' :
-                   banner.type === 'delete' ? 'Assignment Deleted' : 'Success'}
-                </h4>
-                <p className="text-sm text-gray-700">{banner.message}</p>
-                <span className="text-xs text-gray-500 mt-1 block">
-                  Just now
-                </span>
-              </div>
-              
-              <button
-                onClick={() => dismissSuccessBanner(banner.id)}
-                className="flex-shrink-0 p-1 hover:bg-white/50 rounded-full transition-colors cursor-pointer"
-                title="Dismiss"
-              >
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        {/* Mobile Header */}
         <header className="lg:hidden bg-white backdrop-blur-xl border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -947,7 +1149,6 @@ const AssignmentPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Logout Button */}
             <button 
               onClick={handleLogout}
               className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
@@ -957,8 +1158,6 @@ const AssignmentPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
-            
-            {/* Menu Button */}
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
@@ -970,8 +1169,6 @@ const AssignmentPage: React.FC = () => {
             </button>
           </div>
         </header>
-
-        {/* Dynamic Header - FOR DESKTOP */}
         <div className="hidden lg:block">
           <DynamicHeader 
             title={user?.role === 'student' ? "My Assignments" : "Manage Class Assignments"}
@@ -980,31 +1177,34 @@ const AssignmentPage: React.FC = () => {
           />
         </div>
 
-        {/* Main Content */}
+        {/* Status Bar */}
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-600 font-medium">
+                  System Active
+                </span>
+              </div>
+              <div className="text-gray-500">
+                Last updated: {new Date().toLocaleTimeString()}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <span className="text-red-600 font-medium">
+                {user?.role === 'student' 
+                  ? `${displayAssignments.length} Active Assignments`
+                  : `${displayAssignments.length} Created Assignments`
+                }
+              </span>
+            </div>
+          </div>
+        </div>
+
         <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 cursor-default">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            {/* Error Display */}
-            {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 cursor-default">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  <div>
-                    <h3 className="text-sm font-semibold text-red-700">Error Loading Data</h3>
-                    <p className="text-sm text-gray-600 mt-1">{error}</p>
-                  </div>
-                  <button
-                    onClick={loadAssignmentData}
-                    className="ml-auto px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm transition-colors cursor-pointer"
-                  >
-                    Retry
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Page Header */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-sm mb-6 cursor-default">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -1039,11 +1239,8 @@ const AssignmentPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Assignments Table with Scroll Indicator */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden cursor-default relative">
-              {/* Scroll Indicator */}
               <div className="absolute top-0 right-0 h-full w-4 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10"></div>
-              
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1234,11 +1431,8 @@ const AssignmentPage: React.FC = () => {
                   </tbody>
                 </table>
                 
-                {/* Horizontal Scroll Indicator */}
                 <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-gray-100 to-transparent opacity-50 pointer-events-none"></div>
               </div>
-              
-              {/* Scroll Hint */}
               {displayAssignments.length > 0 && (
                 <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-center">
                   <span className="text-xs text-gray-500 flex items-center justify-center gap-1">
@@ -1256,8 +1450,6 @@ const AssignmentPage: React.FC = () => {
           </div>
         </main>
       </div>
-
-      {/* Create/Edit Assignment Modal */}
       {showCreateModal && (
         <div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-default"
@@ -1286,7 +1478,6 @@ const AssignmentPage: React.FC = () => {
             </div>
             
             <div className="p-6">
-              {/* General Error Message */}
               {formErrors.general && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl cursor-default">
                   <p className="text-red-700 text-sm">{formErrors.general}</p>
@@ -1394,106 +1585,6 @@ const AssignmentPage: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && assignmentToDelete && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-default"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              cancelDeleteAssignment();
-            }
-          }}
-        >
-          <div className="bg-white/95 backdrop-blur-xl border border-gray-300 rounded-2xl shadow-xl max-w-md w-full mx-4 transform transition-all duration-300">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">Confirm Deletion</h3>
-                  <p className="text-sm text-gray-600">This action cannot be undone</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="px-6 py-4">
-              <div className="mb-4">
-                <div className="bg-gray-50 rounded-xl p-4 mb-4 cursor-default">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">{assignmentToDelete.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {assignmentToDelete.class_name || getClassName(assignmentToDelete.class_id)}
-                        <span className="ml-2 font-mono bg-gray-100 px-1 rounded">
-                          ({assignmentToDelete.class_code || getClassCode(assignmentToDelete.class_id)})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  {assignmentToDelete.description && (
-                    <p className="text-xs text-gray-600 mt-2">{assignmentToDelete.description}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 cursor-default">
-                <div className="flex items-start space-x-3">
-                  <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  <div>
-                    <h4 className="text-sm font-semibold text-red-700 mb-1">Warning</h4>
-                    <p className="text-sm text-gray-600">
-                      Are you sure you want to delete this assignment? This will also delete <strong>all related submissions</strong> and cannot be undone.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end space-x-3">
-              <button
-                onClick={cancelDeleteAssignment}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteAssignment}
-                disabled={isDeleting}
-                className="px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 hover:text-red-800 rounded-xl font-medium transition-all duration-200 border border-red-200 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 cursor-pointer"
-              >
-                {isDeleting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <span>Delete Assignment</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>    
       )}
     </div>
   );

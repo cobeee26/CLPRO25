@@ -5,6 +5,7 @@ import { useUser } from "../contexts/UserContext";
 import Sidebar from "../components/Sidebar";
 import DynamicHeader from "../components/DynamicHeader";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
+import Swal from "sweetalert2";
 
 // API Configuration
 const API_BASE_URL = "http://localhost:8000";
@@ -31,6 +32,19 @@ apiClient.interceptors.request.use(
   }
 );
 
+// SweetAlert2 Configuration with Auto-Dismiss Timer
+const swalConfig = {
+  customClass: {
+    title: 'text-lg font-bold text-gray-900',
+    htmlContainer: 'text-sm text-gray-600',
+    confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    popup: 'rounded-xl border border-gray-200'
+  },
+  buttonsStyling: false,
+  background: '#ffffff'
+};
+
 interface PasswordChangeData {
   current_password: string;
   new_password: string;
@@ -42,7 +56,6 @@ interface ProfileUpdateData {
   last_name: string;
 }
 
-// Interface for User Profile
 interface UserProfile {
   id: number;
   username: string;
@@ -90,6 +103,171 @@ const ProfilePage: React.FC = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Loading states similar to Dashboard
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  // SweetAlert Helper Functions with Auto-Dismiss
+  const showSuccessAlert = (
+    title: string, 
+    text: string = '', 
+    type: 'profile' | 'password' | 'photo' | 'logout' = 'profile',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const iconColor = type === 'logout' ? 'warning' : 'success';
+    const confirmButtonColor = type === 'logout' ? '#F59E0B' : '#10B981';
+    
+    const alertConfig: any = {
+      title,
+      text,
+      icon: iconColor,
+      confirmButtonText: 'OK',
+      confirmButtonColor,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: `text-lg font-bold ${
+          type === 'logout' ? 'text-yellow-900' : 
+          type === 'password' ? 'text-blue-900' : 
+          'text-green-900'
+        }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${
+          type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+          type === 'password' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+          'bg-green-500 hover:bg-green-600 text-white'
+        }`
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showErrorAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 4000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'error',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#EF4444',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-red-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showConfirmDialog = (
+    title: string, 
+    text: string, 
+    confirmText: string = 'Yes, proceed',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#6B7280',
+      reverseButtons: true,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-gray-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer',
+        cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
+      }
+    };
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showLoadingAlert = (
+    title: string = 'Processing...',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = 3000;
+      alertConfig.timerProgressBar = true;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const closeAlert = () => {
+    Swal.close();
+  };
+
+  const showInfoAlert = (
+    title: string,
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-blue-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
+  };
 
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
@@ -118,7 +296,6 @@ const ProfilePage: React.FC = () => {
     return constructedUrl;
   };
 
-  // Simplified function to get current date as member since
   const getMemberSince = (): string => {
     return new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -134,22 +311,55 @@ const ProfilePage: React.FC = () => {
     });
   };
 
-  useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    const userRole = localStorage.getItem("userRole");
+  // Enhanced loading function with progress
+  const loadProfileData = async () => {
+    try {
+      console.log('🔄 Loading profile data...');
+      setIsLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10);
 
-    if (!token || !userRole) {
-      navigate("/login");
-      return;
-    }
+      updateLoadingProgress(1, 3);
+      
+      // Check authentication
+      const token = localStorage.getItem("authToken");
+      const userRole = localStorage.getItem("userRole");
 
-    if (user) {
-      setProfileData({
-        first_name: user.first_name || "",
-        last_name: user.last_name || "",
-      });
+      if (!token || !userRole) {
+        showInfoAlert("Session Expired", "Please login again", true, 2000);
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+
+      updateLoadingProgress(2, 3);
+      
+      // Wait for user data to be fetched by context
+      if (user) {
+        setProfileData({
+          first_name: user.first_name || "",
+          last_name: user.last_name || "",
+        });
+      }
+
+      updateLoadingProgress(3, 3);
+      
+      setTimeout(() => {
+        setIsLoading(false);
+        setLoadingProgress(100);
+      }, 500);
+      
+      console.log('✅ Profile data loaded successfully');
+      
+    } catch (error) {
+      console.error('❌ Failed to load profile:', error);
+      setHasInitialLoadError(true);
       setIsLoading(false);
+      showErrorAlert("Load Error", "Failed to load profile data. Please refresh the page.", true, 4000);
     }
+  };
+
+  useEffect(() => {
+    loadProfileData();
   }, [user, navigate]);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -206,45 +416,57 @@ const ProfilePage: React.FC = () => {
       setPasswordLoading(true);
       setPasswordSuccess(false);
 
+      showLoadingAlert('Changing password...', false);
+      
       await apiClient.post("/auth/change-password", {
         current_password: passwordData.current_password,
         new_password: passwordData.new_password,
       });
 
+      closeAlert();
+      showSuccessAlert('Password Changed!', 'Your password has been updated successfully.', 'password', true, 3000);
+      
       setPasswordSuccess(true);
       setPasswordData({
         current_password: "",
         new_password: "",
         confirm_password: "",
       });
+      setShowPasswordForm(false);
 
       setTimeout(() => {
         setPasswordSuccess(false);
       }, 5000);
     } catch (error: any) {
+      closeAlert();
       console.error("Error changing password:", error);
 
       if (error.response?.status === 400) {
         const errorDetail = error.response.data?.detail || "";
         if (errorDetail.includes("Current password is incorrect")) {
+          showErrorAlert("Password Error", "Current password is incorrect", true, 3000);
           setPasswordErrors({
             current_password: "Current password is incorrect",
           });
         } else if (
           errorDetail.includes("New password must be at least 8 characters")
         ) {
+          showErrorAlert("Password Error", "New password must be at least 8 characters long", true, 3000);
           setPasswordErrors({
             new_password: "New password must be at least 8 characters long",
           });
         } else if (errorDetail.includes("Current password is required")) {
+          showErrorAlert("Password Error", "Current password is required", true, 3000);
           setPasswordErrors({
             current_password: "Current password is required",
           });
         } else if (errorDetail.includes("New password is required")) {
+          showErrorAlert("Password Error", "New password is required", true, 3000);
           setPasswordErrors({
             new_password: "New password is required",
           });
         } else {
+          showErrorAlert("Password Error", errorDetail || "Invalid request. Please check your input.", true, 3000);
           setPasswordErrors({
             general: errorDetail || "Invalid request. Please check your input.",
           });
@@ -266,11 +488,14 @@ const ProfilePage: React.FC = () => {
           });
         }
         setPasswordErrors(apiErrors);
+        showErrorAlert("Validation Error", "Please check your password input", true, 3000);
       } else if (error.response?.status === 404) {
+        showErrorAlert("User Not Found", "User not found. Please try logging in again.", true, 3000);
         setPasswordErrors({
           general: "User not found. Please try logging in again.",
         });
       } else if (error.response?.status === 500) {
+        showErrorAlert("Server Error", "Server error. Please try again later.", true, 3000);
         setPasswordErrors({
           general: "Server error. Please try again later.",
         });
@@ -279,6 +504,7 @@ const ProfilePage: React.FC = () => {
           error.response?.data?.detail ||
           error.message ||
           "Failed to change password. Please try again.";
+        showErrorAlert("Password Change Failed", errorMessage, true, 4000);
         setPasswordErrors({
           general: errorMessage,
         });
@@ -288,11 +514,26 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userId");
-    navigate("/login");
+  const handleLogout = async () => {
+    const result = await showConfirmDialog(
+      'Confirm Logout',
+      'Are you sure you want to logout? You will need to log in again to access your account.',
+      'Yes, logout'
+    );
+    
+    if (result.isConfirmed) {
+      try {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("userId");
+        showSuccessAlert('Logged Out', 'You have been successfully logged out.', 'logout', true, 1500);
+        setTimeout(() => {
+          navigate("/login");
+        }, 1500);
+      } catch (error) {
+        showErrorAlert('Logout Error', 'There was an issue logging out. Please try again.', true, 3000);
+      }
+    }
   };
 
   const handleProfileEdit = () => {
@@ -343,7 +584,6 @@ const ProfilePage: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // FIXED: Updated endpoint from /auth/profile to /users/me
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -355,7 +595,8 @@ const ProfilePage: React.FC = () => {
       setProfileLoading(true);
       setProfileSuccess(false);
 
-      // FIX: Changed from /auth/profile to /users/me
+      showLoadingAlert('Updating profile...', false);
+      
       await apiClient.put("/users/me", {
         first_name: profileData.first_name,
         last_name: profileData.last_name,
@@ -363,6 +604,9 @@ const ProfilePage: React.FC = () => {
 
       await fetchCurrentUser();
 
+      closeAlert();
+      showSuccessAlert('Profile Updated!', 'Your profile has been updated successfully.', 'profile', true, 3000);
+      
       setProfileSuccess(true);
       setIsEditingProfile(false);
 
@@ -370,10 +614,12 @@ const ProfilePage: React.FC = () => {
         setProfileSuccess(false);
       }, 3000);
     } catch (error: any) {
+      closeAlert();
       console.error("Error updating profile:", error);
 
       if (error.response?.status === 400) {
         const errorDetail = error.response.data?.detail || "";
+        showErrorAlert("Update Error", errorDetail || "Invalid request. Please check your input.", true, 3000);
         setProfileErrors({
           general: errorDetail || "Invalid request. Please check your input.",
         });
@@ -388,11 +634,13 @@ const ProfilePage: React.FC = () => {
           });
         }
         setProfileErrors(apiErrors);
+        showErrorAlert("Validation Error", "Please check your profile information", true, 3000);
       } else {
         const errorMessage =
           error.response?.data?.detail ||
           error.message ||
           "Failed to update profile. Please try again.";
+        showErrorAlert("Update Failed", errorMessage, true, 4000);
         setProfileErrors({
           general: errorMessage,
         });
@@ -406,11 +654,13 @@ const ProfilePage: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
+        showErrorAlert("Invalid File", "Please select an image file (JPG, PNG, etc.)", true, 3000);
         setProfileErrors({ general: "Please select an image file" });
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
+        showErrorAlert("File Too Large", "File size must be less than 5MB", true, 3000);
         setProfileErrors({ general: "File size must be less than 5MB" });
         return;
       }
@@ -421,20 +671,23 @@ const ProfilePage: React.FC = () => {
       setPhotoPreview(previewUrl);
 
       setProfileErrors({});
+      showInfoAlert("Photo Selected", "Click 'Upload Photo' to save your new profile picture", true, 2000);
     }
   };
 
-  // FIXED: Updated endpoint from /auth/upload-photo to /users/me/photo
   const handlePhotoUpload = async () => {
-    if (!selectedPhoto) return;
+    if (!selectedPhoto) {
+      showErrorAlert("No Photo Selected", "Please select a photo first", true, 3000);
+      return;
+    }
 
     try {
       setPhotoUploading(true);
+      showLoadingAlert('Uploading photo...', false);
 
       const formData = new FormData();
       formData.append("photo", selectedPhoto);
 
-      // FIX: Changed from /auth/upload-photo to /users/me/photo
       await apiClient.post("/users/me/photo", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -443,6 +696,9 @@ const ProfilePage: React.FC = () => {
 
       await fetchCurrentUser();
 
+      closeAlert();
+      showSuccessAlert('Photo Uploaded!', 'Your profile photo has been updated successfully.', 'photo', true, 3000);
+      
       setProfileSuccess(true);
       setSelectedPhoto(null);
       setPhotoPreview(null);
@@ -451,12 +707,14 @@ const ProfilePage: React.FC = () => {
         setProfileSuccess(false);
       }, 3000);
     } catch (error: any) {
+      closeAlert();
       console.error("Error uploading photo:", error);
 
       const errorMessage =
         error.response?.data?.detail ||
         error.message ||
         "Failed to upload photo. Please try again.";
+      showErrorAlert("Upload Failed", errorMessage, true, 4000);
       setProfileErrors({
         general: errorMessage,
       });
@@ -562,12 +820,161 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Loading Screen (similar to Dashboard)
   if (isLoading) {
     return (
-      <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-700 text-lg">Loading profile...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-400 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading Text */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Loading Your Profile
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            Preparing your profile information and settings...
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading profile...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Loading Steps */}
+        <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
+          {[
+            { text: "Authentication", color: "bg-blue-100 text-blue-600" },
+            { text: "Profile Data", color: "bg-purple-100 text-purple-600" },
+            { text: "Settings", color: "bg-green-100 text-green-600" },
+          ].map((step, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= ((index + 1) * 33)
+                  ? `${step.color} shadow-sm`
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {step.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Animation */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        </div>
+
+        {/* Loading Message */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Loading your personal information...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error Screen (similar to Dashboard)
+  if (hasInitialLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Unable to Load Profile
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            We encountered an issue while loading your profile data. This could be due to network issues or server problems.
+          </p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={loadProfileData}
+              className="w-full px-6 py-3 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Retry Loading Profile
+            </button>
+            
+            <button
+              onClick={() => window.location.href = "/login"}
+              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+            >
+              Return to Login
+            </button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
+            <ul className="text-sm text-gray-500 text-left space-y-1">
+              <li>• Check your internet connection</li>
+              <li>• Refresh the page (F5 or Ctrl+R)</li>
+              <li>• Clear browser cache and try again</li>
+              <li>• Contact system administrator if problem persists</li>
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -691,6 +1098,29 @@ const ProfilePage: React.FC = () => {
             title="Profile Settings"
             subtitle="Manage your account and personal information"
           />
+        </div>
+
+        {/* Status Bar (similar to Dashboard) */}
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-600 font-medium">
+                  Profile Active
+                </span>
+              </div>
+              <div className="text-gray-500">
+                Last updated: {new Date().toLocaleTimeString()}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="text-blue-600 font-medium">
+                {getRoleDisplayName(user.role)}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Main Content */}

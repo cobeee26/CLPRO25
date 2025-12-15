@@ -5,6 +5,7 @@ import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
+import Swal from 'sweetalert2';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -554,6 +555,18 @@ const StudentAssignmentPage: React.FC = () => {
     setShowViolationWarning(true);
     setViolationMessage('⚠️ TIME RESET TO 0! Text was added while you were away from the page. This is considered cheating.');
     
+    // Show SweetAlert warning
+    Swal.fire({
+      title: '⚠️ TIME RESET TO 0!',
+      html: 'Text was added while you were away from the page.<br><br><strong>This is considered cheating.</strong><br><br>Your time tracking has been reset.',
+      icon: 'warning',
+      confirmButtonText: 'I Understand',
+      confirmButtonColor: '#dc2626',
+      showCloseButton: true,
+      backdrop: true,
+      allowOutsideClick: false
+    });
+    
     setTimeout(() => {
       setShowViolationWarning(false);
       if (contentRef.current?.value && contentRef.current.value.length > 0) {
@@ -888,6 +901,19 @@ const StudentAssignmentPage: React.FC = () => {
       
       setShowViolationWarning(true);
       setViolationMessage('⚠️ STRICT MODE ENABLED: You have started typing. Switching tabs/apps will reset your time to 0 if text is added while away!');
+      
+      // Show SweetAlert notification for strict mode
+      Swal.fire({
+        title: '⚠️ STRICT MODE ENABLED!',
+        html: 'You have started typing.<br><br><strong>Switching tabs/apps will reset your time to 0 if text is added while away!</strong><br><br>Stay on this page while working.',
+        icon: 'warning',
+        confirmButtonText: 'I Understand',
+        confirmButtonColor: '#f59e0b',
+        showCloseButton: true,
+        timer: 10000,
+        timerProgressBar: true,
+        backdrop: true
+      });
       
       setTimeout(() => {
         setShowViolationWarning(false);
@@ -1357,6 +1383,16 @@ const StudentAssignmentPage: React.FC = () => {
       if (file.size > 10 * 1024 * 1024) {
         setError('File size exceeds 10MB limit');
         if (fileRef.current) fileRef.current.value = '';
+        
+        // Show SweetAlert error
+        Swal.fire({
+          title: 'File Size Exceeded',
+          text: 'File size exceeds 10MB limit. Please upload a smaller file.',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        });
+        
         return;
       }
       
@@ -1376,11 +1412,32 @@ const StudentAssignmentPage: React.FC = () => {
       if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension || '')) {
         setError('Invalid file type. Please upload PDF, DOC, DOCX, TXT, or image files only.');
         if (fileRef.current) fileRef.current.value = '';
+        
+        // Show SweetAlert error
+        Swal.fire({
+          title: 'Invalid File Type',
+          html: 'Invalid file type.<br><br>Please upload:<br>• PDF<br>• DOC/DOCX<br>• TXT<br>• JPG/PNG/GIF',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        });
+        
         return;
       }
       
       setSelectedFileName(file.name);
       setError(null);
+      
+      // Show SweetAlert success
+      Swal.fire({
+        title: 'File Selected',
+        text: `"${file.name}" has been selected for upload.`,
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#10b981',
+        timer: 3000,
+        timerProgressBar: true
+      });
     } else {
       setSelectedFileName('');
     }
@@ -1390,11 +1447,29 @@ const StudentAssignmentPage: React.FC = () => {
     if (fileRef.current) {
       fileRef.current.value = '';
       setSelectedFileName('');
+      
+      // Show SweetAlert confirmation
+      Swal.fire({
+        title: 'File Removed',
+        text: 'Selected file has been removed.',
+        icon: 'info',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#6b7280'
+      });
     }
   };
 
   const handleRemoveLink = () => {
     setLinkUrl('');
+    
+    // Show SweetAlert confirmation
+    Swal.fire({
+      title: 'Link Removed',
+      text: 'Submitted link has been removed.',
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#6b7280'
+    });
   };
 
   const handleSubmitAssignment = async () => {
@@ -1412,12 +1487,32 @@ const StudentAssignmentPage: React.FC = () => {
       // Check if at least one submission method is provided
       if (!content && !file && !link) {
         setError('Please provide either text content, upload a file, or submit a link');
+        
+        // Show SweetAlert error
+        Swal.fire({
+          title: 'Submission Required',
+          text: 'Please provide either text content, upload a file, or submit a link.',
+          icon: 'warning',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#f59e0b'
+        });
+        
         return;
       }
 
       // Validate link if provided
       if (link && !isValidUrl(link)) {
         setError('Please enter a valid URL (must start with http:// or https://)');
+        
+        // Show SweetAlert error
+        Swal.fire({
+          title: 'Invalid URL',
+          text: 'Please enter a valid URL (must start with http:// or https://).',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        });
+        
         return;
       }
 
@@ -1433,6 +1528,18 @@ const StudentAssignmentPage: React.FC = () => {
       }
 
       console.log(`⏱️ Submitting with ${timeSpentValue} minutes tracked`);
+
+      // Show loading SweetAlert
+      Swal.fire({
+        title: submission ? 'Updating Submission...' : 'Submitting Assignment...',
+        text: 'Please wait while we process your submission.',
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
 
       // Prepare submission data
       let submissionData: any = {
@@ -1549,6 +1656,15 @@ const StudentAssignmentPage: React.FC = () => {
       largePasteCountRef.current = 0;
       tabSwitchHistoryRef.current = [];
 
+      // Show success SweetAlert
+      Swal.fire({
+        title: '✅ Success!',
+        text: submission ? 'Assignment updated successfully!' : 'Assignment submitted successfully!',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#10b981'
+      });
+
     } catch (error: any) {
       console.error('Error submitting assignment:', error);
       
@@ -1560,17 +1676,53 @@ const StudentAssignmentPage: React.FC = () => {
       else if (error.response?.data?.detail) errorMessage = error.response.data.detail;
       
       setError(errorMessage);
+      
+      // Show error SweetAlert
+      Swal.fire({
+        title: '❌ Submission Failed',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626'
+      });
+      
     } finally {
       setIsSubmitting(false);
+      Swal.close();
     }
   };
 
   const handleUnsubmit = async () => {
-    if (!submission?.id || !window.confirm('Are you sure you want to unsubmit this assignment?')) {
-      return;
-    }
+    if (!submission?.id) return;
+
+    // Show confirmation SweetAlert
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, unsubmit it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
+      // Show loading SweetAlert
+      Swal.fire({
+        title: 'Unsubmitting...',
+        text: 'Please wait while we process your request.',
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
       await apiClient.delete(`/submissions/${submission.id}`);
       
       setSubmission(null);
@@ -1598,6 +1750,15 @@ const StudentAssignmentPage: React.FC = () => {
         console.warn('Failed to update cache:', cacheError);
       }
 
+      // Show success SweetAlert
+      Swal.fire({
+        title: '✅ Unsubmitted!',
+        text: 'Assignment has been unsubmitted successfully.',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#10b981'
+      });
+
     } catch (error: any) {
       console.error('Error unsubmitting assignment:', error);
       
@@ -1606,6 +1767,15 @@ const StudentAssignmentPage: React.FC = () => {
       else if (error.response?.data?.detail) errorMessage = error.response.data.detail;
       
       setError(errorMessage);
+      
+      // Show error SweetAlert
+      Swal.fire({
+        title: '❌ Unsubmit Failed',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626'
+      });
     }
   };
 
@@ -1634,6 +1804,20 @@ const StudentAssignmentPage: React.FC = () => {
     if (!submission?.file_path || !submission.id) return;
     
     try {
+      // Show loading SweetAlert
+      Swal.fire({
+        title: 'Preparing Download...',
+        text: 'Please wait while we prepare your file.',
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        timer: 2000,
+        timerProgressBar: true,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
       const response = await apiClient.get(`/submissions/${submission.id}/download`, {
         responseType: 'blob'
       });
@@ -1646,6 +1830,17 @@ const StudentAssignmentPage: React.FC = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      // Show success SweetAlert
+      Swal.fire({
+        title: '✅ Download Started',
+        text: 'Your file download has started.',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#10b981',
+        timer: 3000,
+        timerProgressBar: true
+      });
     } catch (error) {
       console.error('Error downloading file:', error);
       
@@ -1654,6 +1849,15 @@ const StudentAssignmentPage: React.FC = () => {
         window.open(fileUrl, '_blank');
       } catch (fallbackError) {
         setError('Failed to download file. Please try again.');
+        
+        // Show error SweetAlert
+        Swal.fire({
+          title: '❌ Download Failed',
+          text: 'Failed to download file. Please try again.',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        });
       }
     }
   };
@@ -1662,8 +1866,18 @@ const StudentAssignmentPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg font-medium">Loading assignment...</p>
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-blue-500 rounded-full blur-lg opacity-20 animate-pulse"></div>
+            <div className="relative animate-spin rounded-full h-20 w-20 border-4 border-red-500 border-t-transparent mx-auto mb-6"></div>
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800">Loading Assignment...</h2>
+            <p className="text-gray-600 max-w-md mx-auto">Please wait while we load your assignment details and submission data.</p>
+            <div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden mx-auto">
+              <div className="h-full bg-gradient-to-r from-red-500 to-blue-500 animate-pulse"></div>
+            </div>
+            <p className="text-sm text-gray-500">Fetching data from server...</p>
+          </div>
         </div>
       </div>
     );
@@ -1671,20 +1885,25 @@ const StudentAssignmentPage: React.FC = () => {
 
   if (error && !assignment) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full border border-red-100">
           <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
+            <div className="relative mx-auto w-20 h-20 mb-6">
+              <div className="absolute inset-0 bg-red-100 rounded-full blur-md"></div>
+              <div className="relative w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Error</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Assignment Loading Failed</h2>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+              <p className="text-red-700 font-medium">{error}</p>
+            </div>
             <div className="space-y-3">
               <button
                 onClick={() => navigate('/student/assignments')}
-                className="w-full px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
                 title="Go back to assignments"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1694,7 +1913,7 @@ const StudentAssignmentPage: React.FC = () => {
               </button>
               <button
                 onClick={loadAssignmentData}
-                className="w-full px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-800 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
                 title="Try loading assignment again"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

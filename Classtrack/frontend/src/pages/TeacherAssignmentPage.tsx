@@ -5,6 +5,7 @@ import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
+import Swal from 'sweetalert2';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -176,24 +177,63 @@ const TeacherAssignmentPage: React.FC = () => {
   const gradeInputRefs = useRef<{[key: number]: HTMLInputElement | null}>({});
 
   const handleLogout = () => {
-    try {
-      localStorage.clear();
-      window.location.href = '/login';
-    } catch (error) {
-      window.location.href = '/login';
-    }
+    // Show confirmation SweetAlert
+    Swal.fire({
+      title: 'Are you sure?',
+      text: "You will be logged out of your account.",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, logout!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      backdrop: true
+    }).then((result) => {
+      if (result.isConfirmed) {
+        try {
+          localStorage.clear();
+          window.location.href = '/login';
+        } catch (error) {
+          window.location.href = '/login';
+        }
+      }
+    });
   };
 
   // Load teacher classes at the start
   const loadTeacherClasses = useCallback(async () => {
     try {
+      // Show loading SweetAlert
+      Swal.fire({
+        title: 'Loading Classes...',
+        text: 'Please wait while we load your classes.',
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
       const response = await apiClient.get<TeacherClassesResponse>('/teachers/me/classes');
       console.log('📋 Teacher Classes from API:', response.data);
       setTeacherClasses(response.data.classes || []);
+      
+      Swal.close();
       return response.data.classes || [];
     } catch (error: any) {
       console.error('Error loading teacher classes:', error);
       setTeacherClasses([]);
+      
+      Swal.fire({
+        title: 'Loading Failed',
+        text: 'Failed to load classes. Please try again.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626'
+      });
+      
       return [];
     }
   }, []);
@@ -229,6 +269,18 @@ const TeacherAssignmentPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
+      // Show loading SweetAlert
+      Swal.fire({
+        title: 'Loading Assignment...',
+        text: 'Please wait while we load assignment data.',
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
       // Load teacher classes first
       const classes = await loadTeacherClasses();
 
@@ -253,9 +305,19 @@ const TeacherAssignmentPage: React.FC = () => {
       // Load violations
       await loadViolations();
 
+      Swal.close();
+
     } catch (error: any) {
       console.error('Error loading assignment:', error);
       setError('Failed to load assignment data. Please try again.');
+      
+      Swal.fire({
+        title: 'Loading Failed',
+        text: 'Failed to load assignment data. Please try again.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -441,8 +503,30 @@ const TeacherAssignmentPage: React.FC = () => {
       const gradeValue = parseFloat(editedData.grade.toString());
       if (gradeValue < 0 || gradeValue > 100) {
         setError('Please enter a valid grade between 0 and 100');
+        
+        // Show SweetAlert error
+        Swal.fire({
+          title: 'Invalid Grade',
+          text: 'Please enter a valid grade between 0 and 100.',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        });
+        
         return;
       }
+
+      // Show loading SweetAlert
+      Swal.fire({
+        title: 'Saving Grade...',
+        text: 'Please wait while we save the grade.',
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
 
       // API call to save grade and feedback
       await apiClient.patch(`/submissions/${submissionId}/grade`, {
@@ -477,13 +561,33 @@ const TeacherAssignmentPage: React.FC = () => {
       });
 
       setSuccess('Grade saved successfully!');
+      
+      // Show success SweetAlert
+      Swal.fire({
+        title: '✅ Grade Saved!',
+        text: 'Grade has been saved successfully.',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#10b981'
+      });
+      
       setTimeout(() => setSuccess(null), 3000);
 
     } catch (error: any) {
       console.error('Error saving grade:', error);
       setError('Failed to save grade. Please try again.');
+      
+      // Show error SweetAlert
+      Swal.fire({
+        title: '❌ Save Failed',
+        text: 'Failed to save grade. Please try again.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626'
+      });
     } finally {
       setIsSaving(false);
+      Swal.close();
     }
   };
 
@@ -624,6 +728,20 @@ const TeacherAssignmentPage: React.FC = () => {
     if (!submission?.file_path || !submission.id) return;
     
     try {
+      // Show loading SweetAlert
+      Swal.fire({
+        title: 'Preparing Download...',
+        text: 'Please wait while we prepare your file.',
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        timer: 2000,
+        timerProgressBar: true,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
       const response = await apiClient.get(`/submissions/${submission.id}/download`, {
         responseType: 'blob'
       });
@@ -636,6 +754,17 @@ const TeacherAssignmentPage: React.FC = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      // Show success SweetAlert
+      Swal.fire({
+        title: '✅ Download Started',
+        text: 'Your file download has started.',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#10b981',
+        timer: 3000,
+        timerProgressBar: true
+      });
     } catch (error) {
       console.error('Error downloading file:', error);
       
@@ -644,41 +773,156 @@ const TeacherAssignmentPage: React.FC = () => {
         window.open(fileUrl, '_blank');
       } catch (fallbackError) {
         setError('Failed to download file. Please try again.');
+        
+        // Show error SweetAlert
+        Swal.fire({
+          title: '❌ Download Failed',
+          text: 'Failed to download file. Please try again.',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        });
       }
     }
   };
 
   const exportGrades = () => {
-    const csvData = [
-      ['Student Name', 'Email', 'Grade', 'Feedback', 'Time Spent (min)', 'Submitted At', 'Violations'],
-      ...submissions.map(sub => [
-        sub.student_name,
-        sub.student_email,
-        sub.grade || 'Not Graded',
-        sub.feedback || '',
-        sub.time_spent_minutes,
-        formatDate(sub.submitted_at),
-        sub.violations?.length || 0
-      ])
-    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    try {
+      // Show confirmation SweetAlert
+      Swal.fire({
+        title: 'Export Grades?',
+        text: 'This will export all grades to a CSV file.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, export!',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Show loading SweetAlert
+          Swal.fire({
+            title: 'Exporting...',
+            text: 'Please wait while we prepare your export.',
+            icon: 'info',
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            didOpen: () => {
+              Swal.showLoading();
+            }
+          });
 
-    const blob = new Blob([csvData], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `grades_${assignment?.name}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+          const csvData = [
+            ['Student Name', 'Email', 'Grade', 'Feedback', 'Time Spent (min)', 'Submitted At', 'Violations'],
+            ...submissions.map(sub => [
+              sub.student_name,
+              sub.student_email,
+              sub.grade || 'Not Graded',
+              sub.feedback || '',
+              sub.time_spent_minutes,
+              formatDate(sub.submitted_at),
+              sub.violations?.length || 0
+            ])
+          ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+          const blob = new Blob([csvData], { type: 'text/csv' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `grades_${assignment?.name}_${new Date().toISOString().split('T')[0]}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+
+          // Show success SweetAlert
+          Swal.fire({
+            title: '✅ Export Successful!',
+            text: 'Grades have been exported successfully.',
+            icon: 'success',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#10b981',
+            timer: 3000,
+            timerProgressBar: true
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error exporting grades:', error);
+      
+      // Show error SweetAlert
+      Swal.fire({
+        title: '❌ Export Failed',
+        text: 'Failed to export grades. Please try again.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626'
+      });
+    }
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg font-medium">Loading submissions...</p>
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur-lg opacity-20 animate-pulse"></div>
+            <div className="relative animate-spin rounded-full h-20 w-20 border-4 border-blue-500 border-t-transparent mx-auto mb-6"></div>
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800">Loading Submissions...</h2>
+            <p className="text-gray-600 max-w-md mx-auto">Please wait while we load assignment details and student submissions.</p>
+            <div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden mx-auto">
+              <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 animate-pulse"></div>
+            </div>
+            <p className="text-sm text-gray-500">Fetching data from server...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !assignment) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full border border-red-100">
+          <div className="text-center">
+            <div className="relative mx-auto w-20 h-20 mb-6">
+              <div className="absolute inset-0 bg-red-100 rounded-full blur-md"></div>
+              <div className="relative w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Assignment Loading Failed</h2>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+              <p className="text-red-700 font-medium">{error}</p>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={() => navigate('/teacher/assignments')}
+                className="w-full px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
+                title="Go back to assignments"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Assignments
+              </button>
+              <button
+                onClick={loadAssignmentData}
+                className="w-full px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-800 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+                title="Try loading assignment again"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Try Again
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

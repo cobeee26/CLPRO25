@@ -4,6 +4,7 @@ import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
+import Swal from 'sweetalert2';
 import './DashboardPage.css';
 
 interface Class extends ApiClass {
@@ -55,6 +56,19 @@ interface ExtendedUser {
   username?: string;
 }
 
+// SweetAlert2 Configuration with Auto-Dismiss Timer
+const swalConfig = {
+  customClass: {
+    title: 'text-lg font-bold text-gray-900',
+    htmlContainer: 'text-sm text-gray-600',
+    confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+    popup: 'rounded-xl border border-gray-200'
+  },
+  buttonsStyling: false,
+  background: '#ffffff'
+};
+
 const ReportsPage: React.FC = () => {
   const { user } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -67,6 +81,11 @@ const ReportsPage: React.FC = () => {
     users: false,
     classes: false
   });
+
+  // Enhanced loading states
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   // Helper function to get user display name
   const getUserDisplayName = (user: any): string => {
@@ -82,80 +101,269 @@ const ReportsPage: React.FC = () => {
     return user.role === 'admin' ? 'Admin User' : 'Teacher';
   };
 
-  // Fetch data on component mount - role-aware
-  useEffect(() => {
-    if (!user) return;
+  // SweetAlert Helper Functions with Auto-Dismiss
+  const showSuccessAlert = (
+    title: string, 
+    text: string = '', 
+    type: 'export' | 'data' | 'logout' | 'refresh' = 'export',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const iconColor = type === 'logout' ? 'warning' : 'success';
+    const confirmButtonColor = type === 'logout' ? '#F59E0B' : '#10B981';
     
-    const fetchData = async () => {
-      try {
-        console.log('Fetching reports data for user role:', user.role);
-        setLoading(true);
-        setError(null);
-        
-        if (user.role === 'admin') {
-          console.log('🔑 Admin user - fetching all users and classes');
-          const [usersData, classesData] = await Promise.all([
-            getAllUsers(),
-            getAllClasses()
-          ]);
-          
-          console.log('Users data fetched:', usersData);
-          console.log('Classes data fetched:', classesData);
-          
-          setUsers(usersData);
-          
-          const enhancedClasses: Class[] = classesData.map(cls => ({
-            ...cls,
-            status: 'Active',
-            assignedTeacher: cls.teacher_id ? `Teacher ${cls.teacher_id}` : 'Unassigned'
-          }));
-          
-          setClasses(enhancedClasses);
-        } else if (user.role === 'teacher') {
-          console.log('👨‍🏫 Teacher user - fetching teacher reports');
-          const reportsData = await getTeacherReports();
-          console.log('Teacher reports fetched:', reportsData);
-          
-          // Validate and ensure the data structure is correct
-          if (reportsData) {
-            const validatedReports: TeacherReports = {
-              class_performance: reportsData.class_performance || [],
-              student_performance: reportsData.student_performance || [],
-              summary: reportsData.summary || {
-                total_classes: 0,
-                total_students: 0,
-                overall_average_grade: 0,
-                overall_submission_rate: 0
-              }
-            };
-            setTeacherReports(validatedReports);
-          } else {
-            // If no data returned, set empty structure
-            setTeacherReports({
-              class_performance: [],
-              student_performance: [],
-              summary: {
-                total_classes: 0,
-                total_students: 0,
-                overall_average_grade: 0,
-                overall_submission_rate: 0
-              }
-            });
-          }
-        } else {
-          console.warn('⚠️  Unknown or unauthorized user role for reports');
-        }
-        
-        console.log('Data fetch completed successfully');
-      } catch (err) {
-        console.error('Failed to fetch data:', err);
-        setError('Failed to load data. Please try again.');
-      } finally {
-        setLoading(false);
+    const alertConfig: any = {
+      title,
+      text,
+      icon: iconColor,
+      confirmButtonText: 'OK',
+      confirmButtonColor,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: `text-lg font-bold ${
+          type === 'logout' ? 'text-yellow-900' : 
+          type === 'refresh' ? 'text-blue-900' : 
+          'text-green-900'
+        }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${
+          type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+          type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+          'bg-green-500 hover:bg-green-600 text-white'
+        }`
       }
     };
 
-    fetchData();
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showErrorAlert = (
+    title: string, 
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 4000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'error',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#EF4444',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-red-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showConfirmDialog = (
+    title: string, 
+    text: string, 
+    confirmText: string = 'Yes, proceed',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#6B7280',
+      reverseButtons: true,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-gray-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer',
+        cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
+      }
+    };
+
+    return Swal.fire(alertConfig);
+  };
+
+  const showLoadingAlert = (
+    title: string = 'Processing...',
+    autoDismiss: boolean = false
+  ) => {
+    const alertConfig: any = {
+      title,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      ...swalConfig
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = 3000;
+      alertConfig.timerProgressBar = true;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  const closeAlert = () => {
+    Swal.close();
+  };
+
+  const showInfoAlert = (
+    title: string,
+    text: string = '',
+    autoDismiss: boolean = true,
+    dismissTime: number = 3000
+  ) => {
+    const alertConfig: any = {
+      title,
+      text,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3B82F6',
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-blue-900',
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+      }
+    };
+
+    if (autoDismiss) {
+      alertConfig.timer = dismissTime;
+      alertConfig.timerProgressBar = true;
+      alertConfig.showConfirmButton = false;
+    }
+
+    return Swal.fire(alertConfig);
+  };
+
+  // Update loading progress
+  const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
+  };
+
+  // Enhanced loading function
+  const loadReportsData = async () => {
+    try {
+      console.log('🔄 Loading reports data...');
+      setIsInitialLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10);
+      
+      if (!user) {
+        showErrorAlert("Session Expired", "Please login again", true, 2000);
+        setTimeout(() => window.location.href = "/login", 2000);
+        return;
+      }
+
+      updateLoadingProgress(1, 3);
+      
+      console.log('Fetching reports data for user role:', user.role);
+      setLoading(true);
+      setError(null);
+      
+      if (user.role === 'admin') {
+        console.log('🔑 Admin user - fetching all users and classes');
+        const [usersData, classesData] = await Promise.all([
+          getAllUsers(),
+          getAllClasses()
+        ]);
+        
+        console.log('Users data fetched:', usersData);
+        console.log('Classes data fetched:', classesData);
+        
+        setUsers(usersData);
+        
+        const enhancedClasses: Class[] = classesData.map(cls => ({
+          ...cls,
+          status: 'Active',
+          assignedTeacher: cls.teacher_id ? `Teacher ${cls.teacher_id}` : 'Unassigned'
+        }));
+        
+        setClasses(enhancedClasses);
+      } else if (user.role === 'teacher') {
+        updateLoadingProgress(2, 3);
+        
+        console.log('👨‍🏫 Teacher user - fetching teacher reports');
+        const reportsData = await getTeacherReports();
+        console.log('Teacher reports fetched:', reportsData);
+        
+        // Validate and ensure the data structure is correct
+        if (reportsData) {
+          const validatedReports: TeacherReports = {
+            class_performance: reportsData.class_performance || [],
+            student_performance: reportsData.student_performance || [],
+            summary: reportsData.summary || {
+              total_classes: 0,
+              total_students: 0,
+              overall_average_grade: 0,
+              overall_submission_rate: 0
+            }
+          };
+          setTeacherReports(validatedReports);
+        } else {
+          // If no data returned, set empty structure
+          setTeacherReports({
+            class_performance: [],
+            student_performance: [],
+            summary: {
+              total_classes: 0,
+              total_students: 0,
+              overall_average_grade: 0,
+              overall_submission_rate: 0
+            }
+          });
+        }
+      } else {
+        console.warn('⚠️  Unknown or unauthorized user role for reports');
+        showErrorAlert('Access Denied', 'You do not have permission to view reports.', true, 3000);
+      }
+      
+      updateLoadingProgress(3, 3);
+      
+      setTimeout(() => {
+        setIsInitialLoading(false);
+        setLoading(false);
+        setLoadingProgress(100);
+      }, 500);
+      
+      console.log('✅ Reports data loaded successfully');
+      
+    } catch (err) {
+      console.error('❌ Failed to fetch reports data:', err);
+      setHasInitialLoadError(true);
+      setIsInitialLoading(false);
+      setLoading(false);
+      const errorMessage = 'Failed to load data. Please try again.';
+      setError(errorMessage);
+      showErrorAlert('Load Error', errorMessage, true, 4000);
+    }
+  };
+
+  // Fetch data on component mount - role-aware
+  useEffect(() => {
+    loadReportsData();
   }, [user]);
 
   // Calculate metrics
@@ -173,6 +381,7 @@ const ReportsPage: React.FC = () => {
   const downloadCSV = (data: any[], filename: string) => {
     if (!data || data.length === 0) {
       console.warn('No data to export');
+      showErrorAlert('Export Failed', 'No data available to export.', true, 3000);
       return;
     }
 
@@ -205,44 +414,245 @@ const ReportsPage: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      
+      // Show success alert
+      showSuccessAlert('Export Successful!', `Successfully exported ${data.length} records. The file will download automatically.`, 'export', true, 3000);
+      
     } catch (error) {
       console.error('Error generating CSV:', error);
+      showErrorAlert('Export Failed', 'Failed to generate CSV file.', true, 3000);
       throw new Error('Failed to generate CSV file');
     }
   };
 
-  // Export functions
-  const exportUsersToCSV = async () => {
+  // Export users function
+  const handleExportUsers = async () => {
     console.log('Export Users Data button clicked');
     setExportLoading(prev => ({ ...prev, users: true }));
+    showLoadingAlert('Exporting users data...', false);
+    
     try {
       const usersData = await exportAllUsers();
       console.log('Users data received:', usersData);
-      downloadCSV(usersData, 'users_export.csv');
+      downloadCSV(usersData, `users_export_${new Date().toISOString().split('T')[0]}.csv`);
       console.log('CSV download initiated successfully');
+      
     } catch (err) {
       console.error('Failed to export users:', err);
-      alert(`Failed to export users data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const errorMessage = `Failed to export users data: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      showErrorAlert('Export Failed', errorMessage, true, 4000);
     } finally {
+      closeAlert();
       setExportLoading(prev => ({ ...prev, users: false }));
     }
   };
 
-  const exportClassesToCSV = async () => {
+  // Export classes function
+  const handleExportClasses = async () => {
     console.log('Export Classes Data button clicked');
     setExportLoading(prev => ({ ...prev, classes: true }));
+    showLoadingAlert('Exporting classes data...', false);
+    
     try {
       const classesData = await exportAllClasses();
       console.log('Classes data received:', classesData);
-      downloadCSV(classesData, 'classes_export.csv');
+      downloadCSV(classesData, `classes_export_${new Date().toISOString().split('T')[0]}.csv`);
       console.log('CSV download initiated successfully');
+      
     } catch (err) {
       console.error('Failed to export classes:', err);
-      alert(`Failed to export classes data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const errorMessage = `Failed to export classes data: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      showErrorAlert('Export Failed', errorMessage, true, 4000);
     } finally {
+      closeAlert();
       setExportLoading(prev => ({ ...prev, classes: false }));
     }
   };
+
+  // Export button handlers
+  const exportUsersToCSV = () => {
+    showConfirmDialog(
+      'Export Users Data',
+      `This will export ${totalActiveUsers} user records (${totalTeachers} teachers, ${totalStudents} students) to a CSV file. Continue?`,
+      'Yes, export'
+    ).then((result) => {
+      if (result.isConfirmed) {
+        handleExportUsers();
+      }
+    });
+  };
+
+  const exportClassesToCSV = () => {
+    showConfirmDialog(
+      'Export Classes Data',
+      `This will export ${totalActiveClasses} class records to a CSV file. Continue?`,
+      'Yes, export'
+    ).then((result) => {
+      if (result.isConfirmed) {
+        handleExportClasses();
+      }
+    });
+  };
+
+  // Loading Screen (similar to Dashboard)
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-purple-400 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading Text */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Loading Your Analytics Dashboard
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            Preparing system insights and performance reports...
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading data...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Loading Steps */}
+        <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
+          {[
+            { text: "Users", color: "bg-blue-100 text-blue-600" },
+            { text: "Classes", color: "bg-purple-100 text-purple-600" },
+            { text: "Reports", color: "bg-green-100 text-green-600" },
+          ].map((step, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= ((index + 1) * 33)
+                  ? `${step.color} shadow-sm`
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {step.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Animation */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        </div>
+
+        {/* Loading Message */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Preparing comprehensive analytics...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error Screen (similar to Dashboard)
+  if (hasInitialLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Unable to Load Reports
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            We encountered an issue while loading your reports data. This could be due to network issues or server problems.
+          </p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={loadReportsData}
+              className="w-full px-6 py-3 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Retry Loading Reports
+            </button>
+            
+            <button
+              onClick={() => window.location.href = "/login"}
+              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+            >
+              Return to Login
+            </button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
+            <ul className="text-sm text-gray-500 text-left space-y-1">
+              <li>• Check your internet connection</li>
+              <li>• Refresh the page (F5 or Ctrl+R)</li>
+              <li>• Clear browser cache and try again</li>
+              <li>• Contact system administrator if problem persists</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-full bg-white overflow-hidden relative flex">
@@ -266,7 +676,7 @@ const ReportsPage: React.FC = () => {
           </div>
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Toggle navigation menu"
             aria-label="Toggle navigation menu"
           >
@@ -296,12 +706,35 @@ const ReportsPage: React.FC = () => {
           />
         </div>
 
+        {/* Status Bar (similar to Dashboard) */}
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-600 font-medium">
+                  {loading ? 'Loading...' : 'Reports Ready'}
+                </span>
+              </div>
+              <div className="text-gray-500">
+                Last updated: {new Date().toLocaleTimeString()}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+              <span className="text-purple-600 font-medium">
+                {user?.role === 'admin' ? 'Administrator' : 'Teacher'}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8 relative z-20">
           <div className="dashboard-content w-full max-w-7xl mx-auto">
             
             {/* Loading State */}
-            {loading && (
+            {loading && !isInitialLoading && (
               <div className="flex items-center justify-center py-20">
                 <div className="flex flex-col items-center space-y-4">
                   <div className="relative">
@@ -705,7 +1138,7 @@ const ReportsPage: React.FC = () => {
                       <button
                         onClick={exportUsersToCSV}
                         disabled={exportLoading.users}
-                        className="group relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 text-white font-semibold py-4 lg:py-6 px-4 lg:px-8 rounded-xl lg:rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        className="group relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 text-white font-semibold py-4 lg:py-6 px-4 lg:px-8 rounded-xl lg:rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                         title="Export users data to CSV"
                         aria-label={`Export users data to CSV format containing ${totalActiveUsers} records`}
                       >
@@ -736,7 +1169,7 @@ const ReportsPage: React.FC = () => {
                       <button
                         onClick={exportClassesToCSV}
                         disabled={exportLoading.classes}
-                        className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white font-semibold py-4 lg:py-6 px-4 lg:px-8 rounded-xl lg:rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white font-semibold py-4 lg:py-6 px-4 lg:px-8 rounded-xl lg:rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                         title="Export classes data to CSV"
                         aria-label={`Export classes data to CSV format containing ${totalActiveClasses} records`}
                       >

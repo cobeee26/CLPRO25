@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import './DashboardPage.css';
+import Swal from 'sweetalert2';
 
 interface Class {
   id: number;
@@ -27,6 +28,8 @@ interface Assignment {
   teacher_name: string;
   creator_id: number;
   created_at: string;
+  due_date?: string;
+  status?: string;
 }
 
 const StudentClassesPage: React.FC = () => {
@@ -36,15 +39,69 @@ const StudentClassesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [classes, setClasses] = useState<Class[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
   // Metrics for student
   const [studentMetrics, setStudentMetrics] = useState({
     total_classes: 0,
     total_assignments: 0,
-    upcoming_assignments: 0
+    upcoming_assignments: 0,
+    completed_assignments: 0
   });
+
+  // SweetAlert Helper Functions
+  const showErrorAlert = (message: string) => {
+    Swal.fire({
+      icon: 'error',
+      title: 'Failed to Load Data',
+      text: message,
+      confirmButtonText: 'Try Again',
+      confirmButtonColor: '#3b82f6',
+      allowOutsideClick: false
+    }).then((result) => {
+      if (result.isConfirmed) {
+        refreshData();
+      }
+    });
+  };
+
+  const showLogoutConfirm = () => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: 'You will be logged out of your account.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, logout',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleLogout();
+      }
+    });
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    Swal.fire({
+      title: 'Logged out!',
+      text: 'You have been successfully logged out.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false
+    }).then(() => {
+      window.location.href = '/login';
+    });
+  };
+
+  const updateLoadingProgress = (step: number, totalSteps: number = 4) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
+  };
 
   // Fetch student classes and assignments on component mount
   useEffect(() => {
@@ -52,12 +109,15 @@ const StudentClassesPage: React.FC = () => {
 
     const fetchStudentData = async () => {
       try {
-        setLoading(true);
+        setIsInitialLoading(true);
+        setHasInitialLoadError(false);
         setError(null);
+        
         console.log('🔄 Fetching student data...');
+        setLoadingProgress(10);
 
-        // Fetch classes first, then use them to enrich assignments
-        console.log('📚 Loading student classes...');
+        // Step 1: Load classes
+        updateLoadingProgress(1, 4);
         const classesData = await getStudentClassesAll();
         console.log('✅ Student classes loaded:', classesData);
         
@@ -73,10 +133,11 @@ const StudentClassesPage: React.FC = () => {
         }));
 
         setClasses(transformedClasses);
+        setLoadingProgress(30);
         console.log('📊 Transformed classes:', transformedClasses);
 
-        // Now fetch assignments and enrich with class info
-        console.log('📝 Loading student assignments...');
+        // Step 2: Load assignments
+        updateLoadingProgress(2, 4);
         const assignmentsData = await getStudentAssignmentsAll();
         console.log('✅ Student assignments loaded:', assignmentsData);
         
@@ -85,26 +146,47 @@ const StudentClassesPage: React.FC = () => {
         console.log('🎯 Enriched assignments:', enrichedAssignments);
         
         setAssignments(enrichedAssignments);
+        setLoadingProgress(60);
 
-        // Calculate metrics
+        // Step 3: Calculate metrics
+        updateLoadingProgress(3, 4);
+        const now = new Date();
+        const upcomingAssignments = enrichedAssignments.filter(a => {
+          if (a.due_date) {
+            return new Date(a.due_date) > now;
+          }
+          return new Date(a.created_at) > now;
+        });
+
         const metrics = {
           total_classes: transformedClasses.length,
           total_assignments: enrichedAssignments.length,
-          upcoming_assignments: enrichedAssignments.filter(a => 
-            new Date(a.created_at) > new Date()
-          ).length
+          upcoming_assignments: upcomingAssignments.length,
+          completed_assignments: enrichedAssignments.filter(a => a.status === 'completed').length
         };
 
         setStudentMetrics(metrics);
         console.log('📊 Student metrics:', metrics);
+        setLoadingProgress(90);
 
-        // Save to localStorage for persistence
+        // Step 4: Save to localStorage
+        updateLoadingProgress(4, 4);
         localStorage.setItem('student_classes', JSON.stringify(transformedClasses));
         localStorage.setItem('student_assignments', JSON.stringify(enrichedAssignments));
         
+        // Complete loading
+        setLoadingProgress(100);
+        
+        // Add a small delay to show 100% before hiding loader
+        setTimeout(() => {
+          setIsInitialLoading(false);
+        }, 800);
+        
       } catch (err) {
         console.error('Failed to fetch student data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch your classes and assignments');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch your classes and assignments';
+        setError(errorMessage);
+        setHasInitialLoadError(true);
         
         // Try to load from localStorage if API fails
         try {
@@ -124,9 +206,13 @@ const StudentClassesPage: React.FC = () => {
           }
         } catch (localStorageError) {
           console.error('Failed to load from localStorage:', localStorageError);
+        } finally {
+          // Still set to 100% even on error
+          setLoadingProgress(100);
+          setTimeout(() => {
+            setIsInitialLoading(false);
+          }, 500);
         }
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -141,8 +227,6 @@ const StudentClassesPage: React.FC = () => {
       
       console.log(`📋 Enriching assignment ${assignment.id} (class_id: ${assignment.class_id})`);
       console.log(`   Matching class found:`, matchingClass);
-      console.log(`   Assignment class_name: ${assignment.class_name}`);
-      console.log(`   Assignment class_code: ${assignment.class_code}`);
       
       // Use class info from matching class, fall back to assignment data
       const classInfo = matchingClass || {
@@ -161,7 +245,9 @@ const StudentClassesPage: React.FC = () => {
         class_code: classInfo.code,
         teacher_name: classInfo.teacher_name,
         creator_id: assignment.creator_id || 0,
-        created_at: assignment.created_at || new Date().toISOString()
+        created_at: assignment.created_at || new Date().toISOString(),
+        due_date: assignment.due_date,
+        status: assignment.status || 'pending'
       };
     });
   };
@@ -193,7 +279,20 @@ const StudentClassesPage: React.FC = () => {
 
   // Navigate to submit work page
   const handleSubmitWork = (assignmentId: number) => {
-    navigate(`/student/assignments/${assignmentId}/submit`);
+    Swal.fire({
+      title: 'Submit Work',
+      text: 'You are about to submit work for this assignment.',
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Continue',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        navigate(`/student/assignments/${assignmentId}/submit`);
+      }
+    });
   };
 
   // Navigate to view assignment page
@@ -201,53 +300,272 @@ const StudentClassesPage: React.FC = () => {
     navigate(`/student/assignments/${assignmentId}`);
   };
 
-  // Refresh data
+  // Refresh data with confirmation
   const refreshData = async () => {
     if (!user || user.role !== 'student') return;
 
-    try {
-      setLoading(true);
-      console.log('🔄 Refreshing student data...');
-      
-      // Fetch classes first
-      const classesData = await getStudentClassesAll();
-      
-      // Transform classes data
-      const transformedClasses: Class[] = classesData.map((classItem: any) => ({
-        id: classItem.id,
-        name: classItem.name || `Class ${classItem.id}`,
-        code: classItem.code || `CODE-${classItem.id}`,
-        teacher_id: classItem.teacher_id || 0,
-        teacher_name: classItem.teacher_name || classItem.teacher_username || classItem.teacher?.username || 'Teacher',
-        description: classItem.description,
-        created_at: classItem.created_at || new Date().toISOString()
-      }));
+    Swal.fire({
+      title: 'Refresh Data',
+      text: 'Are you sure you want to refresh all data?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, refresh',
+      cancelButtonText: 'Cancel'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          setIsInitialLoading(true);
+          setLoadingProgress(10);
+          
+          console.log('🔄 Refreshing student data...');
+          
+          // Fetch classes first
+          setLoadingProgress(30);
+          const classesData = await getStudentClassesAll();
+          
+          // Transform classes data
+          const transformedClasses: Class[] = classesData.map((classItem: any) => ({
+            id: classItem.id,
+            name: classItem.name || `Class ${classItem.id}`,
+            code: classItem.code || `CODE-${classItem.id}`,
+            teacher_id: classItem.teacher_id || 0,
+            teacher_name: classItem.teacher_name || classItem.teacher_username || classItem.teacher?.username || 'Teacher',
+            description: classItem.description,
+            created_at: classItem.created_at || new Date().toISOString()
+          }));
 
-      setClasses(transformedClasses);
+          setClasses(transformedClasses);
+          setLoadingProgress(60);
 
-      // Fetch assignments and enrich with class info
-      const assignmentsData = await getStudentAssignmentsAll();
-      const enrichedAssignments = enrichAssignmentsWithClassInfo(assignmentsData, transformedClasses);
-      
-      setAssignments(enrichedAssignments);
+          // Fetch assignments and enrich with class info
+          const assignmentsData = await getStudentAssignmentsAll();
+          const enrichedAssignments = enrichAssignmentsWithClassInfo(assignmentsData, transformedClasses);
+          
+          setAssignments(enrichedAssignments);
+          setLoadingProgress(90);
 
-      const metrics = {
-        total_classes: transformedClasses.length,
-        total_assignments: enrichedAssignments.length,
-        upcoming_assignments: enrichedAssignments.filter(a => 
-          new Date(a.created_at) > new Date()
-        ).length
-      };
+          // Calculate metrics
+          const now = new Date();
+          const upcomingAssignments = enrichedAssignments.filter(a => {
+            if (a.due_date) {
+              return new Date(a.due_date) > now;
+            }
+            return new Date(a.created_at) > now;
+          });
 
-      setStudentMetrics(metrics);
-      console.log('✅ Data refreshed successfully');
-    } catch (err) {
-      console.error('Failed to refresh data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to refresh data');
-    } finally {
-      setLoading(false);
-    }
+          const metrics = {
+            total_classes: transformedClasses.length,
+            total_assignments: enrichedAssignments.length,
+            upcoming_assignments: upcomingAssignments.length,
+            completed_assignments: enrichedAssignments.filter(a => a.status === 'completed').length
+          };
+
+          setStudentMetrics(metrics);
+          setLoadingProgress(100);
+          
+          console.log('✅ Data refreshed successfully');
+          
+          setTimeout(() => {
+            setIsInitialLoading(false);
+          }, 800);
+          
+        } catch (err) {
+          console.error('Failed to refresh data:', err);
+          const errorMessage = err instanceof Error ? err.message : 'Failed to refresh data';
+          setError(errorMessage);
+          showErrorAlert(errorMessage);
+          setLoadingProgress(100);
+          setTimeout(() => {
+            setIsInitialLoading(false);
+          }, 500);
+        }
+      }
+    });
   };
+
+  // Loading Screen - UPDATED with text similar to StudentDashboard
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 14l9-5-9-5-9 5 9 5z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading Text - UPDATED to match StudentDashboard */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Loading Your Classes & Assignments
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            Preparing your academic overview, enrolled classes, and assignments...
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading data...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Loading Steps - UPDATED to match StudentDashboard */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
+          {[
+            { text: "Classes", color: "bg-blue-100 text-blue-600" },
+            { text: "Assignments", color: "bg-green-100 text-green-600" },
+            { text: "Schedule", color: "bg-purple-100 text-purple-600" },
+            { text: "Announcements", color: "bg-orange-100 text-orange-600" },
+          ].map((step, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= ((index + 1) * 25)
+                  ? `${step.color} shadow-sm`
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {step.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Animation - UPDATED to match StudentDashboard */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
+        </div>
+
+        {/* Loading Message - UPDATED to match StudentDashboard */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            This might take a moment. Please wait...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error Screen - UPDATED to match StudentDashboard
+  if (hasInitialLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Unable to Load Data
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            We encountered an issue while loading your classes and assignments. This could be due to network issues or server problems.
+          </p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={refreshData}
+              className="w-full px-6 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Retry Loading
+            </button>
+            
+            <button
+              onClick={() => navigate("/login")}
+              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+            >
+              Return to Login
+            </button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
+            <ul className="text-sm text-gray-500 text-left space-y-1">
+              <li>• Check your internet connection</li>
+              <li>• Refresh the page (F5 or Ctrl+R)</li>
+              <li>• Clear browser cache and try again</li>
+              <li>• Contact system administrator if problem persists</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verifying your session...</p>
+          <p className="text-gray-500 text-sm mt-2">
+            Please wait while we authenticate your account
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-full bg-white overflow-hidden relative flex">
@@ -270,10 +588,7 @@ const StudentClassesPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                localStorage.clear();
-                window.location.href = '/login';
-              }}
+              onClick={showLogoutConfirm}
               className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
               title="Logout"
             >
@@ -410,7 +725,7 @@ const StudentClassesPage: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
                       <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253" />
                       </svg>
                     </div>
                     <div>
@@ -493,7 +808,7 @@ const StudentClassesPage: React.FC = () => {
                 </div>
               </div>
               
-              {loading ? (
+              {isInitialLoading ? (
                 <div className="p-6 lg:p-12 text-center">
                   <div className="inline-flex flex-col items-center space-y-4">
                     <div className="relative">
@@ -512,7 +827,7 @@ const StudentClassesPage: React.FC = () => {
                     <div className="relative">
                       <div className="w-16 h-16 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center border-2 border-gray-200">
                         <svg className="w-8 h-8 lg:w-12 lg:h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253" />
                         </svg>
                       </div>
                     </div>
@@ -543,7 +858,7 @@ const StudentClassesPage: React.FC = () => {
                               <div className="flex items-center space-x-3 flex-1 min-w-0">
                                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
                                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253" />
                                   </svg>
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -632,7 +947,7 @@ const StudentClassesPage: React.FC = () => {
                               <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
                                   <svg className="w-5 h-5 lg:w-6 lg:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253" />
                                   </svg>
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -693,7 +1008,7 @@ const StudentClassesPage: React.FC = () => {
               )}
             </div>
 
-            {/* Assignments Section - FIXED */}
+            {/* Assignments Section */}
             <div className="w-full bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg">
               <div className="px-4 lg:px-8 py-4 bg-gray-50 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
@@ -718,7 +1033,7 @@ const StudentClassesPage: React.FC = () => {
                 </div>
               </div>
               
-              {loading ? (
+              {isInitialLoading ? (
                 <div className="p-6 lg:p-8 text-center">
                   <div className="inline-flex items-center space-x-3">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
@@ -820,7 +1135,7 @@ const StudentClassesPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Desktop Table View for Assignments - FIXED */}
+                  {/* Desktop Table View for Assignments */}
                   <table className="hidden lg:table min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-gray-50 to-orange-50">
                       <tr>
@@ -865,7 +1180,7 @@ const StudentClassesPage: React.FC = () => {
                               <div className="flex items-center space-x-3">
                                 <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300">
                                   <svg className="w-4 h-4 lg:w-5 lg:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253" />
                                   </svg>
                                 </div>
                                 <div className="min-w-0">

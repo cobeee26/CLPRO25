@@ -4,6 +4,7 @@ import axios from 'axios';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
+import Swal from 'sweetalert2';
 
 // API configuration
 const API_BASE_URL = 'http://localhost:8000';
@@ -76,23 +77,122 @@ const SubmissionsViewPage: React.FC = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [engagementInsight, setEngagementInsight] = useState<EngagementInsight | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [editingGrade, setEditingGrade] = useState<{[key: number]: number}>({});
   const [isSaving, setIsSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Logout function
-  const handleLogout = () => {
-    try {
-      // Clear authentication data
-      localStorage.clear();
+  // SweetAlert Configuration
+  const swalConfig = {
+    customClass: {
+      title: 'text-lg font-bold text-gray-900',
+      htmlContainer: 'text-sm text-gray-600',
+      confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+      cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
+      popup: 'rounded-xl border border-gray-200'
+    },
+    buttonsStyling: false,
+    background: '#ffffff'
+  };
 
-      // Force redirect to login page
-      window.location.href = "/login";
-    } catch (error) {
-      // Fallback: direct redirect
-      window.location.href = "/login";
+  // SweetAlert Helper Functions
+  const showSuccessAlert = (title: string, text: string = '', timer: number = 2000) => {
+    Swal.fire({
+      title,
+      text,
+      icon: 'success',
+      timer,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-green-900'
+      }
+    });
+  };
+
+  const showErrorAlert = (title: string, text: string = '', timer: number = 3000) => {
+    Swal.fire({
+      title,
+      text,
+      icon: 'error',
+      timer,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        title: 'text-lg font-bold text-red-900'
+      }
+    });
+  };
+
+  const showConfirmDialog = (title: string, text: string, confirmText: string = 'Yes, proceed') => {
+    return Swal.fire({
+      title,
+      text,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#6B7280',
+      reverseButtons: true,
+      ...swalConfig,
+      customClass: {
+        ...swalConfig.customClass,
+        confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer',
+        cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
+      }
+    });
+  };
+
+  const showLoadingAlert = (title: string = 'Processing...') => {
+    return Swal.fire({
+      title,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      ...swalConfig
+    });
+  };
+
+  const closeAlert = () => {
+    Swal.close();
+  };
+
+  // Logout function with SweetAlert
+  const handleLogout = async () => {
+    const result = await showConfirmDialog(
+      'Confirm Logout',
+      'Are you sure you want to logout? You will need to log in again to access your dashboard.',
+      'Yes, logout'
+    );
+    
+    if (result.isConfirmed) {
+      try {
+        // Clear authentication data
+        localStorage.clear();
+        
+        showSuccessAlert('Logged Out', 'You have been successfully logged out.', 1500);
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1500);
+      } catch (error) {
+        showErrorAlert('Logout Error', 'There was an issue logging out. Please try again.', 3000);
+      }
     }
+  };
+
+  const updateLoadingProgress = (step: number, totalSteps: number = 4) => {
+    const progress = Math.floor((step / totalSteps) * 100);
+    setLoadingProgress(progress);
   };
 
   useEffect(() => {
@@ -148,20 +248,35 @@ const SubmissionsViewPage: React.FC = () => {
   const loadAssignmentData = async () => {
     try {
       setIsLoading(true);
+      setLoadingProgress(10);
       
-      // Load assignment details
+      // Step 1: Load assignment details
+      updateLoadingProgress(1, 4);
       await loadAssignment();
       
-      // Load submissions
+      // Step 2: Load submissions
+      updateLoadingProgress(2, 4);
       await loadSubmissions();
       
-      // Load engagement insights
+      // Step 3: Load class info
+      updateLoadingProgress(3, 4);
+      
+      // Step 4: Load engagement insights
+      updateLoadingProgress(4, 4);
       await loadEngagementInsight();
+      
+      // Complete loading
+      setLoadingProgress(100);
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
       
     } catch (error) {
       console.error('Error loading assignment data:', error);
-    } finally {
-      setIsLoading(false);
+      showErrorAlert('Load Error', 'Failed to load assignment data. Please try again.');
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
     }
   };
 
@@ -180,9 +295,11 @@ const SubmissionsViewPage: React.FC = () => {
     } catch (error: any) {
       console.error('❌ Error loading assignment:', error);
       if (error.response?.status === 404) {
-        console.error('Assignment not found for ID:', assignmentId);
+        showErrorAlert('Assignment Not Found', 'The assignment you are looking for does not exist.');
       } else if (error.response?.status === 403) {
-        console.error('Not authorized to view this assignment');
+        showErrorAlert('Access Denied', 'You are not authorized to view this assignment.');
+      } else {
+        showErrorAlert('Load Error', 'Failed to load assignment details. Please try again.');
       }
       navigate('/teacher/assignments');
     }
@@ -215,14 +332,17 @@ const SubmissionsViewPage: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
+      setLoadingProgress(10);
       
       console.log('📊 Loading student grades...');
+      updateLoadingProgress(1, 2);
       
       // Call student grades endpoint
       const response = await apiClient.get('/students/me/grades');
       const gradesData = response.data;
       
       console.log('✅ Student grades loaded:', gradesData);
+      updateLoadingProgress(2, 2);
       
       // Transform grades data to submissions format for compatibility
       const submissionsData = gradesData.map((grade: any) => ({
@@ -237,16 +357,26 @@ const SubmissionsViewPage: React.FC = () => {
       }));
       
       setSubmissions(submissionsData);
+      setLoadingProgress(100);
+      
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
       
     } catch (error: any) {
       console.error('❌ Error loading student grades:', error);
+      setLoadingProgress(100);
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
+      
       if (error.response?.status === 403) {
         setError('Not authorized to view grades');
+        showErrorAlert('Access Denied', 'You are not authorized to view grades.');
       } else {
         setError('Failed to load grades. Please try again.');
+        showErrorAlert('Load Error', 'Failed to load your grades. Please try again.');
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -341,10 +471,12 @@ const SubmissionsViewPage: React.FC = () => {
       const grade = editingGrade[submissionId];
       
       if (grade === undefined || grade < 0 || grade > 100) {
-        alert('Please enter a valid grade between 0 and 100');
+        showErrorAlert('Invalid Grade', 'Please enter a valid grade between 0 and 100');
         return;
       }
 
+      const loadingAlert = showLoadingAlert('Saving grade...');
+      
       await apiClient.patch(`/submissions/${submissionId}/grade`, { grade });
       
       // Update local state
@@ -361,11 +493,13 @@ const SubmissionsViewPage: React.FC = () => {
         return newState;
       });
       
-      console.log('Grade saved successfully!');
+      closeAlert();
+      showSuccessAlert('Grade Saved!', `Grade of ${grade}% saved successfully.`);
       
     } catch (error) {
       console.error('Error saving grade:', error);
-      alert('Failed to save grade. Please try again.');
+      closeAlert();
+      showErrorAlert('Save Failed', 'Failed to save grade. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -404,13 +538,139 @@ const SubmissionsViewPage: React.FC = () => {
     return 5.0;
   };
 
+  // Loading Screen - Updated with progress bar
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            {user?.role === 'student' ? 'Loading grades...' : 'Loading submissions...'}
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Animated Logo */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="relative w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading Text */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {user?.role === 'student' ? 'Loading Your Grades' : 'Loading Submissions'}
+          </h2>
+          <p className="text-gray-600 max-w-md">
+            {user?.role === 'student' 
+              ? 'Preparing your grades and performance analysis...'
+              : 'Preparing assignment submissions and engagement metrics...'
+            }
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-md mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Loading data...</span>
+            <span>{loadingProgress}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Loading Steps */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
+          {user?.role === 'student' ? (
+            <>
+              <div className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= 25
+                  ? "bg-blue-100 text-blue-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400"
+              }`}>
+                Grades
+              </div>
+              <div className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= 50
+                  ? "bg-green-100 text-green-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400"
+              }`}>
+                Performance
+              </div>
+              <div className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= 75
+                  ? "bg-purple-100 text-purple-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400"
+              }`}>
+                Analysis
+              </div>
+              <div className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= 100
+                  ? "bg-orange-100 text-orange-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400"
+              }`}>
+                Complete
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= 25
+                  ? "bg-blue-100 text-blue-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400"
+              }`}>
+                Assignment
+              </div>
+              <div className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= 50
+                  ? "bg-green-100 text-green-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400"
+              }`}>
+                Submissions
+              </div>
+              <div className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= 75
+                  ? "bg-purple-100 text-purple-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400"
+              }`}>
+                Insights
+              </div>
+              <div className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
+                loadingProgress >= 100
+                  ? "bg-orange-100 text-orange-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400"
+              }`}>
+                Complete
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Loading Animation */}
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
+        </div>
+
+        {/* Loading Message */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            This might take a moment. Please wait...
           </p>
         </div>
       </div>
@@ -527,6 +787,23 @@ const SubmissionsViewPage: React.FC = () => {
         {/* Scrollable Main Content - Adjusted padding for fixed headers */}
         <main className="flex-1 overflow-auto pt-16 lg:pt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Error Message */}
+            {error && (
+              <div className="mb-8 bg-red-50 border-2 border-red-200 text-red-700 px-6 py-4 rounded-xl">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Error Loading Data</p>
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Assignment Info Card */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm mb-8">
               <div className="p-6">
@@ -559,8 +836,15 @@ const SubmissionsViewPage: React.FC = () => {
             {/* Submissions Table */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-bold text-gray-900">Student Submissions</h3>
-                <p className="text-sm text-gray-600">Grade student submissions and view engagement metrics</p>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {user?.role === 'student' ? 'Your Grades' : 'Student Submissions'}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {user?.role === 'student' 
+                    ? 'View your assignment grades and performance metrics' 
+                    : 'Grade student submissions and view engagement metrics'
+                  }
+                </p>
               </div>
               
               {submissions.length === 0 ? (
@@ -570,17 +854,26 @@ const SubmissionsViewPage: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Submissions Yet</h4>
-                  <p className="text-gray-500">Students haven't submitted this assignment yet.</p>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                    {user?.role === 'student' ? 'No Grades Available' : 'No Submissions Yet'}
+                  </h4>
+                  <p className="text-gray-500">
+                    {user?.role === 'student' 
+                      ? 'You haven\'t been graded on any assignments yet.' 
+                      : 'Students haven\'t submitted this assignment yet.'
+                    }
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          Student
-                        </th>
+                        {user?.role === 'teacher' && (
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Student
+                          </th>
+                        )}
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Time Spent
                         </th>
@@ -593,9 +886,11 @@ const SubmissionsViewPage: React.FC = () => {
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Current Grade
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          Actions
-                        </th>
+                        {user?.role === 'teacher' && (
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -603,19 +898,21 @@ const SubmissionsViewPage: React.FC = () => {
                         const aiScore = calculateAIScore(submission.time_spent_minutes);
                         return (
                           <tr key={submission.id} className="hover:bg-gray-50 transition-colors duration-200">
-                            <td className="px-6 py-4">
-                              <div className="flex items-center">
-                                <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm mr-4">
-                                  <span className="text-sm font-bold text-white">
-                                    {submission.student_name.charAt(0).toUpperCase()}
-                                  </span>
+                            {user?.role === 'teacher' && (
+                              <td className="px-6 py-4">
+                                <div className="flex items-center">
+                                  <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm mr-4">
+                                    <span className="text-sm font-bold text-white">
+                                      {submission.student_name.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-semibold text-gray-900">{submission.student_name}</div>
+                                    <div className="text-xs text-gray-500">ID: {submission.student_id}</div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div className="text-sm font-semibold text-gray-900">{submission.student_name}</div>
-                                  <div className="text-xs text-gray-500">ID: {submission.student_id}</div>
-                                </div>
-                              </div>
-                            </td>
+                              </td>
+                            )}
                             <td className="px-6 py-4">
                               <div className="text-sm text-gray-900 font-medium">
                                 {submission.time_spent_minutes} minutes
@@ -642,25 +939,27 @@ const SubmissionsViewPage: React.FC = () => {
                                 </span>
                               )}
                             </td>
-                            <td className="px-6 py-4">
-                              {submission.is_graded ? (
-                                <button
-                                  onClick={() => setEditingGrade(prev => ({ ...prev, [submission.id]: submission.grade! }))}
-                                  className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300"
-                                  disabled={isSaving}
-                                >
-                                  Edit Grade
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => setEditingGrade(prev => ({ ...prev, [submission.id]: 0 }))}
-                                  className="px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs font-medium transition-all duration-200 border border-green-200 hover:border-green-300"
-                                  disabled={isSaving}
-                                >
-                                  Grade
-                                </button>
-                              )}
-                            </td>
+                            {user?.role === 'teacher' && (
+                              <td className="px-6 py-4">
+                                {submission.is_graded ? (
+                                  <button
+                                    onClick={() => setEditingGrade(prev => ({ ...prev, [submission.id]: submission.grade! }))}
+                                    className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer"
+                                    disabled={isSaving}
+                                  >
+                                    Edit Grade
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => setEditingGrade(prev => ({ ...prev, [submission.id]: 0 }))}
+                                    className="px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs font-medium transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer"
+                                    disabled={isSaving}
+                                  >
+                                    Grade
+                                  </button>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
@@ -670,8 +969,8 @@ const SubmissionsViewPage: React.FC = () => {
               )}
             </div>
 
-            {/* Grade Input Section */}
-            {Object.keys(editingGrade).length > 0 && (
+            {/* Grade Input Section (Teacher Only) */}
+            {user?.role === 'teacher' && Object.keys(editingGrade).length > 0 && (
               <div className="mt-8 bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm">
                 <div className="p-6">
                   <h4 className="text-lg font-semibold text-gray-900 mb-4">Grade Submissions</h4>
@@ -696,7 +995,7 @@ const SubmissionsViewPage: React.FC = () => {
                                 step="0.1"
                                 value={grade}
                                 onChange={(e) => handleGradeChange(parseInt(submissionId), parseFloat(e.target.value) || 0)}
-                                className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-text"
                                 placeholder="Grade"
                                 disabled={isSaving}
                               />
@@ -704,7 +1003,7 @@ const SubmissionsViewPage: React.FC = () => {
                             </div>
                             <button
                               onClick={() => handleSaveGrade(parseInt(submissionId))}
-                              className="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-all duration-200 border border-green-200 hover:border-green-300 disabled:opacity-50"
+                              className="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-all duration-200 border border-green-200 hover:border-green-300 disabled:opacity-50 cursor-pointer"
                               disabled={isSaving}
                             >
                               {isSaving ? 'Saving...' : 'Save'}
@@ -715,7 +1014,7 @@ const SubmissionsViewPage: React.FC = () => {
                                 delete newState[parseInt(submissionId)];
                                 return newState;
                               })}
-                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 border border-gray-200 hover:border-gray-300"
+                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 border border-gray-200 hover:border-gray-300 cursor-pointer"
                               disabled={isSaving}
                             >
                               Cancel
