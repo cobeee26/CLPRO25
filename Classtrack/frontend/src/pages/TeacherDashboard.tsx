@@ -579,9 +579,20 @@ const TeacherDashboard: React.FC = () => {
         const response = await apiClient.get("/teachers/me/classes");
         console.log("✅ Teacher classes API response:", response.data);
         
-        if (response.status === 200 && Array.isArray(response.data)) {
-          setClasses(response.data);
-          console.log("✅ Teacher classes loaded successfully:", response.data);
+        if (response.status === 200) {
+          // Check if response is an array or has a classes property
+          let classesData = [];
+          if (Array.isArray(response.data)) {
+            classesData = response.data;
+          } else if (response.data && response.data.classes && Array.isArray(response.data.classes)) {
+            classesData = response.data.classes;
+          } else {
+            console.warn("⚠️ Classes API returned unexpected format");
+            classesData = [];
+          }
+          
+          setClasses(classesData);
+          console.log("✅ Teacher classes loaded successfully:", classesData);
         } else {
           console.warn("⚠️ Classes API returned unexpected response");
           setClasses([]);
@@ -639,7 +650,9 @@ const TeacherDashboard: React.FC = () => {
           }));
         }
         
-        setAssignments(assignmentsData);
+        // After setting assignments, load class details for assignments
+        await enrichAssignmentsWithClassData(assignmentsData);
+        
         console.log("✅ Teacher assignments loaded successfully:", assignmentsData);
       } catch (apiError: any) {
         console.warn("⚠️ /teachers/me/assignments API failed:", apiError.message);
@@ -649,6 +662,41 @@ const TeacherDashboard: React.FC = () => {
       console.error("❌ Error loading assignments:", error);
       setAssignments([]);
       throw error;
+    }
+  };
+
+  // Function to enrich assignments with class data
+  const enrichAssignmentsWithClassData = async (assignmentsData: Assignment[]) => {
+    try {
+      // Get all class IDs from assignments
+      const classIds = [...new Set(assignmentsData.map(a => a.class_id))];
+      
+      // Load class details for each class ID
+      const enrichedAssignments = await Promise.all(
+        assignmentsData.map(async (assignment) => {
+          try {
+            // Try to get class details
+            const classResponse = await apiClient.get(`/classes/${assignment.class_id}`);
+            const classData = classResponse.data;
+            
+            return {
+              ...assignment,
+              class_name: classData.name || assignment.class_name || `Class ${assignment.class_id}`,
+              class_code: classData.code || assignment.class_code || `CLASS-${assignment.class_id}`
+            };
+          } catch (classError: any) {
+            console.warn(`⚠️ Failed to load class ${assignment.class_id}:`, classError.message);
+            // Keep original assignment data if class fetch fails
+            return assignment;
+          }
+        })
+      );
+      
+      setAssignments(enrichedAssignments);
+    } catch (error: any) {
+      console.error("❌ Error enriching assignments with class data:", error.message);
+      // If enrichment fails, just set the assignments as they are
+      setAssignments(assignmentsData);
     }
   };
 
@@ -741,6 +789,14 @@ const TeacherDashboard: React.FC = () => {
       clearInterval(refreshInterval);
     };
   }, [isInitialLoading]);
+
+  // Load assignments when classes are loaded to ensure class data is available
+  useEffect(() => {
+    if (classes.length > 0 && assignments.length === 0) {
+      // If we have classes but no assignments, try to load assignments
+      loadAssignments();
+    }
+  }, [classes]);
 
   // Time formatting functions
   const formatDate = (dateString: string) => {
@@ -1414,9 +1470,6 @@ const TeacherDashboard: React.FC = () => {
                                         {classItem.code}
                                       </span>
                                     </div>
-                                    <p className="text-xs text-gray-600 mb-1">
-                                      {classItem.teacher_name || "Your Class"}
-                                    </p>
                                     {classItem.description && (
                                       <p className="text-xs text-gray-500 mb-2 line-clamp-2">
                                         {classItem.description}
@@ -1534,12 +1587,7 @@ const TeacherDashboard: React.FC = () => {
                       >
                         {assignments.length > 0 ? (
                           assignments.map((assignment) => {
-                            const classCodeToDisplay =
-                              assignment.class_code ||
-                              `CODE-${assignment.class_id}`;
-                            const classNameToDisplay =
-                              assignment.class_name ||
-                              `Class ${assignment.class_id}`;
+                            const classCodeToDisplay = assignment.class_code || `CLASS-${assignment.class_id}`;
 
                             return (
                               <div
@@ -1549,13 +1597,7 @@ const TeacherDashboard: React.FC = () => {
                               >
                                 <div className="flex items-start justify-between mb-3">
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                      <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full border border-green-200 flex-shrink-0">
-                                        {classCodeToDisplay}
-                                      </span>
-                                      <span className="text-xs text-gray-500 truncate max-w-[120px]">
-                                        {classNameToDisplay}
-                                      </span>
+                                    <div className="flex items-center gap-2 mb-2">
                                     </div>
 
                                     <h4 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-1 break-words">
@@ -1569,17 +1611,17 @@ const TeacherDashboard: React.FC = () => {
 
                                     <div className="flex items-center justify-between text-xs text-gray-500">
                                       <div className="flex items-center gap-2">
-                                        <span className="truncate max-w-[100px]">
+                                        <span>
                                           Created:{" "}
                                           {formatDate(assignment.created_at)}
                                         </span>
                                         {assignment.due_date && (
-                                          <span className="font-medium whitespace-nowrap text-blue-600">
+                                          <span className="font-medium text-blue-600">
                                             Due: {formatDate(assignment.due_date)}
                                           </span>
                                         )}
                                       </div>
-                                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 border border-green-200 whitespace-nowrap">
+                                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 border border-green-200">
                                         Active
                                       </span>
                                     </div>
@@ -2051,7 +2093,7 @@ const TeacherDashboard: React.FC = () => {
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
                   <div className="flex items-start">
                     <svg
-                      className="w-5 h-5 text-red-400 mt-0.5 mr-2"
+                      className="w-5 h-5 text-red-400 mt=0.5 mr-2"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
