@@ -7,7 +7,7 @@ import Sidebar from "../components/Sidebar";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
 import Swal from 'sweetalert2';
 
-// API configuration - FROM FIRST FILE
+// API configuration
 const API_BASE_URL = "http://localhost:8000";
 
 const apiClient = axios.create({
@@ -19,7 +19,7 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
-// Request interceptor to add auth token - FROM FIRST FILE
+// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -98,7 +98,7 @@ interface Announcement {
   author_role: string;
 }
 
-// AnnouncementModal Component - FROM FIRST FILE
+// AnnouncementModal Component
 interface AnnouncementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -334,31 +334,32 @@ const TeacherDashboard: React.FC = () => {
   const [engagementInsights, setEngagementInsights] = useState<EngagementInsight[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   
-  // Loading states - FROM FIRST FILE
+  // Loading states - NEW FROM SECOND FILE
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  
+  // Loading states for individual components
   const [loadingStates, setLoadingStates] = useState({
     classes: true,
     assignments: true,
     insights: true,
     announcements: true,
   });
+  
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   
-  // Scroll indicators state - FROM FIRST FILE
+  // Scroll indicators state
   const [showClassesScrollIndicator, setShowClassesScrollIndicator] = useState(true);
   const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] = useState(true);
   const [showAnnouncementsScrollIndicator, setShowAnnouncementsScrollIndicator] = useState(true);
 
-  // Scroll refs - FROM FIRST FILE
+  // Scroll refs
   const classesScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
 
-  // Loading states from second file
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-
-  // SweetAlert2 Configuration with Auto-Dismiss Timer
+  // SweetAlert2 Configuration with Auto-Dismiss Timer - FROM SECOND FILE
   const swalConfig = {
     customClass: {
       title: 'text-lg font-bold text-gray-900',
@@ -371,7 +372,7 @@ const TeacherDashboard: React.FC = () => {
     background: '#ffffff'
   };
 
-  // SweetAlert Helper Functions with Auto-Dismiss
+  // SweetAlert Helper Functions with Auto-Dismiss - FROM SECOND FILE
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -557,7 +558,7 @@ const TeacherDashboard: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
-  // Scroll handlers - FROM FIRST FILE
+  // Scroll handlers
   const handleClassesScroll = () => {
     if (classesScrollRef.current) {
       const { scrollTop } = classesScrollRef.current;
@@ -591,7 +592,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Helper function to construct full image URL - FROM FIRST FILE
+  // Helper function to construct full image URL
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -619,7 +620,7 @@ const TeacherDashboard: React.FC = () => {
     return constructedUrl;
   };
 
-  // Helper function to get role icon - FROM FIRST FILE
+  // Helper function to get role icon
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -701,7 +702,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Handle logout
+  // Handle logout - UPDATED WITH SWEETALERT
   const handleLogout = async () => {
     const result = await showConfirmDialog(
       'Confirm Logout',
@@ -732,7 +733,7 @@ const TeacherDashboard: React.FC = () => {
     navigate("/teacher/reports");
   };
 
-  // Authentication check - FROM FIRST FILE
+  // Authentication check
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     const userRole = localStorage.getItem("userRole");
@@ -746,6 +747,7 @@ const TeacherDashboard: React.FC = () => {
     console.log("✅ Authentication verified for teacher");
   }, [navigate]);
 
+  // Load data when user is available
   useEffect(() => {
     if (user && user.role === "teacher") {
       console.log("👤 User data loaded, starting data fetch...");
@@ -756,43 +758,59 @@ const TeacherDashboard: React.FC = () => {
     }
   }, [user, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      console.log("👤 Teacher user data loaded:", {
-        id: user.id,
-        username: user.username,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role,
-        profile_picture_url: user.profile_picture_url,
-      });
-    }
-  }, [user]);
-
-  // Update loading progress
-  const updateLoadingProgress = (step: number, totalSteps: number = 4) => {
-    const progress = Math.floor((step / totalSteps) * 100);
-    setLoadingProgress(progress);
+  // Update loading progress - FIXED FUNCTION
+  const updateLoadingProgress = (progress: number) => {
+    // Cap at 100% to prevent going over
+    const cappedProgress = Math.min(progress, 100);
+    setLoadingProgress(cappedProgress);
   };
 
-  // Main data loading function - FROM FIRST FILE
+  // Main data loading function - UPDATED
   const loadTeacherData = async () => {
     try {
-      await Promise.all([
-        loadClasses(),
-        loadAssignments(),
-        loadAnnouncements(),
-      ]);
+      console.log("🔄 Loading teacher data...");
+      setIsInitialLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10); // Start at 10%
+
+      // Step 1: Load classes
+      updateLoadingProgress(25);
+      await loadClasses();
+
+      // Step 2: Load assignments
+      updateLoadingProgress(50);
+      await loadAssignments();
+
+      // Step 3: Load announcements
+      updateLoadingProgress(75);
+      await loadAnnouncements();
+
+      // Step 4: Load engagement insights
+      updateLoadingProgress(100); // Set to 100% directly
+      await loadEngagementInsights();
+
+      // Complete loading - Wait a moment to show 100%
+      setTimeout(() => {
+        setIsInitialLoading(false);
+        console.log("✅ Teacher data loaded successfully");
+      }, 500);
+
     } catch (error) {
-      console.error("Error loading teacher data:", error);
+      console.error("❌ Error loading teacher data:", error);
+      setHasInitialLoadError(true);
+      setLoadingProgress(100); // Ensure progress shows 100% even on error
+      setTimeout(() => {
+        setIsInitialLoading(false);
+      }, 500);
+      
+      showErrorAlert("Load Error", "Failed to load dashboard data. Please refresh the page.", true, 4000);
     }
   };
 
-  // Function to load teacher classes - FROM FIRST FILE
+  // Function to load teacher classes - UPDATED
   const loadClasses = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, classes: true }));
-      setLoadingProgress(25);
 
       console.log("📚 Loading teacher classes from API...");
       const { getTeacherClasses } = await import("../services/authService");
@@ -809,16 +827,16 @@ const TeacherDashboard: React.FC = () => {
       console.error("Error loading teacher classes:", error);
       setClasses([]);
       showErrorAlert("Load Error", "Failed to load classes. Please try again.", true, 3000);
+      throw error;
     } finally {
       setLoadingStates((prev) => ({ ...prev, classes: false }));
     }
   };
 
-  // Function to load teacher assignments - FROM FIRST FILE
+  // Function to load teacher assignments - UPDATED
   const loadAssignments = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
-      setLoadingProgress(50);
 
       console.log("📝 Loading teacher assignments from /teachers/me/assignments...");
       
@@ -872,22 +890,23 @@ const TeacherDashboard: React.FC = () => {
           console.error("❌ All assignment endpoints failed:", secondError);
           setAssignments([]);
           showErrorAlert("Load Error", "Failed to load assignments. Please try again.", true, 3000);
+          throw secondError;
         }
       }
     } catch (error) {
       console.error("Error loading teacher assignments:", error);
       setAssignments([]);
       showErrorAlert("Load Error", "Failed to load assignments. Please try again.", true, 3000);
+      throw error;
     } finally {
       setLoadingStates((prev) => ({ ...prev, assignments: false }));
     }
   };
 
-  // Function to load engagement insights - FROM FIRST FILE
+  // Function to load engagement insights - UPDATED
   const loadEngagementInsights = async (assignmentsList?: Assignment[]) => {
     try {
       setLoadingStates((prev) => ({ ...prev, insights: true }));
-      setLoadingProgress(75);
 
       console.log("📊 Loading mock engagement insights for teacher...");
       const assignmentsToUse = assignmentsList || assignments;
@@ -908,16 +927,17 @@ const TeacherDashboard: React.FC = () => {
     } catch (error) {
       console.error("Error loading engagement insights:", error);
       setEngagementInsights([]);
+      throw error;
     } finally {
       setLoadingStates((prev) => ({ ...prev, insights: false }));
     }
   };
 
-  // Function to load announcements - FROM FIRST FILE
+  // Function to load announcements - UPDATED
   const loadAnnouncements = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, announcements: true }));
-      setLoadingProgress(90);
+      
       console.log("📢 Loading announcements for teacher...");
 
       try {
@@ -939,14 +959,13 @@ const TeacherDashboard: React.FC = () => {
       console.error("Error loading announcements:", error);
       setAnnouncements(getFallbackAnnouncements());
       showErrorAlert("Load Error", "Failed to load announcements. Please try again.", true, 3000);
+      throw error;
     } finally {
       setLoadingStates((prev) => ({ ...prev, announcements: false }));
-      setLoadingProgress(100);
-      setIsInitialLoading(false);
     }
   };
 
-  // Fallback announcements with proper date format - FROM FIRST FILE
+  // Fallback announcements with proper date format
   const getFallbackAnnouncements = (): Announcement[] => {
     return [
       {
@@ -984,7 +1003,7 @@ const TeacherDashboard: React.FC = () => {
     loadAnnouncements();
   };
 
-  // FIXED: Time formatting functions to handle AM/PM correctly - FROM FIRST FILE
+  // Time formatting functions to handle AM/PM correctly
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -1024,7 +1043,7 @@ const TeacherDashboard: React.FC = () => {
     return `${Math.floor(diffInHours / 168)} weeks ago`;
   };
 
-  // Add this function for View Reports navigation - FROM FIRST FILE
+  // Add this function for View Reports navigation
   const handleViewReportsNav = () => {
     navigate("/teacher/reports");
   };
@@ -1051,7 +1070,7 @@ const TeacherDashboard: React.FC = () => {
     };
   }, [isInitialLoading]);
 
-  // Loading Screen
+  // Loading Screen - FIXED
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1094,7 +1113,7 @@ const TeacherDashboard: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Bar - FIXED */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -1111,15 +1130,15 @@ const TeacherDashboard: React.FC = () => {
         {/* Loading Steps */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
           {[
-            { text: "Classes", color: "bg-red-100 text-red-600" },
-            { text: "Assignments", color: "bg-green-100 text-green-600" },
-            { text: "Announcements", color: "bg-orange-100 text-orange-600" },
-            { text: "Insights", color: "bg-purple-100 text-purple-600" },
+            { text: "Classes", color: "bg-red-100 text-red-600", progress: 25 },
+            { text: "Assignments", color: "bg-green-100 text-green-600", progress: 50 },
+            { text: "Announcements", color: "bg-orange-100 text-orange-600", progress: 75 },
+            { text: "Insights", color: "bg-purple-100 text-purple-600", progress: 100 },
           ].map((step, index) => (
             <div
               key={index}
               className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
-                loadingProgress >= ((index + 1) * 25)
+                loadingProgress >= step.progress
                   ? `${step.color} shadow-sm`
                   : "bg-gray-100 text-gray-400"
               }`}
