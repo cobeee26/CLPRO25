@@ -42,8 +42,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Check if user is authenticated
+    
       const token = localStorage.getItem('authToken');
       if (!token) {
         console.log('❌ No auth token found in localStorage');
@@ -74,9 +73,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         message: err.message
       });
       
-      // Handle specific error cases
       if (err.response?.status === 401) {
-        // Token is invalid, clear it and redirect to login
         console.log('🔑 Token is invalid (401), clearing and redirecting to login');
         localStorage.removeItem('authToken');
         localStorage.removeItem('userRole');
@@ -84,7 +81,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setUser(null);
         setError('Session expired. Please log in again.');
       } else if (err.response?.status === 403) {
-        // Forbidden - user doesn't have permission
         console.log('🚫 Access forbidden (403)');
         setError('Access denied. Please check your permissions.');
         setUser(null);
@@ -114,16 +110,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     fetchUser();
   }, []);
 
-  // Watch for token changes and refresh user data
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'authToken') {
         if (e.newValue) {
-          // Token was added/updated, refresh user data
           console.log('🔄 Auth token changed, refreshing user data...');
           fetchUser();
         } else {
-          // Token was removed, clear user data
           console.log('🗑️ Auth token removed, clearing user data...');
           setUser(null);
           setError(null);
@@ -131,10 +124,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       }
     };
 
-    // Listen for storage changes
     window.addEventListener('storage', handleStorageChange);
 
-    // Also check if token exists on mount and refresh if needed
     const token = localStorage.getItem('authToken');
     if (token && !user) {
       console.log('🔑 Token exists but no user data, refreshing...');

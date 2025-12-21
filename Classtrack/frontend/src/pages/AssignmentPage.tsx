@@ -8,7 +8,6 @@ import { getTeacherAssignments, getTeacherClasses, authService, getStudentClasse
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import Swal from 'sweetalert2';
 
-// API configuration
 const API_BASE_URL = 'http://localhost:8000';
 
 const apiClient = axios.create({
@@ -57,7 +56,6 @@ interface CreateAssignmentRequest {
   class_id: number;
 }
 
-// SweetAlert2 Configuration with Auto-Dismiss Timer
 const swalConfig = {
   customClass: {
     title: 'text-lg font-bold text-gray-900',
@@ -95,7 +93,6 @@ const AssignmentPage: React.FC = () => {
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const classRef = useRef<HTMLSelectElement>(null);
 
-  // SweetAlert Helper Functions with Auto-Dismiss
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -334,15 +331,12 @@ const AssignmentPage: React.FC = () => {
       setHasInitialLoadError(false);
       setLoadingProgress(10);
 
-      // Step 1: Load classes
       updateLoadingProgress(1, 3);
       const loadedClasses = await loadClasses();
 
-      // Step 2: Load assignments
       updateLoadingProgress(2, 3);
       await loadAssignments(loadedClasses);
 
-      // Complete loading
       updateLoadingProgress(3, 3);
       setTimeout(() => {
         setIsInitialLoading(false);
@@ -950,11 +944,9 @@ const AssignmentPage: React.FC = () => {
     ? assignments.filter(assignment => assignment.creator_id === user.id)
     : assignments;
 
-  // Loading Screen
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-red-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -977,7 +969,6 @@ const AssignmentPage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Your Assignments
@@ -987,7 +978,6 @@ const AssignmentPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -1001,7 +991,6 @@ const AssignmentPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
           {[
             { text: "Classes", color: "bg-red-100 text-red-600" },
@@ -1021,14 +1010,12 @@ const AssignmentPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
           <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             This might take a moment. Please wait...
@@ -1038,7 +1025,6 @@ const AssignmentPage: React.FC = () => {
     );
   }
 
-  // Error Screen
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1177,7 +1163,6 @@ const AssignmentPage: React.FC = () => {
           />
         </div>
 
-        {/* Status Bar */}
         <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
@@ -1331,7 +1316,6 @@ const AssignmentPage: React.FC = () => {
                           <td className="px-4 lg:px-6 py-4">
                             {user?.role === 'teacher' ? (
                               <div className="flex items-center justify-end space-x-2">
-                                {/* Manage Assignment Button */}
                                 <button
                                   onClick={() => handleManageAssignment(assignment)}
                                   className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all duration-200 border border-purple-200 hover:border-purple-300 cursor-pointer flex-shrink-0"

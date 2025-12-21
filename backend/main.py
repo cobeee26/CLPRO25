@@ -17,7 +17,6 @@ from schemas import ClassExport, SubmissionCreate, Submission as SubmissionSchem
 from security import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password, get_password_hash, create_access_token, verify_token
 from crud import create_class, get_class, get_classes, update_class, delete_class, delete_user, count_total_users, count_total_classes, get_all_users, get_all_classes, create_assignment, create_submission, get_assignments_for_student, get_assignments, get_assignments_by_teacher, create_schedule, get_schedules, get_schedules_live, get_schedules_live_enriched, get_schedule, update_schedule, delete_schedule, create_announcement, get_announcements, get_announcements_live, get_announcement, update_announcement, delete_announcement, create_classroom_report, get_classroom_reports, get_classroom_reports_by_class, get_classroom_reports_by_reporter, get_classroom_report, delete_classroom_report, change_user_password, update_user_profile, update_user_profile_picture, get_classes_by_teacher
 
-
 # Security scheme
 security = HTTPBearer()
 
@@ -26,7 +25,7 @@ UPLOAD_DIR = "uploads"
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".doc", ".docx", ".txt"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 # Pydantic models for request/response
@@ -125,11 +124,81 @@ class PasswordChangeRequest(BaseModel):
             raise ValueError('New password must be at least 8 characters long')
         return v.strip()
 
-# Database lifespan function
-@asynccontextmanager
+# VIOLATIONS MODELS
+class ViolationCreate(BaseModel):
+    student_id: int
+    assignment_id: int
+    violation_type: str
+    description: str
+    time_away_seconds: int
+    severity: str
+    content_added_during_absence: Optional[int] = None
+    ai_similarity_score: Optional[float] = None
+    paste_content_length: Optional[int] = None
+
+class ViolationResponse(BaseModel):
+    id: int
+    student_id: int
+    assignment_id: int
+    violation_type: str
+    description: str
+    detected_at: str
+    time_away_seconds: int
+    severity: str
+    content_added_during_absence: Optional[int] = None
+    ai_similarity_score: Optional[float] = None
+    paste_content_length: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
+# SUBMISSION WITH CONTENT MODEL
+class SubmissionWithContent(BaseModel):
+    assignment_id: int
+    content: Optional[str] = None
+    link_url: Optional[str] = None
+    time_spent_minutes: float
+    file_name: Optional[str] = None
+
+# SUBMISSION RESPONSE WITH DETAILS
+class SubmissionDetailResponse(BaseModel):
+    id: int
+    assignment_id: int
+    student_id: int
+    student_name: str
+    student_email: str
+    content: Optional[str] = None
+    file_path: Optional[str] = None
+    file_name: Optional[str] = None
+    submitted_at: str
+    grade: Optional[float] = None
+    feedback: Optional[str] = None
+    is_graded: bool
+    time_spent_minutes: float
+    link_url: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+# GRADE UPDATE MODEL
+class GradeUpdate(BaseModel):
+    grade: float
+    feedback: Optional[str] = None
+    
+    @validator('grade')
+    def validate_grade(cls, v):
+        if v < 0 or v > 100:
+            raise ValueError('Grade must be between 0 and 100')
+        return v
+
+# Database lifespan function@asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create database tables
     Base.metadata.create_all(bind=engine)
+    
+    # Run migrations to add missing columns
+    from database import check_and_run_migrations
+    check_and_run_migrations()
     
     # Create test users after tables are created
     db = SessionLocal()
@@ -261,7 +330,971 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise credentials_exception
     return user
 
-# API Endpoints
+# ====================================
+# API ENDPOINTS - VIOLATIONS SECTION
+# ====================================
+
+@app.post("/violations/", response_model=ViolationResponse, status_code=status.HTTP_201_CREATED)
+async def create_violation(
+    violation: ViolationCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a new violation record
+    
+    - **student_id**: ID of the student who committed the violation
+    - **assignment_id**: ID of the assignment
+    - **violation_type**: Type of violation
+    - **description**: Description of the violation
+    - **time_away_seconds**: Time away in seconds
+    - **severity**: Severity level ('low', 'medium', 'high')
+    - **content_added_during_absence**: Optional content added during absence
+    - **ai_similarity_score**: Optional AI similarity score
+    - **paste_content_length**: Optional paste content length
+    
+    Requires authentication. Students can create violations for themselves.
+    """
+    try:
+        print(f"📝 Creating violation for student {violation.student_id}, assignment {violation.assignment_id}")
+        
+        # For now, we'll create a simple dictionary for the violation
+        # In production, you should use the SQLAlchemy model
+        violation_dict = {
+            "student_id": violation.student_id,
+            "assignment_id": violation.assignment_id,
+            "violation_type": violation.violation_type,
+            "description": violation.description,
+            "detected_at": datetime.utcnow(),
+            "time_away_seconds": violation.time_away_seconds,
+            "severity": violation.severity,
+            "content_added_during_absence": violation.content_added_during_absence,
+            "ai_similarity_score": violation.ai_similarity_score,
+            "paste_content_length": violation.paste_content_length
+        }
+        
+        print(f"✅ Violation recorded: {violation_dict}")
+        
+        # Return a mock response (you'll need to implement database storage)
+        return ViolationResponse(
+            id=1,  # Mock ID
+            student_id=violation.student_id,
+            assignment_id=violation.assignment_id,
+            violation_type=violation.violation_type,
+            description=violation.description,
+            detected_at=datetime.utcnow().isoformat(),
+            time_away_seconds=violation.time_away_seconds,
+            severity=violation.severity,
+            content_added_during_absence=violation.content_added_during_absence,
+            ai_similarity_score=violation.ai_similarity_score,
+            paste_content_length=violation.paste_content_length
+        )
+        
+    except Exception as e:
+        print(f"❌ Error creating violation: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create violation: {str(e)}"
+        )
+
+@app.get("/assignments/violations")
+async def get_all_violations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all violations for assignments
+    
+    Returns:
+        List of all violations
+        
+    Requires authentication. Teachers and Admins can view all violations.
+    """
+    # Check if current user is a teacher or admin
+    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view violations"
+        )
+    
+    try:
+        print(f"📊 Fetching all violations for user: {current_user.username}")
+        
+        # Return empty list for now (you'll need to implement database query)
+        # This is a placeholder - you should query your violations table
+        return []
+        
+    except Exception as e:
+        print(f"❌ Error fetching violations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch violations: {str(e)}"
+        )
+
+@app.get("/assignments/{assignment_id}/violations")
+async def get_assignment_violations(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get violations for a specific assignment
+    
+    Args:
+        assignment_id: ID of the assignment
+        
+    Returns:
+        List of violations for the assignment
+        
+    Requires authentication. Teachers can view violations for their assignments.
+    """
+    # Check if current user is a teacher or admin
+    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view assignment violations"
+        )
+    
+    try:
+        print(f"📊 Fetching violations for assignment {assignment_id}")
+        
+        # Verify the assignment exists
+        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Assignment not found"
+            )
+        
+        # For teachers, verify they created this assignment
+        if current_user.role == UserRole.TEACHER and assignment.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to view violations for this assignment"
+            )
+        
+        # Return empty list for now (you'll need to implement database query)
+        # This is a placeholder - you should query your violations table
+        return []
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching assignment violations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch assignment violations: {str(e)}"
+        )
+
+# ====================================
+# API ENDPOINTS - SUBMISSIONS WITH FILE UPLOAD
+# ====================================
+
+@app.post("/submissions/upload/", status_code=status.HTTP_201_CREATED)
+async def create_submission_with_file(
+    assignment_id: int = Form(...),
+    content: Optional[str] = Form(None),
+    link_url: Optional[str] = Form(None),
+    time_spent_minutes: float = Form(...),
+    photo: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a new submission with optional file upload (Student only)
+    
+    - **assignment_id**: ID of the assignment being submitted
+    - **content**: Text content (optional)
+    - **link_url**: Link URL (optional)
+    - **time_spent_minutes**: Time spent on the assignment
+    - **photo**: Optional file upload (PDF, DOC, DOCX, TXT, JPG, PNG, GIF, max 10MB)
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to create submissions"
+        )
+    
+    file_path = None
+    file_name = None
+    
+    # Handle file upload if provided
+    if photo:
+        # Validate file type
+        allowed_extensions = {'.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.gif'}
+        file_extension = os.path.splitext(photo.filename)[1].lower() if photo.filename else ''
+        
+        if file_extension not in allowed_extensions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"
+            )
+        
+        # Validate file size (max 10MB)
+        MAX_FILE_SIZE = 10 * 1024 * 1024
+        if photo.size and photo.size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB"
+            )
+        
+        # Generate unique filename
+        file_id = str(uuid.uuid4())
+        filename = f"{file_id}{file_extension}"
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        file_name = photo.filename
+        
+        try:
+            # Save file
+            async with aiofiles.open(file_path, 'wb') as f:
+                content_bytes = await photo.read()
+                await f.write(content_bytes)
+            
+            # Generate URL (relative path)
+            file_path = f"/uploads/{filename}"
+            
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to save file: {str(e)}"
+            )
+    
+    try:
+        print(f"📤 Creating submission for user {current_user.id}, assignment {assignment_id}")
+        
+        # Check if submission already exists
+        existing_submission = db.query(Submission).filter(
+            Submission.assignment_id == assignment_id,
+            Submission.student_id == current_user.id
+        ).first()
+        
+        if existing_submission:
+            # Update existing submission
+            if content is not None:
+                existing_submission.content = content
+            if link_url is not None:
+                existing_submission.link_url = link_url
+            if file_path is not None:
+                existing_submission.file_path = file_path
+                existing_submission.file_name = file_name
+            existing_submission.time_spent_minutes = time_spent_minutes
+            existing_submission.submitted_at = datetime.utcnow()
+            
+            db.commit()
+            db.refresh(existing_submission)
+            
+            print(f"✅ Updated existing submission {existing_submission.id}")
+            
+            return {
+                "id": existing_submission.id,
+                "assignment_id": existing_submission.assignment_id,
+                "student_id": existing_submission.student_id,
+                "content": existing_submission.content,
+                "file_path": existing_submission.file_path,
+                "file_name": existing_submission.file_name,
+                "link_url": existing_submission.link_url,
+                "grade": existing_submission.grade,
+                "feedback": existing_submission.feedback,
+                "time_spent_minutes": existing_submission.time_spent_minutes,
+                "submitted_at": existing_submission.submitted_at,
+                "is_graded": existing_submission.grade is not None
+            }
+        else:
+            # Create new submission
+            new_submission = Submission(
+                assignment_id=assignment_id,
+                student_id=current_user.id,
+                content=content,
+                link_url=link_url,
+                file_path=file_path,
+                file_name=file_name,
+                time_spent_minutes=time_spent_minutes,
+                submitted_at=datetime.utcnow()
+            )
+            
+            db.add(new_submission)
+            db.commit()
+            db.refresh(new_submission)
+            
+            print(f"✅ Created new submission {new_submission.id}")
+            
+            return {
+                "id": new_submission.id,
+                "assignment_id": new_submission.assignment_id,
+                "student_id": new_submission.student_id,
+                "content": new_submission.content,
+                "file_path": new_submission.file_path,
+                "file_name": new_submission.file_name,
+                "link_url": new_submission.link_url,
+                "grade": new_submission.grade,
+                "feedback": new_submission.feedback,
+                "time_spent_minutes": new_submission.time_spent_minutes,
+                "submitted_at": new_submission.submitted_at,
+                "is_graded": new_submission.grade is not None
+            }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error creating submission with file: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create submission: {str(e)}"
+        )
+
+@app.put("/submissions/{submission_id}")
+async def update_submission_with_file(
+    submission_id: int,
+    assignment_id: int = Form(...),
+    content: Optional[str] = Form(None),
+    link_url: Optional[str] = Form(None),
+    time_spent_minutes: float = Form(...),
+    photo: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update a submission with optional file upload (Student only)
+    
+    - **submission_id**: ID of the submission to update
+    - **assignment_id**: ID of the assignment
+    - **content**: Text content (optional)
+    - **link_url**: Link URL (optional)
+    - **time_spent_minutes**: Time spent on the assignment
+    - **photo**: Optional file upload (PDF, DOC, DOCX, TXT, JPG, PNG, GIF, max 10MB)
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update submissions"
+        )
+    
+    try:
+        # Get submission
+        submission = db.query(Submission).filter(Submission.id == submission_id).first()
+        if not submission:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Submission not found"
+            )
+        
+        # Check if student owns this submission
+        if submission.student_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to update this submission"
+            )
+        
+        # Handle file upload if provided
+        if photo:
+            # Validate file type
+            allowed_extensions = {'.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.gif'}
+            file_extension = os.path.splitext(photo.filename)[1].lower() if photo.filename else ''
+            
+            if file_extension not in allowed_extensions:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"
+                )
+            
+            # Validate file size (max 10MB)
+            MAX_FILE_SIZE = 10 * 1024 * 1024
+            if photo.size and photo.size > MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB"
+                )
+            
+            # Generate unique filename
+            file_id = str(uuid.uuid4())
+            filename = f"{file_id}{file_extension}"
+            file_path = os.path.join(UPLOAD_DIR, filename)
+            file_name = photo.filename
+            
+            try:
+                # Save file
+                async with aiofiles.open(file_path, 'wb') as f:
+                    content_bytes = await photo.read()
+                    await f.write(content_bytes)
+                
+                # Update file path
+                submission.file_path = f"/uploads/{filename}"
+                submission.file_name = file_name
+                
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to save file: {str(e)}"
+                )
+        
+        # Update other fields
+        if content is not None:
+            submission.content = content
+        if link_url is not None:
+            submission.link_url = link_url
+        submission.time_spent_minutes = time_spent_minutes
+        submission.submitted_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(submission)
+        
+        print(f"✅ Updated submission {submission.id}")
+        
+        return {
+            "id": submission.id,
+            "assignment_id": submission.assignment_id,
+            "student_id": submission.student_id,
+            "content": submission.content,
+            "file_path": submission.file_path,
+            "file_name": submission.file_name,
+            "link_url": submission.link_url,
+            "grade": submission.grade,
+            "feedback": submission.feedback,
+            "time_spent_minutes": submission.time_spent_minutes,
+            "submitted_at": submission.submitted_at,
+            "is_graded": submission.grade is not None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error updating submission: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update submission: {str(e)}"
+        )
+
+@app.get("/submissions/{submission_id}/download")
+async def download_submission_file(
+    submission_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Download submission file
+    
+    Args:
+        submission_id: ID of the submission
+        
+    Returns:
+        File download
+        
+    Requires authentication.
+    """
+    try:
+        # Get submission
+        submission = db.query(Submission).filter(Submission.id == submission_id).first()
+        if not submission:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Submission not found"
+            )
+        
+        # Check permissions
+        if current_user.role == UserRole.STUDENT:
+            # Students can only download their own files
+            if submission.student_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to download this file"
+                )
+        elif current_user.role == UserRole.TEACHER:
+            # Teachers can download files for assignments they created
+            assignment = db.query(Assignment).filter(Assignment.id == submission.assignment_id).first()
+            if assignment.creator_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to download this file"
+                )
+        
+        if not submission.file_path:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No file attached to this submission"
+            )
+        
+        # Get full file path
+        file_path = submission.file_path
+        if file_path.startswith('/'):
+            file_path = file_path[1:]
+        
+        full_path = os.path.join(UPLOAD_DIR, os.path.basename(file_path))
+        
+        if not os.path.exists(full_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found on server"
+            )
+        
+        # Return file
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=full_path,
+            filename=submission.file_name or "submission_file",
+            media_type='application/octet-stream'
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error downloading file: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to download file: {str(e)}"
+        )
+
+# ====================================
+# API ENDPOINTS - TEACHER ASSIGNMENT SUBMISSIONS
+# ====================================
+
+@app.get("/assignments/{assignment_id}/submissions")
+async def get_assignment_submissions(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all submissions for a specific assignment (Teacher and Admin only)
+    
+    Args:
+        assignment_id: ID of the assignment
+        
+    Returns:
+        List of submissions with student information
+        
+    Requires authentication and TEACHER or ADMIN role.
+    """
+    # Check if current user is a teacher or admin
+    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view assignment submissions"
+        )
+    
+    try:
+        # Get assignment to verify it exists and user has access
+        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Assignment not found"
+            )
+        
+        # For teachers, verify they created this assignment
+        if current_user.role == UserRole.TEACHER and assignment.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to view submissions for this assignment"
+            )
+        
+        # Get submissions with student information
+        submissions = db.query(Submission).join(User, Submission.student_id == User.id).filter(
+            Submission.assignment_id == assignment_id
+        ).all()
+        
+        # Format response with student names
+        result = []
+        for submission in submissions:
+            student = submission.student
+            
+            # Get student name
+            student_name = student.username
+            if student.first_name and student.last_name:
+                student_name = f"{student.first_name} {student.last_name}"
+            elif student.first_name:
+                student_name = student.first_name
+            elif student.last_name:
+                student_name = student.last_name
+            
+            result.append({
+                "id": submission.id,
+                "assignment_id": submission.assignment_id,
+                "student_id": submission.student_id,
+                "student_name": student_name,
+                "student_email": student.username,
+                "content": submission.content,
+                "file_path": submission.file_path,
+                "file_name": submission.file_name,
+                "grade": submission.grade,
+                "feedback": submission.feedback,
+                "time_spent_minutes": submission.time_spent_minutes,
+                "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
+                "is_graded": submission.grade is not None,
+                "link_url": submission.link_url
+            })
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error getting assignment submissions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get assignment submissions: {str(e)}"
+        )
+
+@app.patch("/submissions/{submission_id}/grade")
+async def update_submission_grade(
+    submission_id: int,
+    grade_data: GradeUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update the grade for a submission (Teacher and Admin only)
+    
+    - **submission_id**: ID of the submission to grade
+    - **grade**: Grade value (float between 0 and 100)
+    - **feedback**: Optional feedback text
+    
+    Requires authentication and TEACHER or ADMIN role.
+    """
+    # Check if current user is a teacher or admin
+    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to grade submissions"
+        )
+    
+    try:
+        # Get submission
+        submission = db.query(Submission).filter(Submission.id == submission_id).first()
+        if not submission:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Submission not found"
+            )
+        
+        # Verify teacher has access to this assignment
+        if current_user.role == UserRole.TEACHER:
+            assignment = db.query(Assignment).filter(Assignment.id == submission.assignment_id).first()
+            if assignment.creator_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to grade this submission"
+                )
+        
+        # Update grade and feedback
+        submission.grade = grade_data.grade
+        submission.feedback = grade_data.feedback
+        
+        db.commit()
+        db.refresh(submission)
+        
+        return {
+            "id": submission.id,
+            "assignment_id": submission.assignment_id,
+            "student_id": submission.student_id,
+            "grade": submission.grade,
+            "feedback": submission.feedback,
+            "time_spent_minutes": submission.time_spent_minutes,
+            "submitted_at": submission.submitted_at,
+            "is_graded": submission.grade is not None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update submission grade: {str(e)}"
+        )
+
+# ====================================
+# API ENDPOINTS - STUDENT ASSIGNMENTS
+# ====================================
+
+@app.get("/assignments/student/{assignment_id}")
+async def get_student_assignment_detail(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get assignment details for a student
+    
+    Args:
+        assignment_id: ID of the assignment
+        
+    Returns:
+        Assignment details with class and teacher information
+        
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student assignment details"
+        )
+    
+    try:
+        print(f"📝 Fetching assignment {assignment_id} for student: {current_user.username}")
+        
+        # Get assignment
+        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Assignment not found"
+            )
+        
+        # Get class information
+        class_obj = db.query(Class).filter(Class.id == assignment.class_id).first()
+        class_name = class_obj.name if class_obj else f"Class {assignment.class_id}"
+        class_code = class_obj.code if class_obj else None
+        
+        # Get teacher information
+        teacher_name = "Unknown Teacher"
+        if class_obj and class_obj.teacher:
+            teacher = class_obj.teacher
+            teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
+        elif assignment.creator:
+            teacher_name = assignment.creator.first_name + " " + assignment.creator.last_name if assignment.creator.first_name and assignment.creator.last_name else assignment.creator.username
+        
+        # Check if student is enrolled in the class
+        enrollment = db.query(Enrollment).filter(
+            Enrollment.student_id == current_user.id,
+            Enrollment.class_id == assignment.class_id
+        ).first()
+        
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not enrolled in the class for this assignment"
+            )
+        
+        return {
+            "id": assignment.id,
+            "name": assignment.name,
+            "description": assignment.description,
+            "class_id": assignment.class_id,
+            "class_name": class_name,
+            "class_code": class_code,
+            "teacher_name": teacher_name,
+            "creator_id": assignment.creator_id,
+            "created_at": assignment.created_at.isoformat() if assignment.created_at else None,
+            "due_date": assignment.due_date.isoformat() if assignment.due_date else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching student assignment: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch student assignment: {str(e)}"
+        )
+
+@app.get("/students/me/assignments/{assignment_id}")
+async def get_student_my_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get assignment details for the current student
+    
+    Args:
+        assignment_id: ID of the assignment
+        
+    Returns:
+        Assignment details for the current student
+        
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student assignments"
+        )
+    
+    try:
+        print(f"📝 Fetching assignment {assignment_id} for student: {current_user.username}")
+        
+        # Get assignment
+        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Assignment not found"
+            )
+        
+        # Get class information
+        class_obj = db.query(Class).filter(Class.id == assignment.class_id).first()
+        class_name = class_obj.name if class_obj else f"Class {assignment.class_id}"
+        class_code = class_obj.code if class_obj else None
+        
+        # Get teacher information
+        teacher_name = "Unknown Teacher"
+        if class_obj and class_obj.teacher:
+            teacher = class_obj.teacher
+            teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
+        elif assignment.creator:
+            teacher_name = assignment.creator.first_name + " " + assignment.creator.last_name if assignment.creator.first_name and assignment.creator.last_name else assignment.creator.username
+        
+        # Check if student is enrolled in the class
+        enrollment = db.query(Enrollment).filter(
+            Enrollment.student_id == current_user.id,
+            Enrollment.class_id == assignment.class_id
+        ).first()
+        
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not enrolled in the class for this assignment"
+            )
+        
+        return {
+            "id": assignment.id,
+            "name": assignment.name,
+            "description": assignment.description,
+            "class_id": assignment.class_id,
+            "class_name": class_name,
+            "class_code": class_code,
+            "teacher_name": teacher_name,
+            "creator_id": assignment.creator_id,
+            "created_at": assignment.created_at.isoformat() if assignment.created_at else None,
+            "due_date": assignment.due_date.isoformat() if assignment.due_date else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching student assignment: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch student assignment: {str(e)}"
+        )
+
+@app.get("/submissions/assignment/{assignment_id}/student")
+async def get_student_submission_for_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the current student's submission for a specific assignment
+    
+    Returns:
+        The student's submission for the specified assignment, or 404 if not found
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view submissions"
+        )
+    
+    try:
+        # Get the student's submission for this assignment
+        submission = db.query(Submission).filter(
+            Submission.assignment_id == assignment_id,
+            Submission.student_id == current_user.id
+        ).first()
+        
+        if not submission:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No submission found for this assignment"
+            )
+        
+        return {
+            "id": submission.id,
+            "assignment_id": submission.assignment_id,
+            "student_id": submission.student_id,
+            "content": submission.content,
+            "file_path": submission.file_path,
+            "file_name": submission.file_name,
+            "grade": submission.grade,
+            "feedback": submission.feedback,
+            "time_spent_minutes": submission.time_spent_minutes,
+            "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
+            "is_graded": submission.grade is not None,
+            "link_url": submission.link_url
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching student submission: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch submission: {str(e)}"
+        )
+
+@app.get("/students/me/submissions/{assignment_id}")
+async def get_student_my_submission(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the current student's submission for a specific assignment
+    
+    Returns:
+        The student's submission for the specified assignment, or 404 if not found
+    
+    Requires authentication and STUDENT role.
+    """
+    # Check if current user is a student
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view submissions"
+        )
+    
+    try:
+        # Get the student's submission for this assignment
+        submission = db.query(Submission).filter(
+            Submission.assignment_id == assignment_id,
+            Submission.student_id == current_user.id
+        ).first()
+        
+        if not submission:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No submission found for this assignment"
+            )
+        
+        return {
+            "id": submission.id,
+            "assignment_id": submission.assignment_id,
+            "student_id": submission.student_id,
+            "content": submission.content,
+            "file_path": submission.file_path,
+            "file_name": submission.file_name,
+            "grade": submission.grade,
+            "feedback": submission.feedback,
+            "time_spent_minutes": submission.time_spent_minutes,
+            "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
+            "is_graded": submission.grade is not None,
+            "link_url": submission.link_url
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching student submission: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch submission: {str(e)}"
+        )
+
+# ====================================
+# EXISTING ENDPOINTS (from your original code)
+# ====================================
 
 @app.get("/")
 async def root():
@@ -1369,149 +2402,6 @@ async def get_engagement_insights(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get engagement insights: {str(e)}"
-        )
-
-@app.get("/assignments/{assignment_id}/submissions")
-async def get_assignment_submissions(
-    assignment_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get all submissions for a specific assignment (Teacher and Admin only)
-    
-    - **assignment_id**: ID of the assignment to get submissions for
-    
-    Returns list of submissions with student information, grades, and time spent.
-    
-    Requires authentication and TEACHER or ADMIN role.
-    """
-    # Check if current user is a teacher or admin
-    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view assignment submissions"
-        )
-    
-    try:
-        # Get assignment to verify it exists and user has access
-        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
-        if not assignment:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Assignment not found"
-            )
-        
-        # For teachers, verify they created this assignment
-        if current_user.role == UserRole.TEACHER and assignment.creator_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to view submissions for this assignment"
-            )
-        
-        # Get submissions with student information
-        from models import Submission, User
-        submissions = db.query(Submission).join(User, Submission.student_id == User.id).filter(
-            Submission.assignment_id == assignment_id
-        ).all()
-        
-        # Format response with student names
-        result = []
-        for submission in submissions:
-            result.append({
-                "id": submission.id,
-                "assignment_id": submission.assignment_id,
-                "student_id": submission.student_id,
-                "student_name": submission.student.username,
-                "grade": submission.grade,
-                "time_spent_minutes": submission.time_spent_minutes,
-                "submitted_at": submission.submitted_at,
-                "is_graded": submission.grade is not None
-            })
-        
-        return result
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get assignment submissions: {str(e)}"
-        )
-
-@app.patch("/submissions/{submission_id}/grade")
-async def update_submission_grade(
-    submission_id: int,
-    grade_data: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Update the grade for a submission (Teacher and Admin only)
-    
-    - **submission_id**: ID of the submission to grade
-    - **grade**: Grade value (float between 0 and 100)
-    
-    Requires authentication and TEACHER or ADMIN role.
-    """
-    # Check if current user is a teacher or admin
-    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to grade submissions"
-        )
-    
-    try:
-        # Get submission
-        from models import Submission
-        submission = db.query(Submission).filter(Submission.id == submission_id).first()
-        if not submission:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Submission not found"
-            )
-        
-        # Verify teacher has access to this assignment
-        if current_user.role == UserRole.TEACHER and submission.assignment.creator_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to grade this submission"
-            )
-        
-        # Validate grade
-        grade = grade_data.get("grade")
-        if grade is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Grade is required"
-            )
-        
-        if not isinstance(grade, (int, float)) or grade < 0 or grade > 100:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Grade must be a number between 0 and 100"
-            )
-        
-        # Update grade
-        submission.grade = float(grade)
-        db.commit()
-        db.refresh(submission)
-        
-        return {
-            "id": submission.id,
-            "assignment_id": submission.assignment_id,
-            "student_id": submission.student_id,
-            "grade": submission.grade,
-            "time_spent_minutes": submission.time_spent_minutes,
-            "submitted_at": submission.submitted_at
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update submission grade: {str(e)}"
         )
 
 @app.get("/users/", response_model=list[UserResponse])
@@ -2982,80 +3872,6 @@ async def get_student_assignments(
             detail=f"Failed to fetch student assignments: {str(e)}"
         )
 
-@app.get("/students/me/assignments/{assignment_id}", response_model=AssignmentResponse)
-async def get_student_assignment_by_id(
-    assignment_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get a specific assignment for the current student (Student only)
-    
-    Returns:
-        Assignment data if the student is enrolled in the class
-    
-    Requires authentication and STUDENT role.
-    """
-    # Check if current user is a student
-    if current_user.role != UserRole.STUDENT:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view student assignments"
-        )
-    
-    try:
-        # Get assignment
-        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
-        if not assignment:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Assignment not found"
-            )
-        
-        # Check if student is enrolled in the class for this assignment
-        enrollment = db.query(Enrollment).filter(
-            Enrollment.student_id == current_user.id,
-            Enrollment.class_id == assignment.class_id
-        ).first()
-        
-        if not enrollment:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not enrolled in the class for this assignment"
-            )
-        
-        # Get class information
-        class_obj = db.query(Class).filter(Class.id == assignment.class_id).first()
-        class_name = class_obj.name if class_obj else f"Class {assignment.class_id}"
-        
-        # Get teacher information
-        teacher_name = "Unknown Teacher"
-        if class_obj and class_obj.teacher:
-            teacher = class_obj.teacher
-            teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
-        elif assignment.creator:
-            teacher_name = assignment.creator.first_name + " " + assignment.creator.last_name if assignment.creator.first_name and assignment.creator.last_name else assignment.creator.username
-        
-        return AssignmentResponse(
-            id=assignment.id,
-            name=assignment.name,
-            description=assignment.description,
-            class_id=assignment.class_id,
-            class_name=class_name,
-            class_code=class_obj.code if class_obj else None,
-            teacher_name=teacher_name,
-            creator_id=assignment.creator_id,
-            created_at=assignment.created_at
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch student assignment: {str(e)}"
-        )
-
 @app.get("/students/me/grades")
 async def get_student_grades(
     db: Session = Depends(get_db),
@@ -3111,144 +3927,6 @@ async def get_student_grades(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student grades: {str(e)}"
-        )
-
-# Submission endpoints
-
-@app.get("/submissions/assignment/{assignment_id}/student")
-async def get_student_submission_for_assignment(
-    assignment_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get the current student's submission for a specific assignment
-    
-    Returns:
-        The student's submission for the specified assignment, or 404 if not found
-    
-    Requires authentication and STUDENT role.
-    """
-    # Check if current user is a student
-    if current_user.role != UserRole.STUDENT:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view submissions"
-        )
-    
-    try:
-        # Get the student's submission for this assignment
-        submission = db.query(Submission).filter(
-            Submission.assignment_id == assignment_id,
-            Submission.student_id == current_user.id
-        ).first()
-        
-        if not submission:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No submission found for this assignment"
-            )
-        
-        return {
-            "id": submission.id,
-            "assignment_id": submission.assignment_id,
-            "student_id": submission.student_id,
-            "grade": submission.grade,
-            "time_spent_minutes": submission.time_spent_minutes,
-            "submitted_at": submission.submitted_at,
-            "is_graded": submission.grade is not None
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch submission: {str(e)}"
-        )
-
-@app.put("/submissions/{submission_id}")
-async def update_submission(
-    submission_id: int,
-    submission_update: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Update a submission (Student only)
-    
-    Args:
-        submission_id: ID of the submission to update
-        submission_update: Dictionary containing fields to update
-        
-    Returns:
-        Updated submission data
-        
-    Requires authentication and STUDENT role.
-    Students can only update their own submissions.
-    """
-    # Check if current user is a student
-    if current_user.role != UserRole.STUDENT:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update submissions"
-        )
-    
-    try:
-        # Get submission
-        submission = db.query(Submission).filter(Submission.id == submission_id).first()
-        if not submission:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Submission not found"
-            )
-        
-        # Check if student owns this submission
-        if submission.student_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to update this submission"
-            )
-        
-        # Check if submission is already graded (can't update graded submissions)
-        if submission.grade is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot update already graded submission"
-            )
-        
-        # Update submission fields
-        if 'time_spent_minutes' in submission_update:
-            time_spent = submission_update['time_spent_minutes']
-            if not isinstance(time_spent, (int, float)) or time_spent < 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="time_spent_minutes must be a positive number"
-                )
-            submission.time_spent_minutes = time_spent
-        
-        # Update submission timestamp
-        submission.submitted_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(submission)
-        
-        return {
-            "id": submission.id,
-            "assignment_id": submission.assignment_id,
-            "student_id": submission.student_id,
-            "grade": submission.grade,
-            "time_spent_minutes": submission.time_spent_minutes,
-            "submitted_at": submission.submitted_at
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update submission: {str(e)}"
         )
 
 @app.delete("/submissions/{submission_id}")

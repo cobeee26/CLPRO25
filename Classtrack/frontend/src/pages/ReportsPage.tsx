@@ -44,8 +44,6 @@ interface TeacherReports {
     overall_submission_rate: number;
   };
 }
-
-// Extended User interface to include name property
 interface ExtendedUser {
   id: number;
   email: string;
@@ -56,7 +54,6 @@ interface ExtendedUser {
   username?: string;
 }
 
-// SweetAlert2 Configuration with Auto-Dismiss Timer
 const swalConfig = {
   customClass: {
     title: 'text-lg font-bold text-gray-900',
@@ -82,26 +79,21 @@ const ReportsPage: React.FC = () => {
     classes: false
   });
 
-  // Enhanced loading states
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // Helper function to get user display name
   const getUserDisplayName = (user: any): string => {
     if (!user) return 'User';
-    
-    // Try different possible name properties
     if (user.name) return user.name;
     if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
     if (user.first_name) return user.first_name;
     if (user.username) return user.username;
-    if (user.email) return user.email.split('@')[0]; // Use part of email as fallback
+    if (user.email) return user.email.split('@')[0]; 
     
     return user.role === 'admin' ? 'Admin User' : 'Teacher';
   };
 
-  // SweetAlert Helper Functions with Auto-Dismiss
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -257,13 +249,11 @@ const ReportsPage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
-  // Update loading progress
   const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
     const progress = Math.floor((step / totalSteps) * 100);
     setLoadingProgress(progress);
   };
 
-  // Enhanced loading function
   const loadReportsData = async () => {
     try {
       console.log('🔄 Loading reports data...');
@@ -309,7 +299,6 @@ const ReportsPage: React.FC = () => {
         const reportsData = await getTeacherReports();
         console.log('Teacher reports fetched:', reportsData);
         
-        // Validate and ensure the data structure is correct
         if (reportsData) {
           const validatedReports: TeacherReports = {
             class_performance: reportsData.class_performance || [],
@@ -323,7 +312,6 @@ const ReportsPage: React.FC = () => {
           };
           setTeacherReports(validatedReports);
         } else {
-          // If no data returned, set empty structure
           setTeacherReports({
             class_performance: [],
             student_performance: [],
@@ -361,23 +349,19 @@ const ReportsPage: React.FC = () => {
     }
   };
 
-  // Fetch data on component mount - role-aware
   useEffect(() => {
     loadReportsData();
   }, [user]);
 
-  // Calculate metrics
   const totalActiveUsers = users.filter(user => user.role === 'teacher' || user.role === 'student').length;
   const totalActiveClasses = classes.filter(cls => cls.status === 'Active').length;
   const totalTeachers = users.filter(user => user.role === 'teacher').length;
   const totalStudents = users.filter(user => user.role === 'student').length;
 
-  // Calculate total students across all teacher's classes
   const totalStudentsInMyClasses = teacherReports?.class_performance.reduce((total, classData) => {
     return total + (classData.total_students || 0);
   }, 0) || 0;
 
-  // CSV Helper Function
   const downloadCSV = (data: any[], filename: string) => {
     if (!data || data.length === 0) {
       console.warn('No data to export');
@@ -415,7 +399,6 @@ const ReportsPage: React.FC = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      // Show success alert
       showSuccessAlert('Export Successful!', `Successfully exported ${data.length} records. The file will download automatically.`, 'export', true, 3000);
       
     } catch (error) {
@@ -425,7 +408,6 @@ const ReportsPage: React.FC = () => {
     }
   };
 
-  // Export users function
   const handleExportUsers = async () => {
     console.log('Export Users Data button clicked');
     setExportLoading(prev => ({ ...prev, users: true }));
@@ -447,7 +429,6 @@ const ReportsPage: React.FC = () => {
     }
   };
 
-  // Export classes function
   const handleExportClasses = async () => {
     console.log('Export Classes Data button clicked');
     setExportLoading(prev => ({ ...prev, classes: true }));
@@ -469,7 +450,6 @@ const ReportsPage: React.FC = () => {
     }
   };
 
-  // Export button handlers
   const exportUsersToCSV = () => {
     showConfirmDialog(
       'Export Users Data',
@@ -494,11 +474,9 @@ const ReportsPage: React.FC = () => {
     });
   };
 
-  // Loading Screen (similar to Dashboard)
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -521,7 +499,6 @@ const ReportsPage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-purple-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Your Analytics Dashboard
@@ -531,7 +508,6 @@ const ReportsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -545,7 +521,6 @@ const ReportsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
           {[
             { text: "Users", color: "bg-blue-100 text-blue-600" },
@@ -565,14 +540,12 @@ const ReportsPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             Preparing comprehensive analytics...
@@ -582,7 +555,6 @@ const ReportsPage: React.FC = () => {
     );
   }
 
-  // Error Screen (similar to Dashboard)
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -656,7 +628,6 @@ const ReportsPage: React.FC = () => {
 
   return (
     <div className="h-screen w-full bg-white overflow-hidden relative flex">
-      {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -686,13 +657,8 @@ const ReportsPage: React.FC = () => {
           </button>
         </div>
       </header>
-
-      {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-0 h-screen pt-16 lg:pt-0">
-        {/* Dynamic Header */}
         <div className="hidden lg:block relative z-30 flex-shrink-0">
           <DynamicHeader 
             title={user?.role === 'admin' ? "System Reports & Analytics" : "My Reports & Analytics"}
@@ -706,7 +672,6 @@ const ReportsPage: React.FC = () => {
           />
         </div>
 
-        {/* Status Bar (similar to Dashboard) */}
         <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
@@ -729,11 +694,8 @@ const ReportsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8 relative z-20">
           <div className="dashboard-content w-full max-w-7xl mx-auto">
-            
-            {/* Loading State */}
             {loading && !isInitialLoading && (
               <div className="flex items-center justify-center py-20">
                 <div className="flex flex-col items-center space-y-4">
@@ -749,7 +711,6 @@ const ReportsPage: React.FC = () => {
               </div>
             )}
 
-            {/* Error State */}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 lg:px-6 py-3 lg:py-4 rounded-2xl mb-6 lg:mb-8">
                 <div className="flex items-center space-x-3">
@@ -763,10 +724,8 @@ const ReportsPage: React.FC = () => {
               </div>
             )}
 
-            {/* Main Content */}
             {!loading && !error && (
               <div className="space-y-6 lg:space-y-8">
-                {/* Hero Section */}
                 <div className="text-center py-4 lg:py-8">
                   <div className="inline-flex items-center justify-center w-14 h-14 lg:w-20 lg:h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl lg:rounded-3xl mb-4 lg:mb-6 shadow-2xl shadow-blue-500/25">
                     <svg className="w-6 h-6 lg:w-10 lg:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -784,9 +743,7 @@ const ReportsPage: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Key Metrics Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
-                  {/* Active Users / My Students - BLUE CARD */}
                   <div className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-100 to-purple-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-blue-200 hover:border-blue-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
@@ -829,7 +786,6 @@ const ReportsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Active Classes / My Classes - GREEN CARD */}
                   <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-100 to-teal-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-emerald-200 hover:border-emerald-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
@@ -865,7 +821,6 @@ const ReportsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* System Health / Class Performance - PURPLE CARD */}
                   <div className="group relative overflow-hidden bg-gradient-to-br from-purple-50 via-purple-100 to-pink-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-purple-200 hover:border-purple-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
@@ -901,7 +856,6 @@ const ReportsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Data Integrity / Submission Rate - ORANGE CARD */}
                   <div className="group relative overflow-hidden bg-gradient-to-br from-orange-50 via-orange-100 to-red-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-orange-200 hover:border-orange-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
@@ -938,10 +892,8 @@ const ReportsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Teacher-specific Student Performance Section */}
                 {user?.role === 'teacher' && teacherReports && (
                   <div className="space-y-6 lg:space-y-8">
-                    {/* Class Performance Overview */}
                     {teacherReports.class_performance.length > 0 ? (
                       <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                         <div className="text-center mb-6 lg:mb-8">
@@ -999,7 +951,6 @@ const ReportsPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Individual Student Performance Table */}
                     {teacherReports.student_performance.length > 0 ? (
                       <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                         <div className="text-center mb-6 lg:mb-8">
@@ -1014,7 +965,6 @@ const ReportsPage: React.FC = () => {
                           </p>
                         </div>
                         
-                        {/* Mobile Card View */}
                         <div className="block lg:hidden space-y-3">
                           {teacherReports.student_performance.map((student) => (
                             <div key={`${student.student_id}-${student.class_id}`} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -1056,7 +1006,6 @@ const ReportsPage: React.FC = () => {
                           ))}
                         </div>
 
-                        {/* Desktop Table View */}
                         <div className="hidden lg:block overflow-x-auto">
                           <table className="w-full text-left">
                             <thead>
@@ -1118,7 +1067,6 @@ const ReportsPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Data Export Section - Admin Only */}
                 {user?.role === 'admin' && (
                   <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                     <div className="text-center mb-6 lg:mb-8">
@@ -1134,7 +1082,6 @@ const ReportsPage: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 gap-4 lg:gap-6">
-                      {/* Export Users Button */}
                       <button
                         onClick={exportUsersToCSV}
                         disabled={exportLoading.users}
@@ -1165,7 +1112,6 @@ const ReportsPage: React.FC = () => {
                         </div>
                       </button>
 
-                      {/* Export Classes Button */}
                       <button
                         onClick={exportClassesToCSV}
                         disabled={exportLoading.classes}
@@ -1197,7 +1143,6 @@ const ReportsPage: React.FC = () => {
                       </button>
                     </div>
 
-                    {/* Additional Info */}
                     <div className="mt-6 lg:mt-8 p-4 lg:p-6 bg-gray-50 rounded-xl lg:rounded-2xl border border-gray-200">
                       <div className="flex items-start space-x-3 lg:space-x-4">
                         <div className="p-1 lg:p-2 bg-blue-100 rounded-lg">

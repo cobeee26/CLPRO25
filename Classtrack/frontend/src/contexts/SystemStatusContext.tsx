@@ -24,20 +24,17 @@ export const SystemStatusProvider: React.FC<SystemStatusProviderProps> = ({ chil
   const [isSystemActive, setIsSystemActive] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // Simulate real-time system status monitoring
   useEffect(() => {
     const interval = setInterval(() => {
-      // In a real application, this would check actual system status
-      // For now, we'll simulate a 99.9% uptime system
-      const isActive = Math.random() > 0.001; // 99.9% chance of being active
+
+      const isActive = Math.random() > 0.001; 
       setIsSystemActive(isActive);
       setLastUpdate(new Date());
-    }, 30000); // Check every 30 seconds
+    }, 30000); 
 
     return () => clearInterval(interval);
   }, []);
 
-  // Listen for visibility changes to update status when user returns to tab
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {

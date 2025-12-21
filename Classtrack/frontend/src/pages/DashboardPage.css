@@ -1,4 +1,3 @@
-/* Dashboard Page Specific Styles */
 .dashboard-container {
   position: fixed !important;
   top: 0 !important;
@@ -13,17 +12,15 @@
   z-index: 1;
 }
 
-/* Remove all scrollbars */
 .dashboard-container * {
-  scrollbar-width: none !important; /* Firefox */
-  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .dashboard-container *::-webkit-scrollbar {
-  display: none !important; /* Chrome, Safari, Opera */
+  display: none !important; 
 }
 
-/* Force no scrollbars on main content */
 .dashboard-main {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
@@ -61,7 +58,6 @@
   gap: 1rem !important;
 }
 
-/* Responsive Grid Fixes */
 @media (min-width: 640px) {
   .dashboard-grid {
     gap: 1.5rem !important;
@@ -74,14 +70,12 @@
   }
 }
 
-/* Prevent Layout Collapse */
 .dashboard-card {
   min-width: 0 !important;
   width: 100% !important;
   flex-shrink: 0 !important;
 }
 
-/* Center Alignment Fix */
 .dashboard-center {
   display: flex !important;
   justify-content: center !important;
@@ -89,7 +83,6 @@
   width: 100% !important;
 }
 
-/* Perfect Centering on Refresh */
 .dashboard-content {
   display: flex !important;
   flex-direction: column !important;
@@ -100,7 +93,6 @@
   text-align: center !important;
 }
 
-/* Ensure content stays centered */
 .dashboard-welcome {
   width: 100% !important;
   text-align: center !important;
@@ -114,16 +106,15 @@
   align-items: center !important;
 }
 
-/* ✅ FIX: Allow scroll on pages outside dashboard (like LoginPage) */
 html,
 body {
   margin: 0 !important;
   padding: 0 !important;
   width: 100% !important;
-  height: auto !important; /* ✅ allow vertical growth */
+  height: auto !important; 
   min-height: 100vh !important;
-  overflow-x: hidden !important; /* ✅ prevent side scroll */
-  overflow-y: auto !important; /* ✅ enable scroll globally */
+  overflow-x: hidden !important; 
+  overflow-y: auto !important; 
   scrollbar-width: thin !important;
   -ms-overflow-style: auto !important;
 }
@@ -143,11 +134,11 @@ body,
 #root {
   margin: 0 !important;
   padding: 0 !important;
-  width: 100% !important; /* ✅ no scrollbar width calculation */
-  max-width: 100% !important; /* ✅ prevent extra spacing on right */
+  width: 100% !important; 
+  max-width: 100% !important; 
   min-height: 100vh !important;
   height: auto !important;
-  overflow-x: hidden !important; /* ✅ removes blue gap sides */
+  overflow-x: hidden !important; 
   background: none !important;
 }
 
@@ -155,18 +146,15 @@ body,
   display: none !important;
 }
 
-/* Smooth Transitions */
 .dashboard-transition {
   transition: all 0.3s ease-in-out !important;
 }
 
-/* Prevent Text Overflow */
 .dashboard-text {
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;
 }
 
-/* Mobile Responsive Fixes */
 @media (max-width: 1023px) {
   .dashboard-sidebar {
     position: fixed !important;
@@ -187,7 +175,6 @@ body,
   }
 }
 
-/* Desktop Layout */
 @media (min-width: 1024px) {
   .dashboard-sidebar {
     position: relative !important;

@@ -28,7 +28,6 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
   const { isSystemActive, lastUpdate } = useSystemStatus();
   const { user } = useUser();
 
-  // Helper function to construct full image URL
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -56,7 +55,6 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
     return constructedUrl;
   };
 
-  // Helper function to get role icon
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -156,7 +154,6 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 
-  // Get role-specific user display information
   const getUserDisplayInfo = () => {
     if (!user) {
       return {
@@ -205,11 +202,8 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
 
   const userInfo = getUserDisplayInfo();
 
-  // Get role-specific avatar gradient
   const getRoleAvatarGradient = () => {
     let userRole = user?.role || localStorage.getItem("userRole") || "student";
-
-    // Strict role validation - only allow valid roles
     const validRoles = ["admin", "teacher", "student"];
     if (!validRoles.includes(userRole)) {
       console.warn(
@@ -234,9 +228,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
     <header className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40 h-16 lg:h-20">
       <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 h-full">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center py-3 lg:py-4 space-y-2 lg:space-y-0 h-full">
-          {/* Left Section - Hamburger Menu, Logo and Title */}
           <div className="flex items-center space-x-3 lg:space-x-4">
-            {/* Hamburger Menu Button for Mobile */}
             {showMenuToggle && (
               <button
                 onClick={onMenuToggle}
@@ -244,12 +236,10 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
                 aria-label="Toggle menu"
               >
                 {sidebarOpen ? (
-                  // Close icon (X)
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 ) : (
-                  // Menu icon (Hamburger)
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
@@ -269,9 +259,7 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
             </div>
           </div>
 
-          {/* Right Section - Dynamic Status and User Profile */}
           <div className="flex items-center space-x-4 lg:space-x-6">
-            {/* Dynamic Status Indicator */}
             <div className={`flex items-center space-x-2 bg-gray-50 backdrop-blur-sm rounded-full px-3 py-2 border border-gray-200 transition-all duration-300`}>
               <div className="relative">
                 <div className={`w-2 h-2 bg-${getStatusColor()}-500 rounded-full ${isSystemActive ? 'animate-pulse' : 'animate-pulse'}`}></div>
@@ -289,7 +277,6 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
               </div>
             </div>
             
-            {/* Enhanced User Profile - Role-based display */}
             <div className="flex items-center space-x-3 lg:space-x-4 bg-gray-50 backdrop-blur-sm rounded-2xl px-4 py-2 border border-gray-200 hover:bg-gray-100 transition-all duration-300 group">
               <div className="text-right space-y-1">
                 <p className="text-sm lg:text-base font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">{userInfo.name}</p>
@@ -333,7 +320,6 @@ const DynamicHeader: React.FC<DynamicHeaderProps> = ({
                     {getRoleIcon(user?.role || "teacher")}
                   </div>
                 </div>
-                {/* Dynamic status indicator */}
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-${getStatusColor()}-500 rounded-full border-2 border-white ${isSystemActive ? 'animate-pulse' : 'animate-pulse'}`}></div>
               </div>
             </div>

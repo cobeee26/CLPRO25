@@ -1,0 +1,32 @@
+                          Git Cheatsheet  
+
+// Repository 
+git init                      // Initialize a new Git Repo
+git clone <repo-url>          // Clone a Repo from URL 
+
+// Basics 
+git status                   // Show Change Status   
+git add <file>               // Add Changes to Staging 
+git commit -m "Message"      // Commit Changes with a message  
+git log                      // View Commit History 
+
+// Branching 
+git branch                        // List branches 
+git branch <branch-name>          // Create a new branch 
+git checkout <branch-name>        // Switch to a branch 
+git merge <branch-name>           // Merge changes from a branch 
+git branch -d <branch-name>       // Delete a branch 
+
+// Remote Repositories 
+git remote                        // List remotes 
+git remote add <name> <url>       // Add a Remote 
+git push <remote <branch>         // Push changes to a remote 
+git pull <remote> <branch>        // Pull changes from a remote 
+
+// Undoing Changes 
+git pull                          // Fetch and merge changes 
+git fetch                         // Fetch changes without merging 
+git reset --hard HEAD             // Discard changes 
+git revert <commit-has>           // Revert changes in a commit 
+
+

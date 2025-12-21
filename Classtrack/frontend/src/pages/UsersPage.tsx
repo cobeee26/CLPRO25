@@ -32,12 +32,10 @@ const UsersPage: React.FC = () => {
   const [filterRole, setFilterRole] = useState<string>('All');
   const [users, setUsers] = useState<User[]>([]);
   
-  // Loading states
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   
-  // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -60,7 +58,6 @@ const UsersPage: React.FC = () => {
   const [editFormError, setEditFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // SweetAlert2 Configuration with Auto-Dismiss Timer
   const swalConfig = {
     customClass: {
       title: 'text-lg font-bold text-gray-900',
@@ -73,7 +70,6 @@ const UsersPage: React.FC = () => {
     background: '#ffffff'
   };
 
-  // SweetAlert Helper Functions with Auto-Dismiss
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -259,7 +255,6 @@ const UsersPage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
-  // Format date function - FIXED to handle different months
   const formatDate = (dateString?: string): string => {
     if (!dateString) return 'N/A';
     
@@ -278,24 +273,18 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  // Generate realistic dates based on user ID and role
   const generateRealisticDate = (userId: number, role: string, index: number): string => {
     const now = new Date();
     let daysAgo = 0;
     
-    // Generate dates based on user ID and role
     if (role.toLowerCase() === 'admin') {
-      // Admins created more recently (last 0-30 days)
       daysAgo = userId % 31;
     } else if (role.toLowerCase() === 'teacher') {
-      // Teachers created 30-90 days ago
       daysAgo = 30 + (userId % 61);
     } else {
-      // Students created 60-180 days ago
       daysAgo = 60 + (userId % 121);
     }
     
-    // Add some variation based on index
     daysAgo += index % 7;
     
     const date = new Date(now);
@@ -303,13 +292,11 @@ const UsersPage: React.FC = () => {
     return date.toISOString();
   };
 
-  // Update loading progress
   const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
     const progress = Math.floor((step / totalSteps) * 100);
     setLoadingProgress(progress);
   };
 
-  // Main data loading function
   const loadUsersData = async () => {
     try {
       console.log("🔄 Loading users data...");
@@ -317,17 +304,13 @@ const UsersPage: React.FC = () => {
       setHasInitialLoadError(false);
       setLoadingProgress(10);
 
-      // Step 1: Fetch users
       updateLoadingProgress(1, 3);
       await fetchUsers();
 
-      // Step 2: Process data
       updateLoadingProgress(2, 3);
 
-      // Step 3: Complete loading
       updateLoadingProgress(3, 3);
       
-      // Complete loading
       setTimeout(() => {
         setIsInitialLoading(false);
         setLoadingProgress(100);
@@ -343,18 +326,14 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  // Fetch users data on component mount
   const fetchUsers = async () => {
     try {
       setLoadingProgress(25);
       const apiUsers: ApiUser[] = await getAllUsers();
       
-      // Transform API data to match our interface - USING REALISTIC DATES
       const transformedUsers: User[] = apiUsers.map((apiUser, index) => {
-        // Try to use actual created_at date from backend first
         let dateCreated = apiUser.created_at;
         
-        // If no created_at from backend, generate realistic date
         if (!dateCreated) {
           dateCreated = generateRealisticDate(apiUser.id, apiUser.role, index);
         }
@@ -368,11 +347,10 @@ const UsersPage: React.FC = () => {
         };
       });
       
-      // Sort by date created (newest first)
       transformedUsers.sort((a, b) => {
         const dateA = new Date(a.dateCreated || 0).getTime();
         const dateB = new Date(b.dateCreated || 0).getTime();
-        return dateB - dateA; // Descending order (newest first)
+        return dateB - dateA; 
       });
       
       setUsers(transformedUsers);
@@ -387,7 +365,6 @@ const UsersPage: React.FC = () => {
     loadUsersData();
   }, []);
 
-  // Force center alignment on mount and resize
   useEffect(() => {
     const handleResize = () => {
       window.scrollTo(0, 0);
@@ -413,7 +390,6 @@ const UsersPage: React.FC = () => {
     };
   }, []);
 
-  // Filter users based on search term and role
   const filteredUsers = users.filter(user => {
     const matchesSearch = searchTerm === '' || 
                          user.username.toLowerCase().includes(searchTerm.toLowerCase());
@@ -464,7 +440,6 @@ const UsersPage: React.FC = () => {
   const handleCreateUser = () => {
     setIsModalOpen(true);
     setFormError(null);
-    // Reset form data - walang laman na
     setFormData({
       username: '',
       password: '',
@@ -475,7 +450,6 @@ const UsersPage: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setFormError(null);
-    // Reset form data pag sinara ang modal - walang laman na
     setFormData({
       username: '',
       password: '',
@@ -491,19 +465,16 @@ const UsersPage: React.FC = () => {
     try {
       showLoadingAlert("Creating user...", false);
 
-      // Prepare user data for API call
       const userData: UserCreate = {
         username: formData.username,
         password: formData.password,
         role: formData.role.toLowerCase() as 'teacher' | 'student'
       };
 
-      // Call the API to create user
       const createdUser = await createUserByAdmin(userData);
       
       closeAlert();
       
-      // Show success alert
       await showSuccessAlert(
         "User Created!",
         `User "${createdUser.username}" has been created successfully.`,
@@ -512,12 +483,10 @@ const UsersPage: React.FC = () => {
         3000
       );
       
-      // Refresh the users list
       await fetchUsers();
       
       handleCloseModal();
       
-      // Show draggable success alert
       setTimeout(() => {
         showDraggableAlert("Success!", `User "${createdUser.username}" created successfully!`, true, 2000);
       }, 100);
@@ -586,7 +555,6 @@ const UsersPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!deletingUser) return;
     
-    // Show confirmation dialog
     const result = await showConfirmDialog(
       'Confirm Delete',
       `Are you sure you want to delete user "${deletingUser.username}"? This action cannot be undone.`,
@@ -605,12 +573,10 @@ const UsersPage: React.FC = () => {
     try {
       showLoadingAlert("Deleting user...", false);
 
-      // Call the API to delete user
       await deleteUserByAdmin(deletingUser.id);
       
       closeAlert();
       
-      // Show success alert
       await showSuccessAlert(
         "User Deleted!",
         `User "${deletingUser.username}" has been deleted successfully.`,
@@ -619,12 +585,10 @@ const UsersPage: React.FC = () => {
         3000
       );
       
-      // Refresh the users list
       await fetchUsers();
       
       handleCloseDeleteModal();
       
-      // Show draggable success alert
       setTimeout(() => {
         showDraggableAlert("Deleted!", `User "${deletingUser.username}" deleted successfully!`, true, 2000);
       }, 100);
@@ -665,18 +629,15 @@ const UsersPage: React.FC = () => {
     try {
       showLoadingAlert("Updating user...", false);
 
-      // Prepare user data for API call (only include password if provided)
       const updateData: UserUpdate = {
         username: editFormData.username,
         role: editFormData.role.toLowerCase() as 'teacher' | 'student'
       };
 
-      // Only include password if user provided a new one
       if (editFormData.password.trim()) {
         updateData.password = editFormData.password;
       }
 
-      // Call the API to update user
       if (!editingUser) {
         throw new Error('No user selected for editing');
       }
@@ -685,7 +646,6 @@ const UsersPage: React.FC = () => {
       
       closeAlert();
       
-      // Show success alert
       await showSuccessAlert(
         "User Updated!",
         `User "${updatedUser.username}" has been updated successfully.`,
@@ -694,12 +654,10 @@ const UsersPage: React.FC = () => {
         3000
       );
       
-      // Refresh the users list
       await fetchUsers();
       
       handleCloseEditModal();
       
-      // Show draggable success alert
       setTimeout(() => {
         showDraggableAlert("Updated!", `User "${updatedUser.username}" updated successfully!`, true, 2000);
       }, 100);
@@ -732,11 +690,9 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  // Loading Screen
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-blue-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -759,7 +715,6 @@ const UsersPage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Users Management
@@ -769,7 +724,6 @@ const UsersPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -783,7 +737,6 @@ const UsersPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
           {[
             { text: "Users", color: "bg-emerald-100 text-emerald-600" },
@@ -803,14 +756,12 @@ const UsersPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
           <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             This might take a moment. Please wait...
@@ -820,7 +771,6 @@ const UsersPage: React.FC = () => {
     );
   }
 
-  // Error Screen
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -894,7 +844,6 @@ const UsersPage: React.FC = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col lg:flex-row overflow-y-auto bg-white font-inter">
-      {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
         <div className="flex items-center space-x-3 cursor-default">
           <div className="relative">
@@ -920,13 +869,8 @@ const UsersPage: React.FC = () => {
           </svg>
         </button>
       </header>
-
-      {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-0 pt-16 lg:pt-0">
-        {/* Dynamic Header */}
         <div className="hidden lg:block">
           <DynamicHeader 
             title="Manage Users"
@@ -934,20 +878,15 @@ const UsersPage: React.FC = () => {
           />
         </div>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8 min-h-0">
           <div className="dashboard-content w-full max-w-7xl mx-auto px-4 lg:px-8">
-            
-            {/* Professional Page Header */}
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 lg:mb-10 shadow-lg">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
-                {/* Title Section */}
                 <div className="flex-1">
                   <div className="relative">
                     <h1 className="text-xl sm:text-2xl lg:text-4xl font-black text-gray-900 mb-3 lg:mb-4 tracking-tight leading-tight cursor-default">
                       <span className="relative">
                         Manage Users
-                        {/* Professional Underline - Aligned with Text */}
                         <div className="absolute -bottom-1 lg:-bottom-2 left-0 right-0 h-0.5 lg:h-1 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600 rounded-full shadow-lg shadow-emerald-500/40"></div>
                       </span>
                     </h1>
@@ -957,17 +896,13 @@ const UsersPage: React.FC = () => {
                   </p>
                 </div>
                 
-                {/* Action Button Section */}
                 <div className="flex-shrink-0">
                   <button 
                     onClick={handleCreateUser}
                     className="group relative flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-700 hover:via-red-800 hover:to-red-900 text-white font-bold rounded-lg sm:rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/30 text-sm sm:text-base border border-red-500/30 hover:border-red-400/50 cursor-pointer"
                     title="Create new user"
                   >
-                    {/* Button Background Glow */}
                     <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-red-600/20 rounded-lg sm:rounded-xl blur group-hover:blur-md transition-all duration-300"></div>
-                    
-                    {/* Button Content */}
                     <div className="relative flex items-center space-x-1 sm:space-x-2">
                       <div className="w-4 h-4 sm:w-5 sm:h-5 bg-white/20 rounded flex items-center justify-center group-hover:bg-white/30 transition-all duration-300 group-hover:scale-110">
                         <svg className="w-2 h-2 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -981,15 +916,12 @@ const UsersPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Professional Search and Filter Section */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-lg">
-              {/* Section Header with Accent Line */}
               <div className="mb-4">
                 <div className="relative">
                   <h2 className="text-base sm:text-lg font-bold text-gray-900 relative cursor-default">
                     <span className="relative">
                       Search & Filter
-                      {/* Aligned Underline */}
                       <div className="absolute -bottom-1 left-0 w-12 sm:w-16 h-0.5 bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full shadow-sm shadow-emerald-500/30"></div>
                     </span>
                   </h2>
@@ -997,7 +929,6 @@ const UsersPage: React.FC = () => {
               </div>
               
               <div className="flex flex-col lg:flex-row gap-3 lg:gap-4">
-                {/* Search Bar */}
                 <div className="flex-1">
                   <label htmlFor="search" className="block text-xs sm:text-sm font-bold text-gray-700 mb-1 sm:mb-2 tracking-wide cursor-default">
                     Search Users
@@ -1019,7 +950,6 @@ const UsersPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Role Filter */}
                 <div className="lg:w-48">
                   <label htmlFor="role-filter" className="block text-xs sm:text-sm font-bold text-gray-700 mb-1 sm:mb-2 tracking-wide cursor-default">
                     Filter by Role
@@ -1036,7 +966,6 @@ const UsersPage: React.FC = () => {
                       <option value="Teacher">Teacher</option>
                       <option value="Student">Student</option>
                     </select>
-                    {/* Custom Dropdown Arrow */}
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                       <svg className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1047,10 +976,8 @@ const UsersPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Professional Users Table - MOBILE OPTIMIZED */}
             <div className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
               <div className="overflow-x-auto">
-                {/* Mobile Card View */}
                 <div className="block lg:hidden">
                   <div className="space-y-3 p-3 sm:p-4">
                     {filteredUsers.length === 0 ? (
@@ -1075,7 +1002,6 @@ const UsersPage: React.FC = () => {
                     ) : (
                       filteredUsers.map((user) => (
                         <div key={user.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-300">
-                          {/* User Header */}
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-3">
                               <div className={`h-10 w-10 rounded-lg flex items-center justify-center shadow ${
@@ -1115,7 +1041,6 @@ const UsersPage: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* User Details */}
                           <div className="space-y-2 mb-3">
                             <div className="flex justify-between text-xs text-gray-600">
                               <span className="cursor-default">Date Created:</span>
@@ -1125,7 +1050,6 @@ const UsersPage: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Actions */}
                           <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-200">
                             <button
                               onClick={() => handleEditUser(user.id)}
@@ -1154,7 +1078,6 @@ const UsersPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Desktop Table View */}
                 <table className="hidden lg:table min-w-full divide-y divide-gray-200">
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                     <tr>
@@ -1272,8 +1195,7 @@ const UsersPage: React.FC = () => {
                     )}
                   </tbody>
                 </table>
-                
-                {/* Professional Table Footer */}
+          
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-t border-gray-200">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
                     <div className="text-xs sm:text-sm text-gray-600 font-semibold cursor-default">
@@ -1290,11 +1212,9 @@ const UsersPage: React.FC = () => {
         </main>
       </div>
 
-      {/* Create User Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-md mx-auto">
-            {/* Modal Header */}
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -1313,7 +1233,6 @@ const UsersPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleFormSubmit} className="p-4">
               {formError && (
                 <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
@@ -1322,7 +1241,6 @@ const UsersPage: React.FC = () => {
               )}
 
               <div className="space-y-3">
-                {/* Role Selection */}
                 <div>
                   <label htmlFor="role" className="block text-xs font-semibold text-gray-700 mb-1 cursor-default">
                     Role
@@ -1341,7 +1259,6 @@ const UsersPage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Username/Email */}
                 <div>
                   <label htmlFor="username" className="block text-xs font-semibold text-gray-700 mb-1 cursor-default">
                     Username/Email
@@ -1359,7 +1276,6 @@ const UsersPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Password */}
                 <div>
                   <label htmlFor="password" className="block text-xs font-semibold text-gray-700 mb-1 cursor-default">
                     Password
@@ -1379,7 +1295,6 @@ const UsersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Modal Actions */}
               <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-200">
                 <button
                   type="button"
@@ -1414,11 +1329,9 @@ const UsersPage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit User Modal */}
       {isEditModalOpen && editingUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-md mx-auto">
-            {/* Modal Header */}
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -1437,7 +1350,6 @@ const UsersPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleEditFormSubmit} className="p-4">
               {editFormError && (
                 <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
@@ -1446,7 +1358,6 @@ const UsersPage: React.FC = () => {
               )}
 
               <div className="space-y-3">
-                {/* Role Selection */}
                 <div>
                   <label htmlFor="edit-role" className="block text-xs font-semibold text-gray-700 mb-1 cursor-default">
                     Role
@@ -1465,7 +1376,6 @@ const UsersPage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Username/Email */}
                 <div>
                   <label htmlFor="edit-username" className="block text-xs font-semibold text-gray-700 mb-1 cursor-default">
                     Username/Email
@@ -1483,7 +1393,6 @@ const UsersPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Password (Optional) */}
                 <div>
                   <label htmlFor="edit-password" className="block text-xs font-semibold text-gray-700 mb-1 cursor-default">
                     New Password <span className="text-gray-500 text-xs cursor-default">(Optional)</span>
@@ -1503,7 +1412,6 @@ const UsersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Modal Actions */}
               <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-200">
                 <button
                   type="button"
@@ -1538,11 +1446,9 @@ const UsersPage: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && deletingUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-md mx-auto">
-            {/* Modal Header */}
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -1561,7 +1467,6 @@ const UsersPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Content */}
             <div className="p-4">
               {deleteError && (
                 <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
@@ -1569,7 +1474,6 @@ const UsersPage: React.FC = () => {
                 </div>
               )}
 
-              {/* User Info */}
               <div className="mb-4">
                 <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <div className={`h-10 w-10 rounded-lg flex items-center justify-center shadow ${
@@ -1590,14 +1494,12 @@ const UsersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Confirmation Message */}
               <div className="mb-4">
                 <p className="text-gray-700 text-sm text-center cursor-default">
                   Are you sure you want to delete this user? This action cannot be undone.
                 </p>
               </div>
 
-              {/* Modal Actions */}
               <div className="flex items-center justify-end space-x-2">
                 <button
                   type="button"

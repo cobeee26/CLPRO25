@@ -1,63 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import Swal from 'sweetalert2';
+import { authService } from '../services/authService';
 
-const API_BASE_URL = 'http://localhost:8000';
-
-// Create axios instance with interceptor
-const createApiClient = () => {
-  const instance = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  // Request interceptor
-  instance.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    },
-    (error) => {
-      return Promise.reject(error);
-    }
-  );
-
-  // Response interceptor
-  instance.interceptors.response.use(
-    (response) => response,
-    (error) => {
-      console.error('API Error:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        url: error.config?.url
-      });
-      
-      if (error.response?.status === 401) {
-        console.error('Authentication failed, redirecting to login...');
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-      }
-      
-      return Promise.reject(error);
-    }
-  );
-
-  return instance;
-};
-
-const apiClient = createApiClient();
-
+// Define interfaces for the component
 interface Assignment {
   id: number;
   name: string;
@@ -69,6 +19,7 @@ interface Assignment {
   class_code?: string;
   due_date?: string;
   teacher_name?: string;
+  teacher_full_name?: string;
 }
 
 interface Submission {
@@ -108,6 +59,20 @@ interface Violation {
   detected_at: string;
   time_away_seconds: number;
   severity: 'low' | 'medium' | 'high';
+  content_added_during_absence?: number;
+  ai_similarity_score?: number;
+  paste_content_length?: number;
+}
+
+interface ViolationResponse {
+  id?: number;
+  student_id: number;
+  assignment_id: number;
+  violation_type: string;
+  description: string;
+  detected_at: string;
+  time_away_seconds: number;
+  severity: string;
   content_added_during_absence?: number;
   ai_similarity_score?: number;
   paste_content_length?: number;
@@ -176,14 +141,37 @@ const StudentAssignmentPage: React.FC = () => {
   const aiContentDetectionRef = useRef<boolean>(false);
   const excessiveInactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const tabSwitchWindowRef = useRef<number>(15000);
+  
+  // New ref to track if assignment is already submitted and should stop tracking
+  const shouldStopTrackingRef = useRef<boolean>(false);
+  // New ref to track if textarea is focused
+  const isTextareaFocusedRef = useRef<boolean>(false);
+  // New ref to track initial load
+  const initialLoadRef = useRef<boolean>(true);
 
   const handleLogout = () => {
-    try {
-      localStorage.clear();
-      window.location.href = '/login';
-    } catch (error) {
-      window.location.href = '/login';
-    }
+    // Show confirmation SweetAlert
+    Swal.fire({
+      title: 'Are you sure?',
+      text: "You will be logged out of your account.",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, logout!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      backdrop: true
+    }).then((result) => {
+      if (result.isConfirmed) {
+        try {
+          localStorage.clear();
+          window.location.href = '/login';
+        } catch (error) {
+          window.location.href = '/login';
+        }
+      }
+    });
   };
 
   // Validate URL
@@ -283,9 +271,29 @@ const StudentAssignmentPage: React.FC = () => {
     return false;
   };
 
+  // Helper function to convert ViolationResponse to Violation
+  const convertToViolation = (violationResponse: ViolationResponse): Violation => {
+    const violationType = violationResponse.violation_type as Violation['violation_type'];
+    const severity = violationResponse.severity as Violation['severity'];
+    
+    return {
+      id: violationResponse.id,
+      student_id: violationResponse.student_id,
+      assignment_id: violationResponse.assignment_id,
+      violation_type: violationType,
+      description: violationResponse.description,
+      detected_at: violationResponse.detected_at,
+      time_away_seconds: violationResponse.time_away_seconds,
+      severity: severity,
+      content_added_during_absence: violationResponse.content_added_during_absence,
+      ai_similarity_score: violationResponse.ai_similarity_score,
+      paste_content_length: violationResponse.paste_content_length
+    };
+  };
+
   // Report violation to server and localStorage
   const reportViolation = async (violationData: Omit<Violation, 'id' | 'detected_at'>) => {
-    if (!user || !assignmentId) return;
+    if (!user || !assignmentId || shouldStopTrackingRef.current || !isTextareaFocusedRef.current) return;
     
     try {
       const violation: Violation = {
@@ -311,7 +319,8 @@ const StudentAssignmentPage: React.FC = () => {
       }
       
       try {
-        await apiClient.post('/violations/', violation);
+        // Use authService to report violation
+        await authService.createViolation(violation);
         console.log('✅ Violation reported to server');
       } catch (apiError) {
         console.warn('⚠️ Could not send violation to server, stored locally');
@@ -324,7 +333,7 @@ const StudentAssignmentPage: React.FC = () => {
 
   // Check for text mode violations
   const checkTextModeViolations = () => {
-    if (!strictModeRef.current || !assignmentId || !user) return;
+    if (!strictModeRef.current || !assignmentId || !user || shouldStopTrackingRef.current || !isTextareaFocusedRef.current) return;
     
     const now = Date.now();
     const content = contentRef.current?.value || '';
@@ -425,7 +434,7 @@ const StudentAssignmentPage: React.FC = () => {
         clearTimeout(excessiveInactivityTimerRef.current);
       }
       excessiveInactivityTimerRef.current = setTimeout(() => {
-        if (strictModeRef.current && hasTypedRef.current) {
+        if (strictModeRef.current && hasTypedRef.current && !document.hidden && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
           reportViolation({
             student_id: user.id,
             assignment_id: parseInt(assignmentId),
@@ -446,7 +455,7 @@ const StudentAssignmentPage: React.FC = () => {
 
   // Handle tab/app switching in TEXT MODE
   const handleTabSwitchDetection = () => {
-    if (!strictModeRef.current || !hasTypedRef.current) return;
+    if (!strictModeRef.current || !hasTypedRef.current || shouldStopTrackingRef.current || !isTextareaFocusedRef.current) return;
     
     const now = Date.now();
     const timeSinceLastSwitch = now - lastTabSwitchTimeRef.current;
@@ -551,6 +560,7 @@ const StudentAssignmentPage: React.FC = () => {
     hasTypedRef.current = false;
     strictModeRef.current = false;
     isCurrentlyTypingRef.current = false;
+    isTextareaFocusedRef.current = false;
     
     setShowViolationWarning(true);
     setViolationMessage('⚠️ TIME RESET TO 0! Text was added while you were away from the page. This is considered cheating.');
@@ -579,7 +589,7 @@ const StudentAssignmentPage: React.FC = () => {
 
   // Calculate time spent
   const calculateTimeSpent = () => {
-    if (!isActive) return;
+    if (!isActive || shouldStopTrackingRef.current) return;
     
     const now = Date.now();
     const elapsedMilliseconds = now - lastActiveTimeRef.current;
@@ -599,7 +609,7 @@ const StudentAssignmentPage: React.FC = () => {
         timeSpentRef.current.value = activeTimeRef.current.toFixed(2);
       }
       
-      if (strictModeRef.current && hasTypedRef.current) {
+      if (strictModeRef.current && hasTypedRef.current && isTextareaFocusedRef.current) {
         checkTextModeViolations();
       }
     }
@@ -607,7 +617,7 @@ const StudentAssignmentPage: React.FC = () => {
 
   // Update seconds counter
   const updateSecondsCounter = () => {
-    if (!isActive) return;
+    if (!isActive || shouldStopTrackingRef.current) return;
     
     const now = Date.now();
     const elapsedSeconds = (now - lastActiveTimeRef.current) / 1000;
@@ -709,6 +719,34 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Stop time tracking (kapag na-submit na)
+  const stopTimeTracking = () => {
+    console.log('🛑 STOPPING time tracking - Assignment already submitted');
+    shouldStopTrackingRef.current = true;
+    setIsActive(false);
+    
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (secondTimerRef.current) {
+      clearInterval(secondTimerRef.current);
+      secondTimerRef.current = null;
+    }
+    if (violationCheckIntervalRef.current) {
+      clearInterval(violationCheckIntervalRef.current);
+      violationCheckIntervalRef.current = null;
+    }
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+    if (excessiveInactivityTimerRef.current) {
+      clearTimeout(excessiveInactivityTimerRef.current);
+      excessiveInactivityTimerRef.current = null;
+    }
+  };
+
   // Handle visibility change (tab/window switching)
   const handleVisibilityChange = () => {
     const now = Date.now();
@@ -718,7 +756,7 @@ const StudentAssignmentPage: React.FC = () => {
       console.log('👋 Page hidden (switched to another app/tab)');
       setIsActive(false);
       
-      if (hasTypedRef.current) {
+      if (hasTypedRef.current && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
         const currentLength = contentRef.current?.value?.length || 0;
         contentBeforeLeavingRef.current = currentLength;
         
@@ -749,27 +787,29 @@ const StudentAssignmentPage: React.FC = () => {
       
     } else {
       console.log('👋 Page visible (returned to page)');
-      setIsActive(true);
-      
-      if (timeSinceLastVisibilityChange > 60000) {
-        reportViolation({
-          student_id: user?.id || 0,
-          assignment_id: parseInt(assignmentId || '0'),
-          violation_type: 'suspicious_activity',
-          description: `Excessive time away from page: ${Math.round(timeSinceLastVisibilityChange/1000)}s. Highly suspicious activity.`,
-          time_away_seconds: Math.round(timeSinceLastVisibilityChange / 1000),
-          severity: 'high'
-        });
+      if (!shouldStopTrackingRef.current) {
+        setIsActive(true);
+        
+        if (timeSinceLastVisibilityChange > 60000 && isTextareaFocusedRef.current) {
+          reportViolation({
+            student_id: user?.id || 0,
+            assignment_id: parseInt(assignmentId || '0'),
+            violation_type: 'suspicious_activity',
+            description: `Excessive time away from page: ${Math.round(timeSinceLastVisibilityChange/1000)}s. Highly suspicious activity.`,
+            time_away_seconds: Math.round(timeSinceLastVisibilityChange / 1000),
+            severity: 'high'
+          });
+        }
+        
+        if (hasTypedRef.current && timeSinceLastVisibilityChange > 1000 && isTextareaFocusedRef.current) {
+          handleTabSwitchDetection();
+        }
+        
+        lastActiveTimeRef.current = Date.now();
+        lastVisibilityChangeRef.current = now;
+        
+        startTimers();
       }
-      
-      if (hasTypedRef.current && timeSinceLastVisibilityChange > 1000) {
-        handleTabSwitchDetection();
-      }
-      
-      lastActiveTimeRef.current = Date.now();
-      lastVisibilityChangeRef.current = now;
-      
-      startTimers();
     }
   };
 
@@ -784,7 +824,7 @@ const StudentAssignmentPage: React.FC = () => {
           !currentPath.includes('/student/assignments/')) {
         console.log('🚪 Leaving assignment page');
         
-        if (hasTypedRef.current && contentRef.current?.value?.length > 50) {
+        if (hasTypedRef.current && contentRef.current?.value?.length > 50 && isTextareaFocusedRef.current) {
           console.log('⚠️ Leaving text assignment page with unsaved work');
           reportViolation({
             student_id: user?.id || 0,
@@ -805,6 +845,8 @@ const StudentAssignmentPage: React.FC = () => {
 
   // Start the timers
   const startTimers = () => {
+    if (shouldStopTrackingRef.current) return;
+    
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
@@ -820,17 +862,17 @@ const StudentAssignmentPage: React.FC = () => {
     timerIntervalRef.current = setInterval(calculateTimeSpent, 10000);
     secondTimerRef.current = setInterval(updateSecondsCounter, 1000);
     
-    if (strictModeRef.current && hasTypedRef.current) {
+    if (strictModeRef.current && hasTypedRef.current && isTextareaFocusedRef.current) {
       if (violationCheckIntervalRef.current) {
         clearInterval(violationCheckIntervalRef.current);
       }
       violationCheckIntervalRef.current = setInterval(checkTextModeViolations, 30000);
       
       excessiveInactivityTimerRef.current = setTimeout(() => {
-        if (strictModeRef.current && hasTypedRef.current && !document.hidden) {
+        if (strictModeRef.current && hasTypedRef.current && !document.hidden && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
           reportViolation({
-            student_id: user?.id || 0,
-            assignment_id: parseInt(assignmentId || '0'),
+            student_id: user.id,
+            assignment_id: parseInt(assignmentId),
             violation_type: 'excessive_inactivity',
             description: 'Excessive inactivity detected (5+ minutes). Time tracking may be inaccurate.',
             time_away_seconds: 300,
@@ -850,7 +892,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
     
     inactivityTimerRef.current = setTimeout(() => {
-      if (strictModeRef.current && hasTypedRef.current && !document.hidden) {
+      if (strictModeRef.current && hasTypedRef.current && !document.hidden && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
         console.log('⏰ Inactivity detected while in strict mode');
         lastTypingTimeRef.current = Date.now();
       }
@@ -862,7 +904,7 @@ const StudentAssignmentPage: React.FC = () => {
     console.log('📤 Page unloading...');
     pageUnloadRef.current = true;
     
-    if (strictModeRef.current && hasTypedRef.current) {
+    if (strictModeRef.current && hasTypedRef.current && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
       checkTextModeViolations();
     }
     
@@ -873,7 +915,7 @@ const StudentAssignmentPage: React.FC = () => {
   const handleBeforeUnload = (e: BeforeUnloadEvent) => {
     console.log('⚠️ Page about to unload...');
     
-    if (strictModeRef.current && hasTypedRef.current) {
+    if (strictModeRef.current && hasTypedRef.current && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
       checkTextModeViolations();
     }
     
@@ -887,6 +929,8 @@ const StudentAssignmentPage: React.FC = () => {
 
   // Track typing for TEXT MODE
   const trackTypingActivity = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (shouldStopTrackingRef.current) return;
+    
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
@@ -938,6 +982,8 @@ const StudentAssignmentPage: React.FC = () => {
 
   // Track content changes (for paste detection)
   const trackContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (shouldStopTrackingRef.current) return;
+    
     const newContent = e.target.value;
     const newLength = newContent.length;
     const oldLength = initialContentLengthRef.current;
@@ -949,7 +995,7 @@ const StudentAssignmentPage: React.FC = () => {
       console.log('📝 Content detected - Enabling STRICT MODE');
     }
     
-    if (strictModeRef.current && hasTypedRef.current) {
+    if (strictModeRef.current && hasTypedRef.current && isTextareaFocusedRef.current) {
       const now = Date.now();
       const timeSinceLastAction = now - lastTypingTimeRef.current;
       
@@ -1025,6 +1071,571 @@ const StudentAssignmentPage: React.FC = () => {
     return false;
   };
 
+  // Load student schedule
+  const loadSchedules = async (): Promise<Schedule[]> => {
+    try {
+      console.log('📅 Loading student schedule...');
+      const schedulesData = await authService.getStudentSchedule();
+      console.log('✅ Student schedule loaded:', schedulesData);
+      
+      if (Array.isArray(schedulesData)) {
+        // Transform the data to match Schedule interface
+        const transformedSchedules: Schedule[] = schedulesData.map((schedule: any) => ({
+          id: schedule.id || 0,
+          class_id: schedule.class_id,
+          class_name: schedule.class_name || `Class ${schedule.class_id}`,
+          class_code: schedule.class_code || '',
+          teacher_name: schedule.teacher_name || schedule.teacher_username || 'Teacher',
+          teacher_full_name: schedule.teacher_full_name || schedule.teacher_name || 'Teacher',
+          room_number: schedule.room_number || '',
+          start_time: schedule.start_time || '',
+          end_time: schedule.end_time || '',
+          status: schedule.status || 'active'
+        }));
+        return transformedSchedules;
+      }
+      return [];
+    } catch (error: any) {
+      console.error('❌ Error loading student schedule:', error);
+      return [];
+    }
+  };
+
+  // ====================================================
+  // ENHANCED: loadStudentAssignment FUNCTION WITH MULTIPLE DATA SOURCES
+  // ====================================================
+  const loadStudentAssignment = async (): Promise<Assignment | null> => {
+    try {
+      console.log('📝 Loading student assignment...');
+      
+      if (!assignmentId) throw new Error('Assignment ID is required');
+      const assignmentIdNum = parseInt(assignmentId);
+      if (isNaN(assignmentIdNum)) throw new Error('Invalid assignment ID');
+      
+      let assignmentData: any = null;
+      let classData: any = null;
+      let teacherData: any = null;
+      
+      try {
+        // First try the direct student assignment endpoint
+        assignmentData = await authService.getStudentAssignmentDetail(assignmentIdNum);
+        console.log('✅ Assignment data loaded:', assignmentData);
+      } catch (firstError: any) {
+        console.log('❌ First endpoint failed:', firstError.message);
+        
+        // Try student-specific assignment endpoint
+        try {
+          assignmentData = await authService.getStudentMyAssignment(assignmentIdNum);
+          console.log('✅ Success with getStudentMyAssignment:', assignmentData);
+        } catch (secondError: any) {
+          console.log('❌ Second endpoint failed:', secondError.message);
+          
+          // Last resort: try to get from assignments list
+          try {
+            const allAssignments = await authService.getStudentAssignmentsAll();
+            assignmentData = allAssignments.find((a: any) => a.id === assignmentIdNum);
+            if (assignmentData) {
+              console.log('✅ Found assignment in list:', assignmentData);
+            } else {
+              throw new Error('Assignment not found');
+            }
+          } catch (listError: any) {
+            console.log('❌ List endpoint failed:', listError.message);
+            throw new Error('Failed to load assignment');
+          }
+        }
+      }
+      
+      if (!assignmentData) throw new Error('Failed to load assignment');
+      
+      // Extract class information with fallback strategies
+      let className = 'Class';
+      let classCode = '';
+      let teacherName = 'Unknown Teacher';
+      let teacherFullName = 'Unknown Teacher';
+      let creatorName = 'Unknown Teacher';
+      let creatorUsername = '';
+      
+      // STRATEGY 1: Check if class information is directly available in assignment data
+      if (assignmentData.class_name) {
+        className = assignmentData.class_name;
+      }
+      if (assignmentData.class_code) {
+        classCode = assignmentData.class_code;
+      }
+      
+      // ENHANCED TEACHER NAME EXTRACTION
+      // Check for teacher_name, teacher_full_name, creator_name, creator_username
+      if (assignmentData.teacher_name) {
+        teacherName = assignmentData.teacher_name;
+        teacherFullName = assignmentData.teacher_full_name || assignmentData.teacher_name;
+        console.log('👨‍🏫 Found teacher_name in assignment data:', teacherName);
+      } else if (assignmentData.teacher_full_name) {
+        teacherName = assignmentData.teacher_full_name;
+        teacherFullName = assignmentData.teacher_full_name;
+        console.log('👨‍🏫 Found teacher_full_name in assignment data:', teacherName);
+      } else if (assignmentData.creator_name) {
+        teacherName = assignmentData.creator_name;
+        teacherFullName = assignmentData.creator_name;
+        creatorName = assignmentData.creator_name;
+        console.log('👨‍🏫 Found creator_name in assignment data:', teacherName);
+      } else if (assignmentData.creator_username) {
+        teacherName = assignmentData.creator_username;
+        teacherFullName = assignmentData.creator_username;
+        creatorUsername = assignmentData.creator_username;
+        console.log('👨‍🏫 Found creator_username in assignment data:', teacherName);
+      }
+      
+      // STRATEGY 2: Check if class data is nested
+      if (assignmentData.class && typeof assignmentData.class === 'object') {
+        if (assignmentData.class.name) {
+          className = assignmentData.class.name;
+        }
+        if (assignmentData.class.code) {
+          classCode = assignmentData.class.code;
+        }
+        // Check for teacher info in nested class object
+        if (assignmentData.class.teacher_name && teacherName === 'Unknown Teacher') {
+          teacherName = assignmentData.class.teacher_name;
+          teacherFullName = assignmentData.class.teacher_full_name || assignmentData.class.teacher_name;
+          console.log('👨‍🏫 Found teacher_name in nested class:', teacherName);
+        } else if (assignmentData.class.teacher_full_name && teacherName === 'Unknown Teacher') {
+          teacherName = assignmentData.class.teacher_full_name;
+          teacherFullName = assignmentData.class.teacher_full_name;
+          console.log('👨‍🏫 Found teacher_full_name in nested class:', teacherName);
+        }
+      }
+      
+      // STRATEGY 3: Check if teacher data is nested
+      if (assignmentData.teacher && typeof assignmentData.teacher === 'object') {
+        if (assignmentData.teacher.name && teacherName === 'Unknown Teacher') {
+          teacherName = assignmentData.teacher.name;
+          teacherFullName = assignmentData.teacher.name;
+          console.log('👨‍🏫 Found teacher.name in nested teacher:', teacherName);
+        } else if (assignmentData.teacher.username && teacherName === 'Unknown Teacher') {
+          teacherName = assignmentData.teacher.username;
+          teacherFullName = assignmentData.teacher.username;
+          console.log('👨‍🏫 Found teacher.username in nested teacher:', teacherName);
+        } else if (assignmentData.teacher.full_name && teacherName === 'Unknown Teacher') {
+          teacherName = assignmentData.teacher.full_name;
+          teacherFullName = assignmentData.teacher.full_name;
+          console.log('👨‍🏫 Found teacher.full_name in nested teacher:', teacherName);
+        }
+      }
+      
+      // STRATEGY 4: Check for creator info in nested creator object
+      if (assignmentData.creator && typeof assignmentData.creator === 'object') {
+        if (assignmentData.creator.name && teacherName === 'Unknown Teacher') {
+          teacherName = assignmentData.creator.name;
+          teacherFullName = assignmentData.creator.name;
+          creatorName = assignmentData.creator.name;
+          console.log('👨‍🏫 Found creator.name in nested creator:', teacherName);
+        } else if (assignmentData.creator.username && teacherName === 'Unknown Teacher') {
+          teacherName = assignmentData.creator.username;
+          teacherFullName = assignmentData.creator.username;
+          creatorUsername = assignmentData.creator.username;
+          console.log('👨‍🏫 Found creator.username in nested creator:', teacherName);
+        } else if (assignmentData.creator.full_name && teacherName === 'Unknown Teacher') {
+          teacherName = assignmentData.creator.full_name;
+          teacherFullName = assignmentData.creator.full_name;
+          creatorName = assignmentData.creator.full_name;
+          console.log('👨‍🏫 Found creator.full_name in nested creator:', teacherName);
+        }
+      }
+      
+      // STRATEGY 5: Fetch class data from /classes/student/ endpoint
+      if ((!classCode || classCode === 'N/A' || teacherName === 'Unknown Teacher') && assignmentData.class_id) {
+        try {
+          console.log('📚 Fetching class data from /classes/student/ endpoint...');
+          const studentClasses = await authService.getStudentClassesAll();
+          const matchingClass = studentClasses.find((cls: any) => cls.id === assignmentData.class_id);
+          
+          if (matchingClass) {
+            if (!className || className === `Class ${assignmentData.class_id}`) {
+              className = matchingClass.name || className;
+            }
+            if (!classCode || classCode === 'N/A') {
+              classCode = matchingClass.code || classCode;
+            }
+            if (teacherName === 'Unknown Teacher') {
+              // Check for teacher info in class data
+              if (matchingClass.teacher_name) {
+                teacherName = matchingClass.teacher_name;
+                teacherFullName = matchingClass.teacher_full_name || matchingClass.teacher_name;
+                console.log('👨‍🏫 Enhanced with class teacher_name:', teacherName);
+              } else if (matchingClass.teacher_full_name) {
+                teacherName = matchingClass.teacher_full_name;
+                teacherFullName = matchingClass.teacher_full_name;
+                console.log('👨‍🏫 Enhanced with class teacher_full_name:', teacherName);
+              } else if (matchingClass.teacher_username) {
+                teacherName = matchingClass.teacher_username;
+                teacherFullName = matchingClass.teacher_username;
+                console.log('👨‍🏫 Enhanced with class teacher_username:', teacherName);
+              }
+            }
+            console.log('✅ Enhanced with class data:', { className, classCode, teacherName });
+          }
+        } catch (classError) {
+          console.warn('⚠️ Could not fetch class data:', classError);
+        }
+      }
+      
+      // STRATEGY 6: Fetch class data from schedules
+      if ((!classCode || classCode === '' || teacherName === 'Unknown Teacher') && assignmentData.class_id) {
+        try {
+          const schedulesData = await loadSchedules();
+          if (schedulesData.length > 0) {
+            const schedule = schedulesData.find(s => s.class_id === assignmentData.class_id);
+            if (schedule) {
+              if (!classCode || classCode === '') {
+                classCode = schedule.class_code || classCode;
+              }
+              if (teacherName === 'Unknown Teacher') {
+                teacherName = schedule.teacher_name || schedule.teacher_full_name || teacherName;
+                teacherFullName = schedule.teacher_full_name || schedule.teacher_name || teacherFullName;
+                console.log('👨‍🏫 Enhanced with schedule teacher data:', teacherName);
+              }
+              console.log('✅ Enhanced with schedule data:', { classCode, teacherName });
+            }
+          }
+        } catch (scheduleError) {
+          console.warn('⚠️ Could not fetch schedule data:', scheduleError);
+        }
+      }
+      
+      // STRATEGY 7: Fetch teacher info from user endpoint if we have creator_id
+      if (teacherName === 'Unknown Teacher' && assignmentData.creator_id) {
+        try {
+          console.log('👤 Fetching teacher/user data for creator_id:', assignmentData.creator_id);
+          // Try to get user info by creator_id
+          const teacherResponse = await authService.getUserById(assignmentData.creator_id);
+          if (teacherResponse) {
+            teacherName = teacherResponse.username || teacherResponse.name || teacherResponse.full_name || `User ${assignmentData.creator_id}`;
+            teacherFullName = teacherResponse.full_name || teacherResponse.name || teacherResponse.username || `User ${assignmentData.creator_id}`;
+            console.log('👨‍🏫 Found teacher from user endpoint:', teacherName);
+          }
+        } catch (userError) {
+          console.warn('⚠️ Could not fetch teacher user data:', userError);
+        }
+      }
+      
+      // Create assignment object with proper data
+      const assignment: Assignment = {
+        id: assignmentData.id,
+        name: assignmentData.name,
+        description: assignmentData.description,
+        class_id: assignmentData.class_id,
+        creator_id: assignmentData.creator_id,
+        created_at: assignmentData.created_at,
+        class_name: className,
+        class_code: classCode,
+        teacher_name: teacherName,
+        teacher_full_name: teacherFullName,
+        due_date: assignmentData.due_date
+      };
+      
+      // Log all available data for debugging
+      console.log('📝 Processed assignment data:', {
+        id: assignment.id,
+        name: assignment.name,
+        class_id: assignment.class_id,
+        creator_id: assignment.creator_id,
+        teacher_name: assignment.teacher_name,
+        teacher_full_name: assignment.teacher_full_name,
+        rawData: assignmentData
+      });
+      
+      // Log specific teacher-related fields from raw data
+      console.log('🔍 Checking raw assignment data for teacher fields:');
+      Object.keys(assignmentData).forEach(key => {
+        if (key.toLowerCase().includes('teacher') || 
+            key.toLowerCase().includes('creator') || 
+            key.toLowerCase().includes('instructor') ||
+            key.toLowerCase().includes('professor') ||
+            key.toLowerCase().includes('user')) {
+          console.log(`  ${key}:`, assignmentData[key]);
+        }
+      });
+      
+      return assignment;
+      
+    } catch (error: any) {
+      console.error('❌ Error loading student assignment:', error);
+      throw error;
+    }
+  };
+
+  // Load student submission with proper fallback
+  const loadStudentSubmission = async (): Promise<Submission | null> => {
+    try {
+      console.log('📤 Loading student submission...');
+      
+      if (!assignmentId) return null;
+      const assignmentIdNum = parseInt(assignmentId);
+      if (isNaN(assignmentIdNum)) return null;
+      
+      let submissionData: any = null;
+      
+      // Try multiple endpoints
+      try {
+        // First try student-specific submission endpoint
+        submissionData = await authService.getStudentMySubmission(assignmentIdNum);
+        console.log('✅ Success with getStudentMySubmission:', submissionData);
+      } catch (firstError: any) {
+        console.log('❌ First endpoint failed:', firstError.message);
+        
+        try {
+          // Try general student submission endpoint
+          submissionData = await authService.getStudentSubmissionForAssignment(assignmentIdNum);
+          console.log('✅ Success with getStudentSubmissionForAssignment:', submissionData);
+        } catch (secondError: any) {
+          console.log('❌ Second endpoint failed:', secondError.message);
+          
+          // Check if it's a 404 (no submission)
+          if (secondError.response?.status === 404 || firstError.response?.status === 404) {
+            console.log('ℹ️ No submission found (404)');
+            return null;
+          }
+        }
+      }
+      
+      if (!submissionData) {
+        console.log('ℹ️ No submission found');
+        return null;
+      }
+      
+      return {
+        id: submissionData.id,
+        assignment_id: submissionData.assignment_id,
+        student_id: submissionData.student_id,
+        content: submissionData.content || '',
+        file_path: submissionData.file_path,
+        submitted_at: submissionData.submitted_at,
+        grade: submissionData.grade,
+        feedback: submissionData.feedback,
+        is_graded: submissionData.grade !== null && submissionData.grade !== undefined,
+        file_name: submissionData.file_name,
+        time_spent_minutes: submissionData.time_spent_minutes,
+        link_url: submissionData.link_url || ''
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Error loading submission:', error);
+      return null;
+    }
+  };
+
+  // Load violations from API
+  const loadViolations = async () => {
+    if (!assignmentId || !user) return;
+    
+    try {
+      console.log('🚨 Loading violations...');
+      const violationsData = await authService.getViolations(parseInt(assignmentId));
+      
+      if (Array.isArray(violationsData)) {
+        // Convert ViolationResponse to Violation
+        const convertedViolations: Violation[] = violationsData.map(violation => 
+          convertToViolation(violation)
+        );
+        
+        setViolations(convertedViolations);
+        console.log('✅ Violations loaded:', convertedViolations.length);
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not load violations from API:', error);
+      // Try to load from localStorage as fallback
+      try {
+        const savedViolations = localStorage.getItem(`assignment_${assignmentId}_violations`);
+        if (savedViolations) {
+          const parsedViolations = JSON.parse(savedViolations);
+          setViolations(parsedViolations);
+        }
+      } catch (localError) {
+        console.error('Error loading violations from localStorage:', localError);
+      }
+    }
+  };
+
+  // Enrich assignment with schedule data
+  const enrichAssignmentWithScheduleData = (assignmentData: Assignment, schedulesData: Schedule[]): Assignment => {
+    const enrichedAssignment = { ...assignmentData };
+    
+    console.log('📊 Enriching assignment with schedule data...');
+    console.log('📊 Schedules available:', schedulesData.length);
+    console.log('📊 Looking for class_id:', assignmentData.class_id);
+    console.log('📊 Current teacher name:', assignmentData.teacher_name);
+    
+    // Find schedule for this class
+    const schedule = schedulesData.find(s => s.class_id === assignmentData.class_id);
+    
+    if (schedule) {
+      console.log('✅ Found matching schedule:', schedule);
+      
+      // ALWAYS override with schedule data if available (schedule data is more reliable)
+      if (schedule.teacher_name && schedule.teacher_name !== 'Teacher') {
+        enrichedAssignment.teacher_name = schedule.teacher_name;
+        enrichedAssignment.teacher_full_name = schedule.teacher_full_name || schedule.teacher_name;
+        console.log('👨‍🏫 Override teacher name from schedule:', schedule.teacher_name);
+      } else if (schedule.teacher_full_name && schedule.teacher_full_name !== 'Teacher') {
+        enrichedAssignment.teacher_name = schedule.teacher_full_name;
+        enrichedAssignment.teacher_full_name = schedule.teacher_full_name;
+        console.log('👨‍🏫 Override teacher name from schedule (full):', schedule.teacher_full_name);
+      }
+      
+      if (schedule.class_name && schedule.class_name !== `Class ${assignmentData.class_id}`) {
+        enrichedAssignment.class_name = schedule.class_name;
+        console.log('🏫 Updated class name from schedule:', schedule.class_name);
+      }
+      
+      if (schedule.class_code) {
+        enrichedAssignment.class_code = schedule.class_code;
+        console.log('📚 Updated class code from schedule:', schedule.class_code);
+      }
+    } else {
+      console.log('❌ No matching schedule found for class_id:', assignmentData.class_id);
+    }
+    
+    return enrichedAssignment;
+  };
+
+  // Load assignment data
+  const loadAssignmentData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      console.log('🔄 Loading assignment data for ID:', assignmentId);
+
+      if (!assignmentId) {
+        setError('Assignment ID is required');
+        setIsLoading(false);
+        return;
+      }
+
+      // Load schedules first
+      const schedulesData = await loadSchedules();
+      setSchedules(schedulesData);
+      console.log('📅 Schedules loaded:', schedulesData.length);
+
+      // Load assignment with enhanced data fetching
+      const assignmentData = await loadStudentAssignment();
+      if (!assignmentData) {
+        throw new Error('Assignment not found or no permission.');
+      }
+
+      console.log('📝 Assignment loaded:', assignmentData);
+
+      // Enrich assignment with schedule data
+      const enrichedAssignment = enrichAssignmentWithScheduleData(assignmentData, schedulesData);
+      setAssignment(enrichedAssignment);
+
+      // Check if it's a text assignment
+      const isTextAssignment = checkIfTextAssignment(enrichedAssignment.description);
+      if (isTextAssignment) {
+        console.log('📝 This appears to be a text-based assignment');
+      }
+
+      // Load submission
+      const submissionData = await loadStudentSubmission();
+      if (submissionData) {
+        setSubmission(submissionData);
+        
+        // Stop time tracking if assignment is already submitted
+        shouldStopTrackingRef.current = true;
+        stopTimeTracking();
+        
+        if (contentRef.current) {
+          contentRef.current.value = submissionData.content || '';
+          contentSnapshotRef.current = submissionData.content || '';
+          if (submissionData.content && submissionData.content.length > 0) {
+            hasTypedRef.current = true;
+            strictModeRef.current = true;
+            console.log('📝 Existing submission found - STRICT MODE was enabled');
+          }
+        }
+        if (submissionData.link_url) {
+          setLinkUrl(submissionData.link_url);
+        }
+      } else {
+        // If no submission exists, allow time tracking
+        shouldStopTrackingRef.current = false;
+      }
+
+      // Load time from localStorage
+      const savedTime = loadTimeFromLocalStorage();
+      activeTimeRef.current = savedTime;
+      
+      const totalMinutes = Math.floor(savedTime);
+      const remainingSeconds = Math.floor((savedTime - totalMinutes) * 60);
+      
+      setTimeSpent(totalMinutes);
+      setSeconds(remainingSeconds);
+      
+      if (timeSpentRef.current) {
+        timeSpentRef.current.value = savedTime.toFixed(2);
+      }
+
+      // Load violations
+      await loadViolations();
+
+      // Load content length from localStorage if exists
+      try {
+        const savedContentLength = localStorage.getItem(`content_before_leaving_${assignmentId}`);
+        if (savedContentLength) {
+          contentBeforeLeavingRef.current = parseInt(savedContentLength);
+        }
+      } catch (e) {
+        console.error('Error loading content length:', e);
+      }
+
+      setSuccess('Assignment loaded successfully!');
+      
+    } catch (error: any) {
+      console.error('❌ Error loading assignment data:', error);
+      
+      let errorMessage = 'Failed to load assignment. Please try again.';
+      
+      if (error.message) errorMessage = error.message;
+      else if (error.response?.data?.detail) errorMessage = error.response.data.detail;
+      else if (error.response?.status === 403) errorMessage = 'No permission to view this assignment.';
+      else if (error.response?.status === 404) errorMessage = 'Assignment not found.';
+      
+      setError(errorMessage);
+      
+      // Fallback to localStorage for basic assignment info
+      try {
+        const savedAssignments = localStorage.getItem('student_assignments');
+        if (savedAssignments && assignmentId) {
+          const assignments = JSON.parse(savedAssignments);
+          const fallbackAssignment = assignments.find((a: any) => a.id === parseInt(assignmentId));
+          if (fallbackAssignment) {
+            console.log('🔄 Using fallback assignment data');
+            
+            // Enrich with schedule data if available
+            const schedulesData = await loadSchedules();
+            if (schedulesData.length > 0 && fallbackAssignment.class_id) {
+              const enrichedAssignment = enrichAssignmentWithScheduleData(fallbackAssignment, schedulesData);
+              setAssignment(enrichedAssignment);
+            } else {
+              setAssignment(fallbackAssignment);
+            }
+            setError(null);
+          }
+        }
+      } catch (fallbackError) {
+        console.error('Fallback failed:', fallbackError);
+      }
+    } finally {
+      setIsLoading(false);
+      initialLoadRef.current = false;
+      
+      // Start timers after everything is loaded
+      if (!shouldStopTrackingRef.current) {
+        startTimers();
+      }
+    }
+  };
+
   useEffect(() => {
     if (!user || user.role !== 'student') {
       navigate('/login');
@@ -1033,6 +1644,8 @@ const StudentAssignmentPage: React.FC = () => {
     
     lastPagePathRef.current = window.location.pathname;
     lastVisibilityChangeRef.current = Date.now();
+    initialLoadRef.current = true;
+    
     loadAssignmentData();
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -1050,8 +1663,6 @@ const StudentAssignmentPage: React.FC = () => {
       originalReplaceState.apply(this, args);
       checkPageNavigation();
     };
-    
-    startTimers();
     
     return () => {
       console.log('🧹 Cleaning up...');
@@ -1084,298 +1695,6 @@ const StudentAssignmentPage: React.FC = () => {
       history.replaceState = originalReplaceState;
     };
   }, [user, assignmentId]);
-
-  // Load student schedule
-  const loadSchedules = async (): Promise<Schedule[]> => {
-    try {
-      console.log('📅 Loading student schedule...');
-      const response = await apiClient.get('/students/me/schedule');
-      console.log('✅ Student schedule loaded:', response.data);
-      
-      if (Array.isArray(response.data)) {
-        return response.data;
-      }
-      return [];
-    } catch (error: any) {
-      console.error('❌ Error loading student schedule:', error);
-      return [];
-    }
-  };
-
-  // Get teacher name from schedules
-  const getTeacherNameFromSchedules = (classId: number): string => {
-    if (!schedules || schedules.length === 0) return 'Teacher';
-    const schedule = schedules.find(s => s.class_id === classId);
-    return schedule?.teacher_name || schedule?.teacher_full_name || 'Teacher';
-  };
-
-  // Get class name from schedules
-  const getClassNameFromSchedules = (classId: number): string => {
-    if (!schedules || schedules.length === 0) return `Class ${classId}`;
-    const schedule = schedules.find(s => s.class_id === classId);
-    return schedule?.class_name || `Class ${classId}`;
-  };
-
-  // Get class code from schedules
-  const getClassCodeFromSchedules = (classId: number): string => {
-    if (!schedules || schedules.length === 0) return '';
-    const schedule = schedules.find(s => s.class_id === classId);
-    return schedule?.class_code || '';
-  };
-
-  // Load student assignment
-  const loadStudentAssignment = async (): Promise<Assignment | null> => {
-    try {
-      console.log('📝 Loading student assignment...');
-      
-      if (!assignmentId) throw new Error('Assignment ID is required');
-      const assignmentIdNum = parseInt(assignmentId);
-      if (isNaN(assignmentIdNum)) throw new Error('Invalid assignment ID');
-      
-      const endpoints = [
-        `/students/me/assignments/${assignmentIdNum}`,
-        `/assignments/student/${assignmentIdNum}`,
-        `/assignments/${assignmentIdNum}`
-      ];
-      
-      let assignmentData: any = null;
-      let lastError: any = null;
-      
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`🔄 Trying endpoint: ${endpoint}`);
-          const response = await apiClient.get(endpoint);
-          assignmentData = response.data;
-          console.log(`✅ Success with endpoint: ${endpoint}`, assignmentData);
-          break;
-        } catch (endpointError: any) {
-          console.log(`❌ Endpoint ${endpoint} failed:`, endpointError.message);
-          lastError = endpointError;
-          if (endpointError.response?.status === 403) continue;
-          if (endpointError.response?.status !== 403) throw endpointError;
-        }
-      }
-      
-      if (!assignmentData) throw lastError || new Error('Failed to load assignment');
-      
-      if (!assignmentData.id || !assignmentData.name || !assignmentData.class_id) {
-        throw new Error('Invalid assignment data received');
-      }
-      
-      const assignment: Assignment = {
-        id: assignmentData.id,
-        name: assignmentData.name,
-        description: assignmentData.description,
-        class_id: assignmentData.class_id,
-        creator_id: assignmentData.creator_id,
-        created_at: assignmentData.created_at,
-        class_name: assignmentData.class_name,
-        class_code: assignmentData.class_code,
-        teacher_name: assignmentData.teacher_name,
-        due_date: assignmentData.due_date
-      };
-      
-      // Get class info if missing
-      if (!assignment.class_name && assignment.class_id) {
-        try {
-          const classResponse = await apiClient.get(`/classes/${assignment.class_id}`);
-          assignment.class_name = classResponse.data.name;
-          assignment.class_code = classResponse.data.code;
-          if (classResponse.data.teacher_name) {
-            assignment.teacher_name = classResponse.data.teacher_name;
-          } else if (classResponse.data.teacher) {
-            assignment.teacher_name = classResponse.data.teacher.username;
-          }
-        } catch (classError) {
-          console.warn('Could not load class info:', classError);
-        }
-      }
-      
-      return assignment;
-      
-    } catch (error: any) {
-      console.error('❌ Error loading student assignment:', error);
-      throw error;
-    }
-  };
-
-  // Load student submission
-  const loadStudentSubmission = async (): Promise<Submission | null> => {
-    try {
-      console.log('📤 Loading student submission...');
-      
-      if (!assignmentId) return null;
-      const assignmentIdNum = parseInt(assignmentId);
-      if (isNaN(assignmentIdNum)) return null;
-      
-      const endpoints = [
-        `/submissions/assignment/${assignmentIdNum}/student`,
-        `/students/me/submissions/${assignmentIdNum}`,
-        `/submissions/student/${assignmentIdNum}`
-      ];
-      
-      for (const endpoint of endpoints) {
-        try {
-          const response = await apiClient.get(endpoint);
-          if (response.data) {
-            console.log('✅ Submission found at:', endpoint);
-            const submissionData = response.data;
-            return {
-              id: submissionData.id,
-              assignment_id: submissionData.assignment_id,
-              student_id: submissionData.student_id,
-              content: submissionData.content || '',
-              file_path: submissionData.file_path,
-              submitted_at: submissionData.submitted_at,
-              grade: submissionData.grade,
-              feedback: submissionData.feedback,
-              is_graded: submissionData.grade !== null && submissionData.grade !== undefined,
-              file_name: submissionData.file_name,
-              time_spent_minutes: submissionData.time_spent_minutes,
-              link_url: submissionData.link_url || ''
-            };
-          }
-        } catch (endpointError: any) {
-          console.log(`❌ Endpoint ${endpoint} failed:`, endpointError.message);
-          if (endpointError.response?.status === 404) {
-            console.log('ℹ️ No submission found (404)');
-            return null;
-          }
-          if (endpointError.response?.status === 403) continue;
-        }
-      }
-      
-      console.log('ℹ️ No submission found after trying all endpoints');
-      return null;
-      
-    } catch (error: any) {
-      console.error('❌ Error loading submission:', error);
-      return null;
-    }
-  };
-
-  // Load assignment data
-  const loadAssignmentData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      console.log('🔄 Loading assignment data for ID:', assignmentId);
-
-      if (!assignmentId) {
-        setError('Assignment ID is required');
-        setIsLoading(false);
-        return;
-      }
-
-      const schedulesData = await loadSchedules();
-      setSchedules(schedulesData);
-
-      const assignmentData = await loadStudentAssignment();
-      if (!assignmentData) {
-        throw new Error('Assignment not found or no permission.');
-      }
-
-      // Enrich assignment with schedule data
-      if (!assignmentData.teacher_name) {
-        assignmentData.teacher_name = getTeacherNameFromSchedules(assignmentData.class_id);
-      }
-      if (!assignmentData.class_name) {
-        assignmentData.class_name = getClassNameFromSchedules(assignmentData.class_id);
-      }
-      if (!assignmentData.class_code) {
-        assignmentData.class_code = getClassCodeFromSchedules(assignmentData.class_id);
-      }
-
-      setAssignment(assignmentData);
-
-      const isTextAssignment = checkIfTextAssignment(assignmentData.description);
-      if (isTextAssignment) {
-        console.log('📝 This appears to be a text-based assignment');
-      }
-
-      const submissionData = await loadStudentSubmission();
-      if (submissionData) {
-        setSubmission(submissionData);
-        if (contentRef.current) {
-          contentRef.current.value = submissionData.content || '';
-          contentSnapshotRef.current = submissionData.content || '';
-          if (submissionData.content && submissionData.content.length > 0) {
-            hasTypedRef.current = true;
-            strictModeRef.current = true;
-            console.log('📝 Existing submission found - Enabling STRICT MODE');
-          }
-        }
-        if (submissionData.link_url) {
-          setLinkUrl(submissionData.link_url);
-        }
-      }
-
-      // Load time from localStorage
-      const savedTime = loadTimeFromLocalStorage();
-      activeTimeRef.current = savedTime;
-      
-      const totalMinutes = Math.floor(savedTime);
-      const remainingSeconds = Math.floor((savedTime - totalMinutes) * 60);
-      
-      setTimeSpent(totalMinutes);
-      setSeconds(remainingSeconds);
-      
-      if (timeSpentRef.current) {
-        timeSpentRef.current.value = savedTime.toFixed(2);
-      }
-
-      // Load violations
-      try {
-        const savedViolations = localStorage.getItem(`assignment_${assignmentId}_violations`);
-        if (savedViolations) {
-          setViolations(JSON.parse(savedViolations));
-        }
-      } catch (e) {
-        console.error('Error loading violations:', e);
-      }
-
-      // Load content length from localStorage if exists
-      try {
-        const savedContentLength = localStorage.getItem(`content_before_leaving_${assignmentId}`);
-        if (savedContentLength) {
-          contentBeforeLeavingRef.current = parseInt(savedContentLength);
-        }
-      } catch (e) {
-        console.error('Error loading content length:', e);
-      }
-
-    } catch (error: any) {
-      console.error('❌ Error in loadAssignmentData:', error);
-      
-      let errorMessage = 'Failed to load assignment. Please try again.';
-      
-      if (error.message) errorMessage = error.message;
-      else if (error.response?.data?.detail) errorMessage = error.response.data.detail;
-      else if (error.response?.status === 403) errorMessage = 'No permission to view this assignment.';
-      else if (error.response?.status === 404) errorMessage = 'Assignment not found.';
-      
-      setError(errorMessage);
-      
-      // Fallback to localStorage
-      try {
-        const savedAssignments = localStorage.getItem('student_assignments');
-        if (savedAssignments && assignmentId) {
-          const assignments = JSON.parse(savedAssignments);
-          const fallbackAssignment = assignments.find((a: any) => a.id === parseInt(assignmentId));
-          if (fallbackAssignment) {
-            console.log('🔄 Using fallback assignment data');
-            setAssignment(fallbackAssignment);
-            setError(null);
-          }
-        }
-      } catch (fallbackError) {
-        console.error('Fallback failed:', fallbackError);
-      }
-      
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1541,73 +1860,87 @@ const StudentAssignmentPage: React.FC = () => {
         }
       });
 
-      // Prepare submission data
-      let submissionData: any = {
-        assignment_id: assignmentIdNum,
-        time_spent_minutes: timeSpentValue
+      let newSubmission;
+      
+      // Use authService for submission with file
+      if (file) {
+        if (submission?.id) {
+          // Update existing submission with file
+          newSubmission = await authService.updateSubmissionWithFile(
+            submission.id,
+            assignmentIdNum,
+            timeSpentValue,
+            content,
+            link,
+            file
+          );
+          setSuccess('Assignment updated successfully!');
+        } else {
+          // Create new submission with file
+          newSubmission = await authService.createSubmissionWithFile(
+            assignmentIdNum,
+            timeSpentValue,
+            content,
+            link,
+            file
+          );
+          setSuccess('Assignment submitted successfully!');
+        }
+      } else {
+        // For text/link only submissions, create a standard submission
+        const submissionData = {
+          assignment_id: assignmentIdNum,
+          time_spent_minutes: timeSpentValue,
+          content: content || undefined,
+          link_url: link || undefined
+        };
+        
+        try {
+          if (submission?.id) {
+            newSubmission = await authService.updateSubmissionWithFile(
+              submission.id,
+              assignmentIdNum,
+              timeSpentValue,
+              content,
+              link
+            );
+            setSuccess('Assignment updated successfully!');
+          } else {
+            newSubmission = await authService.createSubmissionWithFile(
+              assignmentIdNum,
+              timeSpentValue,
+              content,
+              link
+            );
+            setSuccess('Assignment submitted successfully!');
+          }
+        } catch (apiError: any) {
+          console.error('API submission error:', apiError);
+          throw apiError;
+        }
+      }
+
+      // Update submission state
+      const updatedSubmission = {
+        id: newSubmission.id,
+        assignment_id: newSubmission.assignment_id,
+        student_id: newSubmission.student_id,
+        content: newSubmission.content || '',
+        file_path: newSubmission.file_path,
+        submitted_at: newSubmission.submitted_at,
+        grade: newSubmission.grade,
+        feedback: newSubmission.feedback,
+        is_graded: newSubmission.grade !== null && newSubmission.grade !== undefined,
+        file_name: newSubmission.file_name,
+        time_spent_minutes: newSubmission.time_spent_minutes,
+        link_url: newSubmission.link_url || ''
       };
       
-      if (content) {
-        submissionData.content = content;
-      }
+      setSubmission(updatedSubmission);
+
+      // STOP TIME TRACKING AFTER SUBMISSION
+      stopTimeTracking();
       
-      if (link) {
-        submissionData.link_url = link;
-      }
-
-      // For file uploads
-      if (file) {
-        const formData = new FormData();
-        formData.append('assignment_id', assignmentIdNum.toString());
-        formData.append('time_spent_minutes', timeSpentValue.toString());
-        
-        if (content) {
-          formData.append('content', content);
-        }
-        
-        if (link) {
-          formData.append('link_url', link);
-        }
-        
-        if (file) {
-          formData.append('photo', file);
-        }
-
-        let response;
-        if (submission?.id) {
-          console.log('📝 Updating submission with file:', submission.id);
-          response = await apiClient.put(`/submissions/${submission.id}`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          setSuccess('Assignment updated successfully!');
-        } else {
-          console.log('📝 Creating new submission with file');
-          response = await apiClient.post('/submissions/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          setSuccess('Assignment submitted successfully!');
-        }
-
-        const newSubmission = response.data;
-        setSubmission(newSubmission);
-        
-      } else {
-        // For text/link only submissions
-        let response;
-        if (submission?.id) {
-          console.log('📝 Updating text/link submission:', submission.id);
-          response = await apiClient.put(`/submissions/${submission.id}`, submissionData);
-          setSuccess('Assignment updated successfully!');
-        } else {
-          console.log('📝 Creating new text/link submission');
-          response = await apiClient.post('/submissions/', submissionData);
-          setSuccess('Assignment submitted successfully!');
-        }
-
-        const newSubmission = response.data;
-        setSubmission(newSubmission);
-      }
-
       // Clear localStorage after submission
       if (assignmentId) {
         localStorage.removeItem(`assignment_${assignmentId}_time`);
@@ -1622,7 +1955,7 @@ const StudentAssignmentPage: React.FC = () => {
         const submissions = JSON.parse(savedSubmissions);
         const filteredSubmissions = submissions.filter((s: any) => s.assignment_id !== assignmentIdNum);
         
-        const updatedSubmission = {
+        const cachedSubmission = {
           assignment_id: assignmentIdNum,
           content: content,
           link_url: link,
@@ -1632,7 +1965,7 @@ const StudentAssignmentPage: React.FC = () => {
         
         localStorage.setItem('student_submissions', JSON.stringify([
           ...filteredSubmissions,
-          updatedSubmission
+          cachedSubmission
         ]));
       } catch (cacheError) {
         console.warn('Failed to update localStorage cache:', cacheError);
@@ -1650,20 +1983,54 @@ const StudentAssignmentPage: React.FC = () => {
       hasTypedRef.current = false;
       strictModeRef.current = false;
       isCurrentlyTypingRef.current = false;
+      isTextareaFocusedRef.current = false;
       contentBeforeLeavingRef.current = 0;
       contentSnapshotRef.current = '';
       aiContentDetectionRef.current = false;
       largePasteCountRef.current = 0;
       tabSwitchHistoryRef.current = [];
 
-      // Show success SweetAlert
+      // Close loading SweetAlert
+      Swal.close();
+
+      // **NADAGDAG: Show success SweetAlert with 3-second delay bago mawala**
       Swal.fire({
         title: '✅ Success!',
         text: submission ? 'Assignment updated successfully!' : 'Assignment submitted successfully!',
         icon: 'success',
         confirmButtonText: 'OK',
-        confirmButtonColor: '#10b981'
+        confirmButtonColor: '#10b981',
+        timer: 3000, // 3 seconds delay
+        timerProgressBar: true, // Show progress bar
+        showConfirmButton: false // Hide the OK button since auto-close
       });
+
+      // Alternative na may countdown timer (optional)
+      // let timerInterval: NodeJS.Timeout;
+      // Swal.fire({
+      //   title: '✅ Success!',
+      //   html: `${submission ? 'Assignment updated successfully!' : 'Assignment submitted successfully!'}<br><br>This message will close in <strong id="countdown">3</strong> seconds...`,
+      //   icon: 'success',
+      //   showConfirmButton: false,
+      //   timer: 3000,
+      //   timerProgressBar: true,
+      //   willClose: () => {
+      //     clearInterval(timerInterval);
+      //   },
+      //   didOpen: () => {
+      //     const countdown = Swal.getHtmlContainer()?.querySelector('#countdown');
+      //     let timeLeft = 3;
+      //     timerInterval = setInterval(() => {
+      //       timeLeft--;
+      //       if (countdown) {
+      //         countdown.textContent = timeLeft.toString();
+      //       }
+      //       if (timeLeft <= 0) {
+      //         clearInterval(timerInterval);
+      //       }
+      //     }, 1000);
+      //   }
+      // });
 
     } catch (error: any) {
       console.error('Error submitting assignment:', error);
@@ -1674,8 +2041,12 @@ const StudentAssignmentPage: React.FC = () => {
       else if (error.response?.status === 400) errorMessage = error.response.data?.detail || 'Invalid data.';
       else if (error.response?.status === 409) errorMessage = 'Already submitted.';
       else if (error.response?.data?.detail) errorMessage = error.response.data.detail;
+      else if (error.message) errorMessage = error.message;
       
       setError(errorMessage);
+      
+      // Close loading SweetAlert
+      Swal.close();
       
       // Show error SweetAlert
       Swal.fire({
@@ -1688,7 +2059,6 @@ const StudentAssignmentPage: React.FC = () => {
       
     } finally {
       setIsSubmitting(false);
-      Swal.close();
     }
   };
 
@@ -1723,55 +2093,98 @@ const StudentAssignmentPage: React.FC = () => {
         }
       });
 
-      await apiClient.delete(`/submissions/${submission.id}`);
-      
+      // Delete using authService - SIMPLE AND CLEAN APPROACH
+      if (!user) {
+        throw new Error('No user found. Please log in again.');
+      }
+
+      // Create a simple DELETE request
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Use fetch directly with correct URL
+      const response = await fetch(`http://localhost:8000/submissions/${submission.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Failed to delete submission: ${response.status}`);
+      }
+
+      // Clear submission state
       setSubmission(null);
       setSelectedFileName('');
       setLinkUrl('');
+      
+      // Reset time tracking and restart
       resetTimeTracking();
+      shouldStopTrackingRef.current = false;
+      setIsActive(true);
+      startTimers();
+      
       // Reset typing flags
       hasTypedRef.current = false;
       strictModeRef.current = false;
       isCurrentlyTypingRef.current = false;
+      isTextareaFocusedRef.current = false;
       contentBeforeLeavingRef.current = 0;
       contentSnapshotRef.current = '';
       aiContentDetectionRef.current = false;
       largePasteCountRef.current = 0;
       tabSwitchHistoryRef.current = [];
-      setSuccess('Assignment unsubmitted successfully!');
       
-      // Update cache
-      try {
-        const savedSubmissions = localStorage.getItem('student_submissions') || '[]';
-        const submissions = JSON.parse(savedSubmissions);
-        const filteredSubmissions = submissions.filter((s: any) => s.id !== submission.id);
-        localStorage.setItem('student_submissions', JSON.stringify(filteredSubmissions));
-      } catch (cacheError) {
-        console.warn('Failed to update cache:', cacheError);
-      }
+      setSuccess('Assignment unsubmitted successfully! You can now edit and resubmit.');
+      
+      // Clear form
+      if (contentRef.current) contentRef.current.value = '';
+      if (fileRef.current) fileRef.current.value = '';
 
-      // Show success SweetAlert
+      // Close loading SweetAlert
+      Swal.close();
+
+      // Show success SweetAlert with 3-second delay
       Swal.fire({
-        title: '✅ Unsubmitted!',
-        text: 'Assignment has been unsubmitted successfully.',
+        title: '✅ Unsubmitted Successfully!',
+        text: 'Your assignment has been unsubmitted. You can now edit and resubmit.',
         icon: 'success',
         confirmButtonText: 'OK',
-        confirmButtonColor: '#10b981'
+        confirmButtonColor: '#10b981',
+        timer: 3000, // 3 seconds delay
+        timerProgressBar: true,
+        showConfirmButton: false
       });
 
     } catch (error: any) {
       console.error('Error unsubmitting assignment:', error);
       
       let errorMessage = 'Failed to unsubmit assignment. Please try again.';
-      if (error.response?.status === 403) errorMessage = 'No permission to unsubmit.';
-      else if (error.response?.data?.detail) errorMessage = error.response.data.detail;
+      
+      if (error.message.includes('Failed to delete submission: 400')) {
+        errorMessage = 'Cannot unsubmit. Submission may be graded or there are validation issues.';
+      } else if (error.message.includes('Failed to delete submission: 404')) {
+        errorMessage = 'Submission not found. It may have already been deleted.';
+      } else if (error.message.includes('Failed to delete submission: 403')) {
+        errorMessage = 'You do not have permission to unsubmit this assignment.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       
       setError(errorMessage);
+      
+      // Close loading SweetAlert
+      Swal.close();
       
       // Show error SweetAlert
       Swal.fire({
         title: '❌ Unsubmit Failed',
-        text: errorMessage,
+        html: `${errorMessage}<br><br><strong>Try refreshing the page and trying again.</strong>`,
         icon: 'error',
         confirmButtonText: 'OK',
         confirmButtonColor: '#dc2626'
@@ -1811,18 +2224,17 @@ const StudentAssignmentPage: React.FC = () => {
         icon: 'info',
         showConfirmButton: false,
         allowOutsideClick: false,
-        timer: 2000,
+        timer: 3000,
         timerProgressBar: true,
         didOpen: () => {
           Swal.showLoading();
         }
       });
 
-      const response = await apiClient.get(`/submissions/${submission.id}/download`, {
-        responseType: 'blob'
-      });
+      // Use authService to download file
+      const blob = await authService.downloadSubmissionFile(submission.id);
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', submission.file_name || 'submission_file');
@@ -1831,21 +2243,22 @@ const StudentAssignmentPage: React.FC = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      // Show success SweetAlert
+      // Show success SweetAlert with 3-second delay
       Swal.fire({
         title: '✅ Download Started',
         text: 'Your file download has started.',
         icon: 'success',
         confirmButtonText: 'OK',
         confirmButtonColor: '#10b981',
-        timer: 3000,
-        timerProgressBar: true
+        timer: 3000, // 3 seconds delay
+        timerProgressBar: true,
+        showConfirmButton: false
       });
     } catch (error) {
       console.error('Error downloading file:', error);
       
       try {
-        const fileUrl = `${API_BASE_URL}${submission.file_path}`;
+        const fileUrl = `http://localhost:8000${submission.file_path}`;
         window.open(fileUrl, '_blank');
       } catch (fallbackError) {
         setError('Failed to download file. Please try again.');
@@ -1912,7 +2325,7 @@ const StudentAssignmentPage: React.FC = () => {
                 Back to Assignments
               </button>
               <button
-                onClick={loadAssignmentData}
+                onClick={() => window.location.reload()}
                 className="w-full px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-800 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
                 title="Try loading assignment again"
               >
@@ -1954,6 +2367,7 @@ const StudentAssignmentPage: React.FC = () => {
               onClick={handleLogout}
               className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 shadow-sm cursor-pointer"
               title="Logout"
+              aria-label="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 013-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -1964,6 +2378,7 @@ const StudentAssignmentPage: React.FC = () => {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors shadow-sm cursor-pointer"
               title="Toggle menu"
+              aria-label="Toggle menu"
             >
               <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -1984,7 +2399,7 @@ const StudentAssignmentPage: React.FC = () => {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="max-w-6xl mx-auto p-4 md:p-6">
             {/* Violation Warning */}
             {showViolationWarning && (
               <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-2xl p-4 shadow-lg animate-pulse">
@@ -2000,6 +2415,7 @@ const StudentAssignmentPage: React.FC = () => {
                     onClick={() => setShowViolationWarning(false)}
                     className="text-red-600 hover:text-red-800 cursor-pointer"
                     title="Dismiss warning"
+                    aria-label="Dismiss warning"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2024,6 +2440,7 @@ const StudentAssignmentPage: React.FC = () => {
                     onClick={() => setError(null)}
                     className="text-red-500 hover:text-red-700 cursor-pointer"
                     title="Dismiss error"
+                    aria-label="Dismiss error"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2038,7 +2455,7 @@ const StudentAssignmentPage: React.FC = () => {
               <div className="mb-6 bg-green-50 border border-green-200 rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center">
                   <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
                   </svg>
                   <div>
                     <h3 className="text-sm font-semibold text-green-700">Success</h3>
@@ -2048,338 +2465,560 @@ const StudentAssignmentPage: React.FC = () => {
               </div>
             )}
 
-            {/* Assignment Card */}
-            <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg mb-6 overflow-hidden">
-              {/* Assignment Header */}
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h2 className="text-2xl font-bold text-gray-900">{assignment?.name}</h2>
-                      {strictModeRef.current && hasTypedRef.current && (
-                        <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full border border-red-300">
-                          ⚠️ STRICT MODE
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-3">
-                      <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-gray-200">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        Teacher: {assignment?.teacher_name || 'N/A'}
-                      </div>
-                      {assignment?.class_name && (
-                        <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-gray-200">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
-                          Code: {assignment.class_name}
-                          {assignment.class_code && ` (${assignment.class_code})`}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Assignment Info */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Assignment Card */}
+                <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
+                  <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-bold text-gray-900">{assignment?.name}</h2>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full border border-blue-200">
+                                {assignment?.class_name}
+                                {assignment?.class_code && ` (${assignment.class_code})`}
+                              </span>
+                              {strictModeRef.current && hasTypedRef.current && !shouldStopTrackingRef.current && (
+                                <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full border border-red-300">
+                                  ⚠️ STRICT MODE
+                                </span>
+                              )}
+                              {shouldStopTrackingRef.current && (
+                                <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full border border-green-300">
+                                  ✅ SUBMITTED
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                      <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-gray-200">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Created: {assignment?.created_at ? formatDate(assignment.created_at) : 'N/A'}
-                      </div>
-                      {assignment?.due_date && (
-                        <div className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 text-yellow-700">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          Due: {formatDate(assignment.due_date)}
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              <span className="text-sm font-medium text-gray-700">Teacher</span>
+                            </div>
+                            <p className="text-lg font-semibold text-gray-900">
+                              {assignment?.teacher_name || assignment?.teacher_full_name || 'Unknown Teacher'}
+                            </p>
+                          </div>
+                          
+                          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span className="text-sm font-medium text-gray-700">Created</span>
+                            </div>
+                            <p className="text-lg font-semibold text-gray-900">
+                              {assignment?.created_at ? formatDate(assignment.created_at) : 'N/A'}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  {submission && submission.grade !== null && submission.grade !== undefined && (
-                    <div className="flex items-center gap-2">
-                      <div className={`px-4 py-2 rounded-xl border font-semibold ${getGradeColor(submission.grade)}`}>
-                        Grade: {submission.grade}%
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Assignment Content */}
-              <div className="p-6">
-                {/* Assignment Description */}
-                <div className="prose max-w-none mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Description
-                  </h3>
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <p className="text-gray-700 whitespace-pre-wrap">
-                      {assignment?.description || 'No description provided.'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Time Spent Display with Mode Info */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Time Spent - Student Engagement Insights AI Smart Tracking
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${isActive ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
-                        {isActive ? '⏱️ Live Tracking' : '⏸️ Tracking Paused'}
-                      </span>
-                      {strictModeRef.current && hasTypedRef.current && (
-                        <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300">
-                          STRICT MODE
-                        </span>
+                      
+                      {submission && submission.grade !== null && submission.grade !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <div className={`px-6 py-3 rounded-xl border-2 font-bold text-lg ${getGradeColor(submission.grade)}`}>
+                            Grade: {submission.grade}%
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="relative">
-                      <div className={`border-2 rounded-2xl p-6 shadow-sm ${
-                        strictModeRef.current && hasTypedRef.current
-                          ? 'bg-gradient-to-br from-red-50 to-orange-50 border-red-300' 
-                          : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-300'
-                      }`}>
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-1 mb-2">
-                            <div className={`text-4xl font-bold ${strictModeRef.current && hasTypedRef.current ? 'text-red-700' : 'text-blue-700'}`}>
-                              {timeSpent}
-                            </div>
-                            <div className={`text-2xl font-semibold ${strictModeRef.current && hasTypedRef.current ? 'text-red-700' : 'text-blue-700'}`}>
-                              m
-                            </div>
-                            <div className={`text-4xl font-bold ${strictModeRef.current && hasTypedRef.current ? 'text-red-700' : 'text-blue-700'}`}>
-                              {seconds.toString().padStart(2, '0')}
-                            </div>
-                            <div className={`text-2xl font-semibold ${strictModeRef.current && hasTypedRef.current ? 'text-red-700' : 'text-blue-700'}`}>
-                              s
-                            </div>
-                          </div>
-                          <div className={`text-lg font-medium mb-1 ${strictModeRef.current && hasTypedRef.current ? 'text-red-600' : 'text-blue-600'}`}>
-                            {strictModeRef.current && hasTypedRef.current ? 'Strict Anti-Cheat Mode' : 'Normal Time Tracker'}
-                          </div>
-                          <div className={`text-xs ${strictModeRef.current && hasTypedRef.current ? 'text-red-500' : 'text-blue-500'}`}>
-                            {strictModeRef.current && hasTypedRef.current ? '⚡ Time resets if you leave while typing!' : '⚡ Normal time tracking'}
-                          </div>
+                  {/* Assignment Description */}
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 a9 9 0 0118 0z" />
+                      </svg>
+                      Assignment Description
+                    </h3>
+                    <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                        {assignment?.description || 'No description provided.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submission Form */}
+                <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6">Your Submission</h3>
+                  
+                  <div className="space-y-6">
+                    {/* Text Content */}
+                    <div>
+                      <label htmlFor="assignment-content" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        {shouldStopTrackingRef.current 
+                          ? 'Your Work (SUBMITTED)' 
+                          : strictModeRef.current && hasTypedRef.current 
+                          ? 'Your Work (STRICT MODE)' 
+                          : 'Your Work'
+                        }
+                      </label>
+                      <textarea
+                        id="assignment-content"
+                        ref={contentRef}
+                        rows={8}
+                        className="w-full px-4 py-4 bg-white border-2 border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none transition-all duration-200 shadow-sm"
+                        placeholder={shouldStopTrackingRef.current 
+                          ? "✅ Assignment submitted. You can edit and resubmit if needed." 
+                          : strictModeRef.current && hasTypedRef.current 
+                          ? "⚠️ WARNING: Do not switch tabs/apps while typing! Time will reset to 0 if text is added while away." 
+                          : "Type your assignment submission here... (You can also upload a file or submit a link below)"
+                        }
+                        defaultValue={submission?.content || ''}
+                        onKeyDown={trackTypingActivity}
+                        onChange={trackContentChange}
+                        onFocus={() => {
+                          if (strictModeRef.current && hasTypedRef.current && !shouldStopTrackingRef.current) {
+                            isCurrentlyTypingRef.current = true;
+                          }
+                          isTextareaFocusedRef.current = true;
+                          lastFocusTimeRef.current = Date.now();
+                        }}
+                        onBlur={() => {
+                          if (strictModeRef.current && hasTypedRef.current && !shouldStopTrackingRef.current) {
+                            isCurrentlyTypingRef.current = false;
+                          }
+                          isTextareaFocusedRef.current = false;
+                        }}
+                        disabled={shouldStopTrackingRef.current}
+                      />
+                      {shouldStopTrackingRef.current ? (
+                        <div className="mt-3 text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
+                          ✅ <strong>Assignment Submitted:</strong> Time tracking has been stopped. No violations will be recorded. Click "Unsubmit" to edit and restart tracking.
                         </div>
-                        <div className="mt-4 flex items-center justify-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
-                          <div className={`text-xs font-medium ${strictModeRef.current && hasTypedRef.current ? 'text-red-600' : 'text-blue-600'}`}>
-                            {isActive 
-                              ? `Working... ${timeSpent}m ${seconds}s` 
-                              : strictModeRef.current && hasTypedRef.current
-                                ? 'PAUSED - Time will reset to 0 if text added while away!' 
-                                : 'Paused - switched tab/window'
-                            }
-                          </div>
+                      ) : strictModeRef.current && hasTypedRef.current ? (
+                        <div className="mt-3 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
+                          ⚠️ <strong>Strict Mode Active:</strong> Do not switch tabs/apps while typing. If text is added while you are away, time will reset to <strong>0</strong> and HIGH severity violation will be recorded.
                         </div>
+                      ) : !hasTypedRef.current ? (
+                        <div className="mt-3 text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                          💡 <strong>Tip:</strong> You can still browse other tabs/apps. Strict mode will only activate once you start typing.
+                        </div>
+                      ) : null}
+                    </div>
+                    
+                    {/* Link Submission */}
+                    <div>
+                      <label htmlFor="assignment-link" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                        Submit Link (Optional)
+                      </label>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="text"
+                            id="assignment-link"
+                            ref={linkRef}
+                            value={linkUrl}
+                            onChange={(e) => setLinkUrl(e.target.value)}
+                            placeholder="https://drive.google.com/... or https://docs.google.com/... or any valid URL"
+                            className="flex-1 px-4 py-3 bg-purple-50 border-2 border-purple-300 rounded-xl text-gray-900 placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                            disabled={shouldStopTrackingRef.current}
+                          />
+                          {linkUrl && (
+                            <button
+                              onClick={handleRemoveLink}
+                              className="p-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl border border-red-200 hover:border-red-300 transition-all duration-200 cursor-pointer"
+                              title="Remove link"
+                              disabled={shouldStopTrackingRef.current}
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        
+                        {linkUrl && (
+                          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
+                            <div className="flex items-center gap-2">
+                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-green-700 text-sm font-medium truncate">{linkUrl}</span>
+                            </div>
+                            <a
+                              href={linkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 text-sm"
+                              title="Open link in new tab"
+                              aria-label="Open link in new tab"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                              Open
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <div className="text-sm text-gray-600 bg-white p-3 rounded-xl border border-gray-200">
-                        <div className="flex items-center gap-1 mb-2">
-                          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="font-medium">
-                            {strictModeRef.current && hasTypedRef.current ? 'STRICT MODE RULES:' : 'NORMAL MODE RULES:'}
-                          </span>
-                        </div>
-                        <div className="space-y-2 pl-5">
-                          {strictModeRef.current && hasTypedRef.current ? (
-                            <>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500 mt-1 flex-shrink-0"></div>
-                                <span><strong>You have typed text</strong> - Strict monitoring enabled</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500 mt-1 flex-shrink-0"></div>
-                                <span>Switching tabs/apps <strong>pauses time</strong></span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500 mt-1 flex-shrink-0"></div>
-                                <span>If ANY text is added while away, time <strong>RESETS TO 0</strong> immediately</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500 mt-1 flex-shrink-0"></div>
-                                <span>Multiple tab switches (3+) within <strong>15 seconds</strong> = <strong>HIGH SEVERITY</strong></span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500 mt-1 flex-shrink-0"></div>
-                                <span>Away for more than 60s = <strong>HIGH SEVERITY</strong></span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500 mt-1 flex-shrink-0"></div>
-                                <span><strong>Stay on this page while typing!</strong></span>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-shrink-0"></div>
-                                <span>No text typed yet - Normal tracking</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-shrink-0"></div>
-                                <span>Time pauses when switching tabs/apps</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-shrink-0"></div>
-                                <span>No strict anti-cheat measures</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-shrink-0"></div>
-                                <span>Perfect for file uploads or before typing</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <div className="w-2 h-2 rounded-full bg-yellow-500 mt-1 flex-shrink-0"></div>
-                                <span><strong>Warning:</strong> Once you start typing, strict mode activates!</span>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Hidden input for form submission */}
-                      <input
-                        id="time-spent"
-                        ref={timeSpentRef}
-                        type="hidden"
-                        value={activeTimeRef.current.toFixed(2)}
-                      />
-                      
-                      {/* Violation Stats */}
-                      {violations.length > 0 && (
-                        <div className="text-sm bg-yellow-50 p-3 rounded-xl border border-yellow-200">
-                          <div className="flex items-center gap-1 mb-2">
-                            <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                            <span className="font-medium text-yellow-800">Violation Alerts: {violations.length}</span>
-                          </div>
-                          <div className="text-xs text-yellow-700">
-                            <span className="font-semibold text-red-600">
-                              {violations.filter(v => v.severity === 'high').length} HIGH
-                            </span>, 
-                            <span className="font-medium text-yellow-600">
-                              {" "}{violations.filter(v => v.severity === 'medium').length} MEDIUM
-                            </span>,
-                            <span className="text-blue-600">
-                              {" "}{violations.filter(v => v.severity === 'low').length} LOW
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className={`mt-4 rounded-xl p-3 ${
-                    strictModeRef.current && hasTypedRef.current
-                      ? 'bg-gradient-to-r from-red-50 to-orange-50 border border-red-200' 
-                      : 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200'
-                  }`}>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        strictModeRef.current && hasTypedRef.current ? 'bg-red-100' : 'bg-blue-100'
-                      }`}>
-                        <svg className={`w-4 h-4 ${strictModeRef.current && hasTypedRef.current ? 'text-red-600' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    {/* File Upload */}
+                    <div>
+                      <label htmlFor="assignment-file" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
+                        Upload File (Optional)
+                      </label>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <label className={`flex-1 cursor-pointer ${shouldStopTrackingRef.current ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            <input
+                              type="file"
+                              id="assignment-file"
+                              ref={fileRef}
+                              onChange={handleFileChange}
+                              className="hidden"
+                              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+                              disabled={shouldStopTrackingRef.current}
+                            />
+                            <div className={`w-full px-4 py-4 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all duration-200 flex items-center justify-center gap-2 ${
+                              shouldStopTrackingRef.current
+                                ? 'bg-gray-100 border-2 border-gray-300'
+                                : 'bg-yellow-50 border-2 border-yellow-300 hover:bg-yellow-100 hover:border-yellow-400'
+                            }`}>
+                              <svg className={`w-5 h-5 ${
+                                shouldStopTrackingRef.current ? 'text-gray-500' : 'text-yellow-600'
+                              }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                              </svg>
+                              <span className={`font-medium ${
+                                shouldStopTrackingRef.current ? 'text-gray-600' : 'text-yellow-700'
+                              }`}>
+                                {shouldStopTrackingRef.current ? 'File Upload Disabled' : 'Browse Files'}
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+                        
+                        {selectedFileName && (
+                          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
+                            <div className="flex items-center gap-2">
+                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-green-700 text-sm font-medium truncate">{selectedFileName}</span>
+                            </div>
+                            <button
+                              onClick={handleRemoveFile}
+                              className="text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                              title="Remove selected file"
+                              disabled={shouldStopTrackingRef.current}
+                              aria-label="Remove selected file"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                        
+                        <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                          Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (Max: 10MB)
+                        </p>
                       </div>
-                      <div className="flex-1">
-                        <p className={`text-sm font-medium ${strictModeRef.current && hasTypedRef.current ? 'text-red-800' : 'text-blue-800'}`}>
-                          {strictModeRef.current && hasTypedRef.current ? 'STRICT ANTI-CHEAT MODE ACTIVE' : 'NORMAL TRACKING MODE'}
-                        </p>
-                        <p className={`text-xs ${strictModeRef.current && hasTypedRef.current ? 'text-red-600' : 'text-blue-600'}`}>
-                          {strictModeRef.current && hasTypedRef.current 
-                            ? 'You have started typing. Do not switch tabs/apps while working. If text is added while you are away, time will reset to 0 and a HIGH severity violation will be recorded. Multiple tab switches within 15 seconds trigger HIGH severity alerts.'
-                            : 'No text typed yet. You can safely switch tabs/apps. Once you start typing, strict anti-cheat mode will activate with HIGH severity monitoring.'
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-6 border-t border-gray-200">
+                      <button
+                        onClick={() => navigate('/student/assignments')}
+                        className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+                        title="Go back to assignments list"
+                        aria-label="Go back to assignments list"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Assignments
+                      </button>
+                      
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                        {submission && (
+                          <button
+                            onClick={handleUnsubmit}
+                            className="px-6 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-medium transition-all duration-200 border border-red-200 hover:border-red-300 shadow-sm cursor-pointer"
+                            disabled={isSubmitting}
+                            title="Unsubmit this assignment"
+                            aria-label="Unsubmit this assignment"
+                          >
+                            Unsubmit
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={handleSubmitAssignment}
+                          disabled={isSubmitting || shouldStopTrackingRef.current}
+                          className={`px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer ${
+                            shouldStopTrackingRef.current
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
+                          }`}
+                          title={shouldStopTrackingRef.current 
+                            ? "Already submitted" 
+                            : submission 
+                            ? "Update your submission" 
+                            : "Submit your assignment"
                           }
-                        </p>
+                          aria-label={shouldStopTrackingRef.current 
+                            ? "Already submitted" 
+                            : submission 
+                            ? "Update your submission" 
+                            : "Submit your assignment"
+                          }
+                        >
+                          {isSubmitting && (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          )}
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span>
+                            {shouldStopTrackingRef.current 
+                              ? 'Already Submitted' 
+                              : isSubmitting 
+                                ? (submission ? 'Updating...' : 'Submitting...') 
+                                : (submission ? 'Update Submission' : 'Submit Assignment')
+                            }
+                          </span>
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Existing Submission Display */}
+              {/* Right Column - Time Tracking & Info */}
+              <div className="space-y-6">
+                {/* Time Tracking Card */}
+                <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 a9 9 0 0118 0z" />
+                    </svg>
+                    Time Tracking
+                  </h3>
+                  
+                  <div className="text-center mb-6">
+                    <div className="flex items-center justify-center gap-1 mb-2">
+                      <div className={`text-5xl font-bold ${
+                        shouldStopTrackingRef.current
+                          ? 'text-gray-700'
+                          : strictModeRef.current && hasTypedRef.current 
+                          ? 'text-red-700' 
+                          : 'text-blue-700'
+                      }`}>
+                        {timeSpent}
+                      </div>
+                      <div className={`text-3xl font-semibold ${
+                        shouldStopTrackingRef.current
+                          ? 'text-gray-700'
+                          : strictModeRef.current && hasTypedRef.current 
+                          ? 'text-red-700' 
+                          : 'text-blue-700'
+                      }`}>
+                        m
+                      </div>
+                      <div className={`text-5xl font-bold ${
+                        shouldStopTrackingRef.current
+                          ? 'text-gray-700'
+                          : strictModeRef.current && hasTypedRef.current 
+                          ? 'text-red-700' 
+                          : 'text-blue-700'
+                      }`}>
+                        {seconds.toString().padStart(2, '0')}
+                      </div>
+                      <div className={`text-3xl font-semibold ${
+                        shouldStopTrackingRef.current
+                          ? 'text-gray-700'
+                          : strictModeRef.current && hasTypedRef.current 
+                          ? 'text-red-700' 
+                          : 'text-blue-700'
+                      }`}>
+                        s
+                      </div>
+                    </div>
+                    
+                    <div className={`text-lg font-medium mb-1 ${
+                      shouldStopTrackingRef.current
+                        ? 'text-gray-600'
+                        : strictModeRef.current && hasTypedRef.current 
+                        ? 'text-red-600' 
+                        : 'text-blue-600'
+                    }`}>
+                      {shouldStopTrackingRef.current 
+                        ? 'Submission Complete' 
+                        : strictModeRef.current && hasTypedRef.current 
+                        ? 'Strict Anti-Cheat Mode' 
+                        : 'Normal Time Tracker'
+                      }
+                    </div>
+                    
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      <div className={`w-3 h-3 rounded-full ${
+                        shouldStopTrackingRef.current
+                          ? 'bg-gray-500'
+                          : isActive 
+                          ? 'bg-green-500' 
+                          : 'bg-red-500'
+                      } ${shouldStopTrackingRef.current ? '' : 'animate-pulse'}`}></div>
+                      <div className={`text-sm font-medium ${
+                        shouldStopTrackingRef.current
+                          ? 'text-gray-600'
+                          : strictModeRef.current && hasTypedRef.current 
+                          ? 'text-red-600' 
+                          : 'text-blue-600'
+                      }`}>
+                        {shouldStopTrackingRef.current 
+                          ? 'Tracking stopped' 
+                          : isActive 
+                            ? `Working... ${timeSpent}m ${seconds}s` 
+                            : 'Paused - switched tab/window'
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Hidden input for form submission */}
+                  <input
+                    id="time-spent"
+                    ref={timeSpentRef}
+                    type="hidden"
+                    value={activeTimeRef.current.toFixed(2)}
+                  />
+                  
+                  <div className="space-y-3">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2">Tracking Status</h4>
+                      <div className="space-y-2">
+                        {shouldStopTrackingRef.current ? (
+                          <>
+                            <div className="flex items-start gap-2">
+                              <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></div>
+                              <span className="text-sm text-gray-600"><strong>Assignment submitted</strong></span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></div>
+                              <span className="text-sm text-gray-600">Time tracking <strong>STOPPED</strong></span>
+                            </div>
+                          </>
+                        ) : strictModeRef.current && hasTypedRef.current ? (
+                          <>
+                            <div className="flex items-start gap-2">
+                              <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></div>
+                              <span className="text-sm text-gray-600"><strong>Strict mode active</strong> - Typing detected</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></div>
+                              <span className="text-sm text-gray-600">Text added while away = <strong>TIME RESETS TO 0</strong></span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-start gap-2">
+                              <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+                              <span className="text-sm text-gray-600">Normal tracking mode</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <div className="w-2 h-2 rounded-full bg-yellow-500 mt-1.5 flex-shrink-0"></div>
+                              <span className="text-sm text-gray-600">Strict mode activates when typing</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {violations.length > 0 && (
+                      <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-yellow-800">Violation Alerts</h4>
+                          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">
+                            {violations.length}
+                          </span>
+                        </div>
+                        <div className="text-xs text-yellow-700 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span>High Severity:</span>
+                            <span className="font-bold text-red-600">{violations.filter(v => v.severity === 'high').length}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>Medium Severity:</span>
+                            <span className="font-bold text-yellow-600">{violations.filter(v => v.severity === 'medium').length}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>Low Severity:</span>
+                            <span className="font-bold text-blue-600">{violations.filter(v => v.severity === 'low').length}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Submission Status Card */}
                 {submission && (
-                  <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 shadow-sm">
-                    <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
                       </svg>
-                      Your Submission
+                      Submission Status
                     </h3>
-                    <div className="space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <span className="text-sm text-blue-700 bg-white px-3 py-1 rounded-full border border-blue-200">
-                          Submitted: {submission.submitted_at ? formatDate(submission.submitted_at) : 'N/A'}
-                        </span>
+                    
+                    <div className="space-y-4">
+                      <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-green-700">Submitted</span>
+                          <span className="text-sm text-green-600">
+                            {submission.submitted_at ? formatDate(submission.submitted_at) : 'N/A'}
+                          </span>
+                        </div>
                         {submission.time_spent_minutes && (
-                          <span className="text-sm text-blue-700 bg-white px-3 py-1 rounded-full border border-blue-200">
-                            ⏱️ Time Spent: {Math.floor(submission.time_spent_minutes)}m {Math.round((submission.time_spent_minutes - Math.floor(submission.time_spent_minutes)) * 60)}s
-                          </span>
-                        )}
-                        {violations.length > 0 && (
-                          <span className={`text-sm px-3 py-1 rounded-full border font-medium ${
-                            violations.filter(v => v.severity === 'high').length > 0
-                              ? 'bg-red-100 text-red-700 border-red-200'
-                              : violations.filter(v => v.severity === 'medium').length > 0
-                              ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
-                              : 'bg-blue-100 text-blue-700 border-blue-200'
-                          }`}>
-                            ⚠️ {violations.length} Violation{violations.length > 1 ? 's' : ''}
-                            {violations.filter(v => v.severity === 'high').length > 0 && ` (${violations.filter(v => v.severity === 'high').length} HIGH)`}
-                          </span>
-                        )}
-                        {submission.is_graded && (
-                          <div className="flex items-center gap-2">
-                            {submission.feedback && (
-                              <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full border border-purple-200">
-                                Feedback Provided
-                              </span>
-                            )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-green-700">Final Time</span>
+                            <span className="text-sm text-green-600">
+                              {Math.floor(submission.time_spent_minutes)}m {Math.round((submission.time_spent_minutes - Math.floor(submission.time_spent_minutes)) * 60)}s
+                            </span>
                           </div>
                         )}
                       </div>
-                      {submission.content && (
-                        <div className="text-sm text-blue-800 bg-white/50 p-3 rounded-xl border border-blue-200">
-                          <strong className="text-blue-900">Content:</strong> 
-                          <div className="mt-1 whitespace-pre-wrap">{submission.content}</div>
-                        </div>
-                      )}
-                      {submission.link_url && (
-                        <div className="text-sm text-blue-800 bg-white/50 p-3 rounded-xl border border-blue-200">
-                          <strong className="text-blue-900">Link:</strong> 
-                          <div className="mt-1">
-                            <a href={submission.link_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline break-all">
-                              {submission.link_url}
-                            </a>
-                          </div>
-                        </div>
-                      )}
+                      
                       {submission.file_path && (
-                        <div className="flex items-center justify-between text-sm text-blue-800 bg-white/50 p-3 rounded-xl border border-blue-200">
+                        <div className="flex items-center justify-between bg-blue-50 p-3 rounded-xl border border-blue-200">
                           <div className="flex items-center gap-2">
                             <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <span>{submission.file_name || 'Uploaded file'}</span>
+                            <span className="text-sm text-blue-700 truncate">{submission.file_name || 'Uploaded file'}</span>
                           </div>
                           <button
                             onClick={downloadFile}
-                            className="text-blue-600 hover:text-blue-800 transition-colors cursor-pointer flex items-center gap-1"
+                            className="text-blue-600 hover:text-blue-800 transition-colors cursor-pointer flex items-center gap-1 text-sm"
                             title="Download submitted file"
+                            aria-label="Download submitted file"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -2388,274 +3027,65 @@ const StudentAssignmentPage: React.FC = () => {
                           </button>
                         </div>
                       )}
+                      
                       {submission.feedback && (
-                        <div className="text-sm text-purple-800 bg-white/50 p-3 rounded-xl border border-purple-200">
-                          <strong className="text-purple-900">Teacher Feedback:</strong> 
-                          <div className="mt-1 whitespace-pre-wrap">{submission.feedback}</div>
+                        <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                          <h4 className="text-sm font-semibold text-purple-800 mb-2">Teacher Feedback</h4>
+                          <p className="text-sm text-purple-700 whitespace-pre-wrap">{submission.feedback}</p>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Submission Form */}
-                <div className="space-y-6">
-                  <div>
-                    <label htmlFor="assignment-content" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      {strictModeRef.current && hasTypedRef.current ? 'Your Work (STRICT MODE - Stay on this page!)' : 'Your Work'}
-                    </label>
-                    <textarea
-                      id="assignment-content"
-                      ref={contentRef}
-                      rows={8}
-                      className="w-full px-4 py-4 bg-white border-2 border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none transition-all duration-200 shadow-sm"
-                      placeholder={strictModeRef.current && hasTypedRef.current 
-                        ? "⚠️ WARNING: Do not switch tabs/apps while typing! Time will reset to 0 if text is added while away." 
-                        : "Type your assignment submission here... (You can also upload a file or submit a link below)"
-                      }
-                      defaultValue={submission?.content || ''}
-                      onKeyDown={trackTypingActivity}
-                      onChange={trackContentChange}
-                      onFocus={() => {
-                        if (strictModeRef.current && hasTypedRef.current) {
-                          isCurrentlyTypingRef.current = true;
-                        }
-                        lastFocusTimeRef.current = Date.now();
-                      }}
-                      onBlur={() => {
-                        if (strictModeRef.current && hasTypedRef.current) {
-                          isCurrentlyTypingRef.current = false;
-                        }
-                      }}
-                    />
-                    {strictModeRef.current && hasTypedRef.current && (
-                      <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-200">
-                        ⚠️ <strong>Strict Mode Active:</strong> Do not switch tabs/apps while typing. If text is added while you are away, time will reset to <strong>0</strong> and HIGH severity violation will be recorded.
-                      </div>
-                    )}
-                    {!hasTypedRef.current && (
-                      <div className="mt-2 text-xs text-yellow-600 bg-yellow-50 p-2 rounded-lg border border-yellow-200">
-                        💡 <strong>Tip:</strong> You can still browse other tabs/apps. Strict mode will only activate once you start typing.
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Link Submission */}
-                  <div>
-                    <label htmlFor="assignment-link" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
-                      Submit Link (Optional)
-                    </label>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="text"
-                          id="assignment-link"
-                          ref={linkRef}
-                          value={linkUrl}
-                          onChange={(e) => setLinkUrl(e.target.value)}
-                          placeholder="https://drive.google.com/... or https://docs.google.com/... or any valid URL"
-                          className="flex-1 px-4 py-4 bg-purple-50 border-2 border-purple-300 rounded-2xl text-gray-900 placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 shadow-sm"
-                        />
-                        {linkUrl && (
-                          <button
-                            onClick={handleRemoveLink}
-                            className="p-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl border border-red-200 hover:border-red-300 transition-all duration-200 cursor-pointer"
-                            title="Remove link"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                      
-                      {linkUrl && (
-                        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
-                          <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="text-green-700 text-sm font-medium truncate">{linkUrl}</span>
-                          </div>
-                          <a
-                            href={linkUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 text-sm"
-                            title="Open link in new tab"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                            Open
-                          </a>
-                        </div>
-                      )}
-                      
-                      <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-                        Submit links to Google Drive, Google Docs, Dropbox, GitHub, or any other cloud storage. Must start with http:// or https://
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* File Upload */}
-                  <div>
-                    <label htmlFor="assignment-file" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      Upload File (Optional)
-                    </label>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <label className="flex-1 cursor-pointer">
-                          <input
-                            type="file"
-                            id="assignment-file"
-                            ref={fileRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
-                          />
-                          <div className="w-full px-4 py-4 bg-yellow-50 border-2 border-yellow-300 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all duration-200 shadow-sm hover:bg-yellow-100 hover:border-yellow-400 cursor-pointer flex items-center justify-center gap-2">
-                            <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                            <span className="text-yellow-700 font-medium">Browse Files</span>
-                          </div>
-                        </label>
-                      </div>
-                      
-                      {selectedFileName && (
-                        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
-                          <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="text-green-700 text-sm font-medium truncate">{selectedFileName}</span>
-                          </div>
-                          <button
-                            onClick={handleRemoveFile}
-                            className="text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-                            title="Remove selected file"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                      
-                      <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-                        Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (Max: 10MB)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Submission Instructions */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4">
-                    <h4 className="text-sm font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Submission Instructions
-                    </h4>
-                    <ul className="text-xs text-blue-700 space-y-1">
-                      <li className="flex items-start gap-2">
-                        <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
-                        <span>You can submit using <strong>any one</strong> of the three methods above (Text, Link, or File)</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
-                        <span>Submit multiple methods for additional context if needed</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
-                        <span>Error will only appear if <strong>all three fields are empty</strong></span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mt-8 pt-6 border-t border-gray-200">
-                  <button
-                    onClick={() => navigate('/student/assignments')}
-                    className="px-4 sm:px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-sm sm:text-base cursor-pointer"
-                    title="Go back to assignments list"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                {/* Instructions Card */}
+                <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 a9 9 0 0118 0z" />
                     </svg>
-                    <span className="whitespace-nowrap">Back to Assignments</span>
-                  </button>
+                    Submission Instructions
+                  </h3>
                   
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                    {submission && (
-                      <button
-                        onClick={handleUnsubmit}
-                        className="px-4 sm:px-6 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-medium transition-all duration-200 border border-red-200 hover:border-red-300 shadow-sm text-sm sm:text-base flex-1 sm:flex-none cursor-pointer"
-                        disabled={isSubmitting}
-                        title="Unsubmit this assignment"
-                      >
-                        Unsubmit
-                      </button>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+                      <span className="text-sm text-gray-600">Submit using <strong>any one</strong> method: Text, Link, or File</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+                      <span className="text-sm text-gray-600">Submit multiple methods for additional context</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+                      <span className="text-sm text-gray-600">Error only if <strong>all three fields are empty</strong></span>
+                    </div>
+                    {shouldStopTrackingRef.current && (
+                      <div className="flex items-start gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></div>
+                        <span className="text-sm text-gray-600"><strong>Note:</strong> Time tracking stops after submission</span>
+                      </div>
                     )}
-                    
-                    <button
-                      onClick={handleSubmitAssignment}
-                      disabled={isSubmitting}
-                      className="px-4 sm:px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 text-sm sm:text-base flex-1 sm:flex-none"
-                      title={submission ? "Update your submission" : "Submit your assignment"}
-                    >
-                      {isSubmitting && (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      )}
-                      <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="whitespace-nowrap">
-                        {isSubmitting 
-                          ? (submission ? 'Updating...' : 'Submitting...') 
-                          : (submission ? 'Update Submission' : 'Submit Assignment')
-                        }
-                      </span>
-                    </button>
                   </div>
                 </div>
               </div>
             </div>
-            
-            {/* Violations Summary (Collapsible) */}
+
+            {/* Violations Summary */}
             {violations.length > 0 && (
-              <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
-                <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
-                  <h3 className="text-lg font-semibold text-red-800 flex items-center gap-2">
+              <div className="mt-6 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
+                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
+                  <h3 className="text-lg font-bold text-red-800 flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                     Violation History ({violations.length} records)
                   </h3>
-                  <div className="flex items-center gap-4 mt-2">
-                    <div className="text-sm">
-                      <span className="font-bold text-red-700">{violations.filter(v => v.severity === 'high').length} HIGH</span>
-                      <span className="mx-2">•</span>
-                      <span className="font-medium text-yellow-700">{violations.filter(v => v.severity === 'medium').length} MEDIUM</span>
-                      <span className="mx-2">•</span>
-                      <span className="text-blue-700">{violations.filter(v => v.severity === 'low').length} LOW</span>
-                    </div>
-                  </div>
                 </div>
-                <div className="p-4">
-                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                <div className="p-6">
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
                     {violations.map((violation, index) => (
-                      <div key={index} className={`p-3 rounded-xl border ${
+                      <div key={index} className={`p-4 rounded-xl border ${
                         violation.severity === 'high' 
                           ? 'bg-red-50 border-red-200' 
                           : violation.severity === 'medium'
@@ -2664,7 +3094,7 @@ const StudentAssignmentPage: React.FC = () => {
                       }`}>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-2">
                               <span className={`px-2 py-1 rounded text-xs font-bold ${
                                 violation.severity === 'high'
                                   ? 'bg-red-100 text-red-800'
@@ -2674,47 +3104,29 @@ const StudentAssignmentPage: React.FC = () => {
                               }`}>
                                 {violation.severity === 'high' ? '🔴 HIGH' : violation.severity === 'medium' ? '🟡 MEDIUM' : '🔵 LOW'}
                               </span>
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                violation.violation_type === 'ai_content_detected' || 
-                                violation.violation_type === 'paste_detected'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {violation.violation_type.toUpperCase().replace(/_/g, ' ')}
-                              </span>
                               <span className="text-xs text-gray-500">
                                 {new Date(violation.detected_at).toLocaleString()}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-700">{violation.description}</p>
+                            <p className="text-sm text-gray-700 mb-2">{violation.description}</p>
                             {violation.time_away_seconds > 0 && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                ⏱️ Time away: {violation.time_away_seconds}s
+                              <div className="text-xs text-gray-500 flex flex-wrap gap-2">
+                                <span>⏱️ Time away: {violation.time_away_seconds}s</span>
                                 {violation.content_added_during_absence && 
-                                  ` • 📝 Text added: ${violation.content_added_during_absence} chars`
+                                  <span>📝 Text added: {violation.content_added_during_absence} chars</span>
                                 }
                                 {violation.paste_content_length && 
-                                  ` • 📋 Paste size: ${violation.paste_content_length} chars`
+                                  <span>📋 Paste size: {violation.paste_content_length} chars</span>
                                 }
                                 {violation.ai_similarity_score && 
-                                  ` • 🤖 AI similarity: ${(violation.ai_similarity_score * 100).toFixed(1)}%`
+                                  <span>🤖 AI similarity: {(violation.ai_similarity_score * 100).toFixed(1)}%</span>
                                 }
-                              </p>
+                              </div>
                             )}
                           </div>
                         </div>
                       </div>
                     ))}
-                  </div>
-                  <div className="mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>
-                        <strong>HIGH Severity</strong> = Text added while away, multiple tab switches (3+ within 15s), long absences, AI content, or large copy-paste
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>

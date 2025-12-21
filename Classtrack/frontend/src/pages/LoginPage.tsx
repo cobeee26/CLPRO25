@@ -14,19 +14,16 @@ const LoginPage: React.FC = () => {
         backgroundRepeat: "no-repeat",
       }}
     >
-      {/* Gradient Overlay */}
       <div
         className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-slate-900/50 to-slate-900/70"
         aria-hidden="true"
       ></div>
 
-      {/* Subtle Animated Lights */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="absolute -top-20 -right-20 w-40 h-40 sm:w-64 sm:h-64 bg-red-500/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-20 -left-20 w-40 h-40 sm:w-64 sm:h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
-      {/* Login Card */}
       <div className="relative z-10 flex flex-col items-center justify-center w-full px-4 py-8 sm:px-6 md:px-8">
         <div
           className="w-full max-w-sm sm:max-w-md bg-slate-800/85 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-700/30 transition-all duration-300 hover:shadow-2xl"
@@ -34,7 +31,6 @@ const LoginPage: React.FC = () => {
           aria-labelledby="login-heading"
           aria-describedby="login-description"
         >
-          {/* Logo */}
           <header className="flex justify-center mb-6">
             <div className="relative">
               <div className="absolute inset-0 bg-green-500/20 rounded-full blur-lg scale-110"></div>
@@ -46,7 +42,6 @@ const LoginPage: React.FC = () => {
             </div>
           </header>
 
-          {/* Title */}
           <section className="text-center mb-8">
             <h1
               id="login-heading"
@@ -66,7 +61,6 @@ const LoginPage: React.FC = () => {
             </p>
           </section>
 
-          {/* Form */}
           <section
             role="form"
             aria-label="User Authentication Form"
@@ -75,7 +69,6 @@ const LoginPage: React.FC = () => {
             <LoginForm />
           </section>
 
-          {/* Footer */}
           <footer className="text-center space-y-3">
             <div className="flex items-center justify-center gap-2 text-slate-400">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -93,7 +86,6 @@ const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Skip link (Accessibility) */}
       <a
         href="#login-heading"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-red-600 text-white px-4 py-2 rounded-xl z-50 shadow-lg hover:bg-red-700 transition-colors"

@@ -61,7 +61,6 @@ const ClassesPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [editFormError, setEditFormError] = useState<string | null>(null);
 
-  // SweetAlert2 Configuration with Auto-Dismiss Timer
   const swalConfig = {
     customClass: {
       title: 'text-lg font-bold text-gray-900',
@@ -74,7 +73,6 @@ const ClassesPage: React.FC = () => {
     background: '#ffffff'
   };
 
-  // SweetAlert Helper Functions with Auto-Dismiss
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -235,7 +233,6 @@ const ClassesPage: React.FC = () => {
     setLoadingProgress(progress);
   };
 
-  // Load teachers
   useEffect(() => {
     if (!currentUser) return;
     
@@ -254,7 +251,6 @@ const ClassesPage: React.FC = () => {
     loadTeachers();
   }, [currentUser]);
 
-  // Load classes
   useEffect(() => {
     if (!currentUser) return;
     
@@ -281,7 +277,6 @@ const ClassesPage: React.FC = () => {
         
         updateLoadingProgress(2, 2);
         
-        // Transform classes with teacher names and student counts
         const transformedClasses: Class[] = apiClasses.map(apiClass => {
           const teacherName = getTeacherName(apiClass.teacher_id);
           
@@ -316,7 +311,6 @@ const ClassesPage: React.FC = () => {
     fetchClasses();
   }, [currentUser, teachers]);
 
-  // Helper function to get display name from user object
   const getDisplayName = (user: AppUser | any): string => {
     if (!user) return 'Unknown User';
     if (user?.full_name) return user.full_name;
@@ -326,7 +320,6 @@ const ClassesPage: React.FC = () => {
     return 'Unknown User';
   };
 
-  // Function to get teacher name
   const getTeacherName = (teacherId?: number): string => {
     if (currentUser?.role === 'teacher') {
       return getDisplayName(currentUser) || 'Teacher';
@@ -415,15 +408,12 @@ const ClassesPage: React.FC = () => {
       closeAlert();
       showSuccessAlert(`Class Created!`, `"${classData.name}" has been created successfully.`, 'create', true, 3000);
       
-      // Reset form
       setFormData({ name: '', code: '', teacher_id: undefined });
       
-      // Close modal after a short delay
       setTimeout(() => {
         setIsModalOpen(false);
       }, 1000);
       
-      // Refresh class list
       await refreshClassList();
       
     } catch (err) {
@@ -465,13 +455,11 @@ const ClassesPage: React.FC = () => {
       closeAlert();
       showSuccessAlert(`Class Updated!`, `"${updateData.name}" has been updated successfully.`, 'update', true, 3000);
       
-      // Close modal after a short delay
       setTimeout(() => {
         setIsEditModalOpen(false);
         setEditingClass(null);
       }, 1000);
       
-      // Refresh class list
       await refreshClassList();
       
     } catch (err) {
@@ -505,7 +493,6 @@ const ClassesPage: React.FC = () => {
       closeAlert();
       showSuccessAlert(`Class Deleted!`, `"${classItem.name}" has been deleted successfully.`, 'delete', true, 3000);
       
-      // Refresh class list
       await refreshClassList();
       
     } catch (err) {
@@ -531,7 +518,6 @@ const ClassesPage: React.FC = () => {
   const openCreateModal = () => {
     setIsModalOpen(true);
     setFormError(null);
-    // Reset form data
     setFormData({
       name: '',
       code: '',
@@ -539,20 +525,16 @@ const ClassesPage: React.FC = () => {
     });
   };
 
-  // Calculate assigned classes count
   const getAssignedClassesCount = () => {
     if (currentUser?.role === 'admin') {
       return classes.filter(c => c.teacher_id && getTeacherName(c.teacher_id) !== 'Unassigned').length;
     }
-    // For teacher, all their classes are assigned to them
     return classes.length;
   };
 
-  // Loading Screen
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-teal-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -575,7 +557,6 @@ const ClassesPage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Your Classes
@@ -585,7 +566,6 @@ const ClassesPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -599,7 +579,6 @@ const ClassesPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-2 gap-3 max-w-md mb-8">
           {[
             { text: "Teachers", color: "bg-emerald-100 text-emerald-600" },
@@ -618,13 +597,11 @@ const ClassesPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             This might take a moment. Please wait...
@@ -634,7 +611,6 @@ const ClassesPage: React.FC = () => {
     );
   }
 
-  // Error Screen
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -761,7 +737,6 @@ const ClassesPage: React.FC = () => {
           />
         </div>
 
-        {/* Status Bar */}
         <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
@@ -1202,7 +1177,6 @@ const ClassesPage: React.FC = () => {
         </main>
       </div>
 
-      {/* Create Class Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1315,7 +1289,6 @@ const ClassesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Class Modal */}
       {isEditModalOpen && editingClass && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">

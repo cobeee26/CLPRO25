@@ -12,7 +12,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const location = useLocation();
   const { user } = useUser();
 
-  // Helper function to construct full image URL
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -40,7 +39,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     return constructedUrl;
   };
 
-  // Helper function to get role icon
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -126,12 +124,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     return location.pathname === path;
   };
 
-  // Get role-specific navigation items and branding
   const getNavigationItems = () => {
     const userRole =
       user?.role || localStorage.getItem("userRole") || "student";
 
-    // Strict role validation - only allow valid roles
     const validRoles = ["admin", "teacher", "student"];
     if (!validRoles.includes(userRole)) {
       console.warn(
@@ -413,7 +409,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           },
           {
             path: "/student/assignments",
-            label: "Assignments", // NEW: Added separate assignments page
+            label: "Assignments", 
             icon: (
               <svg
                 className="w-4 h-4 text-white"
@@ -435,7 +431,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           },
           {
             path: "/student/classes",
-            label: "My Classes", // NEW: Changed from Assignments to My Classes
+            label: "My Classes", 
             icon: (
               <svg
                 className="w-4 h-4 text-white"
@@ -508,11 +504,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   const navigationItems = getNavigationItems();
 
-  // Get role-specific branding
   const getBranding = () => {
     let userRole = user?.role || localStorage.getItem("userRole") || "student";
 
-    // Strict role validation - only allow valid roles
     const validRoles = ["admin", "teacher", "student"];
     if (!validRoles.includes(userRole)) {
       console.warn(
@@ -561,11 +555,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   const branding = getBranding();
 
-  // Get role-specific avatar gradient
   const getRoleAvatarGradient = () => {
     let userRole = user?.role || localStorage.getItem("userRole") || "student";
 
-    // Strict role validation - only allow valid roles
     const validRoles = ["admin", "teacher", "student"];
     if (!validRoles.includes(userRole)) {
       console.warn(
@@ -586,7 +578,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     }
   };
 
-  // Logout function
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
@@ -598,7 +589,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   return (
     <>
-      {/* Sidebar */}
       <div
         key={`sidebar-${user?.role || "unknown"}`}
         className={`dashboard-sidebar ${
@@ -606,7 +596,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         } lg:translate-x-0 fixed lg:relative inset-y-0 left-0 w-64 bg-white backdrop-blur-xl border-r border-gray-200 flex flex-col flex-shrink-0 shadow-lg z-30 lg:z-10 dashboard-transition`}
         style={{ height: "100vh", minHeight: "100vh" }}
       >
-        {/* Sidebar Header */}
+
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="relative group">
@@ -627,7 +617,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 {branding.subtitle}
               </p>
             </div>
-            {/* Mobile Close Button */}
+
             <button
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden p-1 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
@@ -650,7 +640,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav
           className="flex-1 p-3 overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 200px)", minHeight: "200px" }}
@@ -679,11 +668,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                   to={item.path}
                   className={linkClasses}
                   onClick={() => {
-                    // Close sidebar on mobile when a link is clicked
                     if (window.innerWidth < 1024) {
                       setSidebarOpen(false);
                     }
-                    // Force a small delay to ensure proper navigation
                     setTimeout(() => {
                       window.scrollTo(0, 0);
                     }, 100);
@@ -697,9 +684,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
         </nav>
 
-        {/* Sidebar Footer - ALWAYS VISIBLE BOTH MOBILE AND DESKTOP */}
         <div className="p-3 border-t border-gray-200 mt-auto">
-          {/* User Info */}
           <div className="flex items-center space-x-3 mb-3">
             <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-lg flex-shrink-0">
               {user?.profile_picture_url &&
@@ -747,7 +732,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             </div>
           </div>
 
-          {/* Logout Button - ALWAYS VISIBLE */}
           <button
             onClick={handleLogout}
             className="w-full flex items-center px-3 py-2.5 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all duration-300 hover:shadow-md group border border-gray-200 hover:border-red-200 cursor-pointer"
@@ -769,8 +753,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             </div>
             <span className="ml-3 text-sm font-medium">Logout</span>
           </button>
-
-          {/* Developer Credits - NEW: Added caption below logout button */}
           <div className="mt-3 pt-3 border-t border-gray-200">
             <p className="text-xs text-gray-400 text-center">
               Created by Allen Jefferson Orcino
@@ -781,7 +763,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       </div>
 
-      {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-20 lg:hidden"

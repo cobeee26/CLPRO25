@@ -7,7 +7,6 @@ import DynamicHeader from "../components/DynamicHeader";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
 import Swal from "sweetalert2";
 
-// API Configuration
 const API_BASE_URL = "http://localhost:8000";
 
 const apiClient = axios.create({
@@ -32,7 +31,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// SweetAlert2 Configuration with Auto-Dismiss Timer
 const swalConfig = {
   customClass: {
     title: 'text-lg font-bold text-gray-900',
@@ -104,11 +102,9 @@ const ProfilePage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Loading states similar to Dashboard
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // SweetAlert Helper Functions with Auto-Dismiss
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -311,7 +307,6 @@ const ProfilePage: React.FC = () => {
     });
   };
 
-  // Enhanced loading function with progress
   const loadProfileData = async () => {
     try {
       console.log('🔄 Loading profile data...');
@@ -321,7 +316,6 @@ const ProfilePage: React.FC = () => {
 
       updateLoadingProgress(1, 3);
       
-      // Check authentication
       const token = localStorage.getItem("authToken");
       const userRole = localStorage.getItem("userRole");
 
@@ -333,7 +327,6 @@ const ProfilePage: React.FC = () => {
 
       updateLoadingProgress(2, 3);
       
-      // Wait for user data to be fetched by context
       if (user) {
         setProfileData({
           first_name: user.first_name || "",
@@ -763,7 +756,6 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  // QUICK ACTIONS NAVIGATION FUNCTIONS
   const handleViewGrades = () => {
     const userRole = localStorage.getItem("userRole");
     switch (userRole) {
@@ -820,11 +812,9 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  // Loading Screen (similar to Dashboard)
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -847,7 +837,6 @@ const ProfilePage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Your Profile
@@ -857,7 +846,6 @@ const ProfilePage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading profile...</span>
@@ -871,7 +859,6 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
           {[
             { text: "Authentication", color: "bg-blue-100 text-blue-600" },
@@ -891,14 +878,12 @@ const ProfilePage: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             Loading your personal information...
@@ -908,7 +893,6 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  // Error Screen (similar to Dashboard)
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1024,12 +1008,8 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden">
-      {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        {/* Mobile Header */}
         <header className="lg:hidden bg-white backdrop-blur-xl border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -1092,7 +1072,6 @@ const ProfilePage: React.FC = () => {
           </div>
         </header>
 
-        {/* Dynamic Header - FOR DESKTOP */}
         <div className="hidden lg:block">
           <DynamicHeader
             title="Profile Settings"
@@ -1100,7 +1079,6 @@ const ProfilePage: React.FC = () => {
           />
         </div>
 
-        {/* Status Bar (similar to Dashboard) */}
         <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
@@ -1123,10 +1101,8 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-            {/* Profile Header Card */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-3xl p-8 shadow-2xl">
               <div className="flex flex-col lg:flex-row items-start lg:items-center gap-8">
                 <div className="relative flex-shrink-0">
@@ -1336,7 +1312,6 @@ const ProfilePage: React.FC = () => {
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               <div className="xl:col-span-2 space-y-8">
-                {/* Personal Information */}
                 <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-3xl p-8 shadow-2xl">
                   <div className="flex items-center justify-between mb-8">
                     <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -1505,7 +1480,6 @@ const ProfilePage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Security Settings */}
                 <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-3xl p-8 shadow-2xl">
                   <div className="flex items-center justify-between mb-8">
                     <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -1896,7 +1870,6 @@ const ProfilePage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* BACK TO DASHBOARD BUTTON (MOVED TO BOTTOM OF SECURITY SETTINGS) */}
                   <div className="mt-8 pt-8 border-t border-gray-200">
                     <button
                       onClick={handleBackToDashboard}
@@ -1946,7 +1919,6 @@ const ProfilePage: React.FC = () => {
               </div>
 
               <div className="space-y-8">
-                {/* Account Status */}
                 <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-3xl p-8 shadow-2xl">
                   <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -1998,7 +1970,6 @@ const ProfilePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Quick Actions - WITH WORKING NAVIGATION */}
                 <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-3xl p-8 shadow-2xl">
                   <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">

@@ -192,6 +192,80 @@ export interface CleanlinessResponse {
   message?: string;
 }
 
+// NEW: Violations interfaces
+export interface ViolationCreate {
+  student_id: number;
+  assignment_id: number;
+  violation_type: string;
+  description: string;
+  time_away_seconds: number;
+  severity: string;
+  content_added_during_absence?: number;
+  ai_similarity_score?: number;
+  paste_content_length?: number;
+}
+
+export interface ViolationResponse {
+  id: number;
+  student_id: number;
+  assignment_id: number;
+  violation_type: string;
+  description: string;
+  detected_at: string;
+  time_away_seconds: number;
+  severity: string;
+  content_added_during_absence?: number;
+  ai_similarity_score?: number;
+  paste_content_length?: number;
+}
+
+// NEW: Submission with content interface
+export interface SubmissionWithContent {
+  assignment_id: number;
+  content?: string;
+  link_url?: string;
+  time_spent_minutes: number;
+  file_name?: string;
+}
+
+// NEW: Submission detail response interface
+export interface SubmissionDetailResponse {
+  id: number;
+  assignment_id: number;
+  student_id: number;
+  student_name: string;
+  student_email: string;
+  content?: string;
+  file_path?: string;
+  file_name?: string;
+  submitted_at: string;
+  grade?: number;
+  feedback?: string;
+  is_graded: boolean;
+  time_spent_minutes: number;
+  link_url?: string;
+}
+
+// NEW: Grade update interface
+export interface GradeUpdate {
+  grade: number;
+  feedback?: string;
+}
+
+// NEW: Student assignment detail interface
+export interface StudentAssignmentDetail {
+  id: number;
+  name: string;
+  description: string;
+  class_id: number;
+  class_name: string;
+  class_code?: string;
+  teacher_name: string;
+  creator_id: number;
+  created_at?: string;
+  due_date?: string;
+}
+
 // NEW: Get schedule cleanliness function
 export const getScheduleCleanliness = async (scheduleId: number): Promise<CleanlinessResponse> => {
   try {
@@ -214,6 +288,280 @@ export const getScheduleCleanliness = async (scheduleId: number): Promise<Cleanl
     throw error;
   }
 };
+
+// ====================================
+// NEW ENDPOINTS FROM main.py - VIOLATIONS SECTION
+// ====================================
+
+/**
+ * Create a new violation record
+ * Requires authentication. Students can create violations for themselves.
+ */
+export const createViolation = async (violationData: ViolationCreate): Promise<ViolationResponse> => {
+  try {
+    const response = await apiClient.post('/violations/', violationData);
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to create violation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all violations for assignments
+ * Requires authentication. Teachers and Admins can view all violations.
+ */
+export const getAllViolations = async (): Promise<ViolationResponse[]> => {
+  try {
+    const response = await apiClient.get('/assignments/violations');
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to fetch violations:', error);
+    if (error.response?.status === 403) {
+      console.log('Not authorized to view violations, returning empty array...');
+      return [];
+    }
+    throw error;
+  }
+};
+
+/**
+ * Get violations for a specific assignment
+ * Requires authentication. Teachers can view violations for their assignments.
+ */
+export const getAssignmentViolations = async (assignmentId: number): Promise<ViolationResponse[]> => {
+  try {
+    const response = await apiClient.get(`/assignments/${assignmentId}/violations`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to fetch violations for assignment ${assignmentId}:`, error);
+    if (error.response?.status === 403) {
+      console.log('Not authorized to view assignment violations, returning empty array...');
+      return [];
+    } else if (error.response?.status === 404) {
+      console.log('Assignment not found, returning empty array...');
+      return [];
+    }
+    throw error;
+  }
+};
+
+// ====================================
+// NEW ENDPOINTS FROM main.py - SUBMISSIONS WITH FILE UPLOAD
+// ====================================
+
+/**
+ * Create a new submission with optional file upload (Student only)
+ * Requires authentication and STUDENT role.
+ */
+export const createSubmissionWithFile = async (
+  assignmentId: number,
+  timeSpentMinutes: number,
+  content?: string,
+  linkUrl?: string,
+  photoFile?: File
+): Promise<any> => {
+  try {
+    const formData = new FormData();
+    formData.append('assignment_id', assignmentId.toString());
+    formData.append('time_spent_minutes', timeSpentMinutes.toString());
+    
+    if (content) formData.append('content', content);
+    if (linkUrl) formData.append('link_url', linkUrl);
+    if (photoFile) formData.append('photo', photoFile);
+    
+    const response = await apiClient.post('/submissions/upload/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to create submission with file:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update a submission with optional file upload (Student only)
+ * Requires authentication and STUDENT role.
+ */
+export const updateSubmissionWithFile = async (
+  submissionId: number,
+  assignmentId: number,
+  timeSpentMinutes: number,
+  content?: string,
+  linkUrl?: string,
+  photoFile?: File
+): Promise<any> => {
+  try {
+    const formData = new FormData();
+    formData.append('assignment_id', assignmentId.toString());
+    formData.append('time_spent_minutes', timeSpentMinutes.toString());
+    
+    if (content) formData.append('content', content);
+    if (linkUrl) formData.append('link_url', linkUrl);
+    if (photoFile) formData.append('photo', photoFile);
+    
+    const response = await apiClient.put(`/submissions/${submissionId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to update submission with file:', error);
+    throw error;
+  }
+};
+
+/**
+ * Download submission file
+ * Requires authentication.
+ */
+export const downloadSubmissionFile = async (submissionId: number): Promise<Blob> => {
+  try {
+    const response = await apiClient.get(`/submissions/${submissionId}/download`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to download file for submission ${submissionId}:`, error);
+    throw error;
+  }
+};
+
+// ====================================
+// NEW ENDPOINTS FROM main.py - TEACHER ASSIGNMENT SUBMISSIONS
+// ====================================
+
+/**
+ * Get all submissions for a specific assignment (Teacher and Admin only)
+ * Requires authentication and TEACHER or ADMIN role.
+ */
+export const getAssignmentSubmissions = async (assignmentId: number): Promise<SubmissionDetailResponse[]> => {
+  try {
+    const response = await apiClient.get(`/assignments/${assignmentId}/submissions`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to get submissions for assignment ${assignmentId}:`, error);
+    if (error.response?.status === 403) {
+      console.log('Not authorized to view assignment submissions, returning empty array...');
+      return [];
+    } else if (error.response?.status === 404) {
+      console.log('Assignment not found, returning empty array...');
+      return [];
+    }
+    throw error;
+  }
+};
+
+/**
+ * Update the grade for a submission (Teacher and Admin only)
+ * Requires authentication and TEACHER or ADMIN role.
+ */
+export const updateSubmissionGrade = async (
+  submissionId: number,
+  gradeData: GradeUpdate
+): Promise<any> => {
+  try {
+    const response = await apiClient.patch(`/submissions/${submissionId}/grade`, gradeData);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to update grade for submission ${submissionId}:`, error);
+    throw error;
+  }
+};
+
+// ====================================
+// NEW ENDPOINTS FROM main.py - STUDENT ASSIGNMENTS
+// ====================================
+
+/**
+ * Get assignment details for a student
+ * Requires authentication and STUDENT role.
+ */
+export const getStudentAssignmentDetail = async (assignmentId: number): Promise<StudentAssignmentDetail> => {
+  try {
+    const response = await apiClient.get(`/assignments/student/${assignmentId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to get assignment detail ${assignmentId}:`, error);
+    if (error.response?.status === 404) {
+      console.log('Assignment not found, throwing error...');
+      throw new Error('Assignment not found');
+    } else if (error.response?.status === 403) {
+      console.log('Not authorized to view assignment, throwing error...');
+      throw new Error('You are not authorized to view this assignment');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Get assignment details for the current student
+ * Requires authentication and STUDENT role.
+ */
+export const getStudentMyAssignment = async (assignmentId: number): Promise<StudentAssignmentDetail> => {
+  try {
+    const response = await apiClient.get(`/students/me/assignments/${assignmentId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to get student assignment ${assignmentId}:`, error);
+    if (error.response?.status === 404) {
+      throw new Error('Assignment not found');
+    } else if (error.response?.status === 403) {
+      throw new Error('You are not authorized to view this assignment');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Get the current student's submission for a specific assignment
+ * Requires authentication and STUDENT role.
+ */
+export const getStudentSubmissionForAssignment = async (assignmentId: number): Promise<any> => {
+  try {
+    const response = await apiClient.get(`/submissions/assignment/${assignmentId}/student`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to get submission for assignment ${assignmentId}:`, error);
+    if (error.response?.status === 404) {
+      console.log('No submission found, returning null...');
+      return null;
+    } else if (error.response?.status === 403) {
+      console.log('Not authorized to view submission, returning null...');
+      return null;
+    }
+    throw error;
+  }
+};
+
+/**
+ * Get the current student's submission for a specific assignment (alternative endpoint)
+ * Requires authentication and STUDENT role.
+ */
+export const getStudentMySubmission = async (assignmentId: number): Promise<any> => {
+  try {
+    const response = await apiClient.get(`/students/me/submissions/${assignmentId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Failed to get student submission ${assignmentId}:`, error);
+    if (error.response?.status === 404) {
+      console.log('No submission found, returning null...');
+      return null;
+    } else if (error.response?.status === 403) {
+      console.log('Not authorized to view submission, returning null...');
+      return null;
+    }
+    throw error;
+  }
+};
+
+// ====================================
+// EXISTING AUTH FUNCTIONS
+// ====================================
 
 // FastAPI OAuth2 login function - COMPLETELY REWRITTEN for correct form data format
 export const loginUser = async (username: string, password: string): Promise<string> => {
@@ -1493,6 +1841,71 @@ export const authService = {
 
   async getStudentSubmissions(): Promise<SubmissionResponse[]> {
     return getStudentSubmissions();
+  },
+
+  // NEW: Student assignment detail methods
+  async getStudentAssignmentDetail(assignmentId: number): Promise<StudentAssignmentDetail> {
+    return getStudentAssignmentDetail(assignmentId);
+  },
+
+  async getStudentMyAssignment(assignmentId: number): Promise<StudentAssignmentDetail> {
+    return getStudentMyAssignment(assignmentId);
+  },
+
+  async getStudentSubmissionForAssignment(assignmentId: number): Promise<any> {
+    return getStudentSubmissionForAssignment(assignmentId);
+  },
+
+  async getStudentMySubmission(assignmentId: number): Promise<any> {
+    return getStudentMySubmission(assignmentId);
+  },
+
+  // NEW: Violations methods
+  async createViolation(violationData: ViolationCreate): Promise<ViolationResponse> {
+    return createViolation(violationData);
+  },
+
+  async getAllViolations(): Promise<ViolationResponse[]> {
+    return getAllViolations();
+  },
+
+  async getAssignmentViolations(assignmentId: number): Promise<ViolationResponse[]> {
+    return getAssignmentViolations(assignmentId);
+  },
+
+  // NEW: Submission with file methods
+  async createSubmissionWithFile(
+    assignmentId: number,
+    timeSpentMinutes: number,
+    content?: string,
+    linkUrl?: string,
+    photoFile?: File
+  ): Promise<any> {
+    return createSubmissionWithFile(assignmentId, timeSpentMinutes, content, linkUrl, photoFile);
+  },
+
+  async updateSubmissionWithFile(
+    submissionId: number,
+    assignmentId: number,
+    timeSpentMinutes: number,
+    content?: string,
+    linkUrl?: string,
+    photoFile?: File
+  ): Promise<any> {
+    return updateSubmissionWithFile(submissionId, assignmentId, timeSpentMinutes, content, linkUrl, photoFile);
+  },
+
+  async downloadSubmissionFile(submissionId: number): Promise<Blob> {
+    return downloadSubmissionFile(submissionId);
+  },
+
+  // NEW: Teacher assignment submissions methods
+  async getAssignmentSubmissions(assignmentId: number): Promise<SubmissionDetailResponse[]> {
+    return getAssignmentSubmissions(assignmentId);
+  },
+
+  async updateSubmissionGrade(submissionId: number, gradeData: GradeUpdate): Promise<any> {
+    return updateSubmissionGrade(submissionId, gradeData);
   },
 
   // Export functions

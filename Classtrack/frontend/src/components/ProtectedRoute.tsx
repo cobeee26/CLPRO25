@@ -12,7 +12,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
   const location = useLocation();
   const token = localStorage.getItem('authToken');
 
-  // Show loading spinner while user data is being fetched
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -24,17 +23,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     );
   }
 
-  // Check if user is authenticated
   if (!token || !user) {
     console.log('❌ No authentication token or user data found');
     return <Navigate to="/login" replace />;
   }
 
-  // Strict role-based access control
   if (requiredRole && user.role !== requiredRole) {
     console.log(`🚫 ACCESS DENIED: User role '${user.role}' cannot access '${requiredRole}' route: ${location.pathname}`);
-    
-    // Force redirect to appropriate dashboard based on user's actual role
     switch (user.role) {
       case 'admin':
         console.log('🔄 Redirecting admin to /admin/dashboard');
@@ -51,19 +46,16 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     }
   }
 
-  // Additional security: Check if user is trying to access admin routes without admin role
   if (location.pathname.startsWith('/admin/') && user.role !== 'admin') {
     console.log(`🚫 BLOCKED: Non-admin user '${user.role}' attempted to access admin route: ${location.pathname}`);
     return <Navigate to={`/${user.role}/dashboard`} replace />;
   }
 
-  // Check if user is trying to access teacher routes without teacher role
   if (location.pathname.startsWith('/teacher/') && user.role !== 'teacher') {
     console.log(`🚫 BLOCKED: Non-teacher user '${user.role}' attempted to access teacher route: ${location.pathname}`);
     return <Navigate to={`/${user.role}/dashboard`} replace />;
   }
 
-  // Check if user is trying to access student routes without student role
   if (location.pathname.startsWith('/student/') && user.role !== 'student') {
     console.log(`🚫 BLOCKED: Non-student user '${user.role}' attempted to access student route: ${location.pathname}`);
     return <Navigate to={`/${user.role}/dashboard`} replace />;

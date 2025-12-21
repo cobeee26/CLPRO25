@@ -8,7 +8,6 @@ import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import Swal from 'sweetalert2';
 import './DashboardPage.css';
 
-// Interface para sa Class na galing sa API
 interface ApiClass {
   id: number;
   name: string;
@@ -18,7 +17,6 @@ interface ApiClass {
   updatedAt?: string;
 }
 
-// Extended interface para sa lokal na Class
 interface Class extends ApiClass {
   status: string;
   assignedTeacher: string;
@@ -57,7 +55,6 @@ interface TeacherReports {
   };
 }
 
-// Extended User interface to include name property
 interface ExtendedUser {
   id: number;
   email: string;
@@ -68,7 +65,6 @@ interface ExtendedUser {
   username?: string;
 }
 
-// SweetAlert2 Configuration with Auto-Dismiss Timer
 const swalConfig = {
   customClass: {
     title: 'text-lg font-bold text-gray-900',
@@ -90,12 +86,10 @@ const SchedulePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Enhanced loading states
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -130,13 +124,11 @@ const SchedulePage: React.FC = () => {
   const [editFormError, setEditFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   
-  // Timepicker states
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [showEditStartTimePicker, setShowEditStartTimePicker] = useState(false);
   const [showEditEndTimePicker, setShowEditEndTimePicker] = useState(false);
 
-  // SweetAlert Helper Functions with Auto-Dismiss
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -292,13 +284,11 @@ const SchedulePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
-  // Update loading progress
   const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
     const progress = Math.floor((step / totalSteps) * 100);
     setLoadingProgress(progress);
   };
 
-  // Helper function to convert API class to local Class type
   const convertApiClassToLocalClass = (apiClass: any): Class => {
     return {
       id: apiClass.id || apiClass.class_id || 0,
@@ -312,7 +302,6 @@ const SchedulePage: React.FC = () => {
     };
   };
 
-  // Enhanced loading function
   const loadScheduleData = async () => {
     try {
       console.log('🔄 Loading schedule data...');
@@ -333,7 +322,6 @@ const SchedulePage: React.FC = () => {
 
       let schedulesData: any[] = [];
 
-      // EVERYONE uses the same main schedules endpoint
       try {
         console.log('📅 Loading unified schedules for all roles...');
         schedulesData = await authService.getSchedulesLive();
@@ -341,7 +329,6 @@ const SchedulePage: React.FC = () => {
       } catch (error) {
         console.error('❌ Unified schedules failed, trying role-specific endpoints:', error);
         
-        // Fallback to role-specific endpoints if unified fails
         if (user?.role === 'admin') {
           schedulesData = await authService.getSchedulesLive();
         } else if (user?.role === 'teacher') {
@@ -356,17 +343,14 @@ const SchedulePage: React.FC = () => {
 
       console.log('📅 Final schedules data:', schedulesData);
 
-      // Convert schedules to enriched format
       const enrichedSchedules = Array.isArray(schedulesData) 
         ? schedulesData.map(schedule => convertToEnrichedSchedule(schedule))
         : [];
       
       console.log('📅 Enriched schedules:', enrichedSchedules);
 
-      // For students: Use the student schedule directly
       let finalSchedules = enrichedSchedules;
       if (user?.role === 'student') {
-        // Try to get student schedule directly
         try {
           const studentScheduleData = await getStudentSchedule();
           console.log('🎓 Student schedule data:', studentScheduleData);
@@ -384,7 +368,6 @@ const SchedulePage: React.FC = () => {
 
       updateLoadingProgress(2, 3);
       
-      // Load classes for form dropdowns (admin/teacher only)
       if (user?.role !== 'student') {
         try {
           let classesData: any[] = [];
@@ -432,19 +415,18 @@ const SchedulePage: React.FC = () => {
     }
   };
 
-  // Generate time options for the timepicker in 12-hour format
   const generateTimeOptions = () => {
     const times = [];
     for (let hour = 0; hour < 24; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) { // 30-minute intervals
-        const displayHour = hour % 12 || 12; // Convert 0 to 12, 13 to 1, etc.
+      for (let minute = 0; minute < 60; minute += 30) { 
+        const displayHour = hour % 12 || 12; 
         const period = hour < 12 ? 'AM' : 'PM';
         const timeString = `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         times.push({ 
           display: timeString, 
-          value: timeString, // Store 12-hour format for display
+          value: timeString, 
           period,
-          value24: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}` // Store 24-hour for API
+          value24: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}` 
         });
       }
     }
@@ -453,7 +435,6 @@ const SchedulePage: React.FC = () => {
 
   const timeOptions = generateTimeOptions();
 
-  // Convert 24-hour time to 12-hour format
   const convertTo12Hour = (time24: string) => {
     if (!time24) return { time: '', period: 'AM' };
     
@@ -466,7 +447,6 @@ const SchedulePage: React.FC = () => {
     };
   };
 
-  // Convert 12-hour time to 24-hour format
   const convertTo24Hour = (time12: string, period: string) => {
     if (!time12) return '';
     
@@ -481,7 +461,6 @@ const SchedulePage: React.FC = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
-  // Get display text for time input (12-hour format with AM/PM)
   const getDisplayTime = (time24: string, period: string) => {
     if (!time24) return 'Select time';
     const time12 = convertTo12Hour(time24);
@@ -491,7 +470,6 @@ const SchedulePage: React.FC = () => {
   useEffect(() => {
     loadScheduleData();
     
-    // Listen for room report updates
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'room_report_submitted') {
         console.log('🔄 Room report submitted, reloading schedules...');
@@ -506,7 +484,6 @@ const SchedulePage: React.FC = () => {
     };
   }, []);
 
-  // Force reload class data when modal opens to ensure fresh data
   useEffect(() => {
     if (isModalOpen && classes.length === 0) {
       console.log('🔄 Modal opened with no classes, reloading data...');
@@ -514,11 +491,9 @@ const SchedulePage: React.FC = () => {
     }
   }, [isModalOpen]);
 
-  // SIMPLIFIED function to convert ScheduleResponse to ScheduleEnrichedResponse
   const convertToEnrichedSchedule = (schedule: any): ScheduleEnrichedResponse => {
     console.log('🔄 Converting schedule:', schedule);
     
-    // Direct mapping - no complex logic
     const class_name = schedule.class_name || schedule.className || schedule.name || schedule.title || 'Class Name';
     const class_code = schedule.class_code || schedule.code || schedule.course_code || 'N/A';
     const teacher_name = schedule.teacher_name || schedule.teacher || schedule.instructor || 'Teacher Name';
@@ -541,17 +516,14 @@ const SchedulePage: React.FC = () => {
     };
   };
 
-  // FIXED: Improved student data loader with proper TypeScript typing
   const loadStudentData = async (): Promise<{ schedulesData: any[] }> => {
     let schedulesData: any[] = [];
 
     try {
-      // FIRST priority: Try unified schedules endpoint
       console.log('📅 Student: Loading unified schedules...');
       schedulesData = await authService.getSchedulesLive();
       console.log('✅ Student unified schedules:', schedulesData);
       
-      // If unified endpoint returns data, use it
       if (schedulesData.length > 0) {
         console.log('🎯 Student: Using unified schedules data');
         return { schedulesData };
@@ -560,17 +532,14 @@ const SchedulePage: React.FC = () => {
       console.warn('⚠️ Student: Unified schedules failed, trying student-specific endpoint');
     }
 
-    // SECOND priority: Student-specific endpoint
     try {
       console.log('📅 Student: Loading student-specific schedule...');
       const response = await authService.getStudentSchedule();
       console.log('📊 Student schedule response:', response);
       
-      // FIXED: Proper TypeScript handling for response object
       if (Array.isArray(response)) {
         schedulesData = response;
       } else if (response && typeof response === 'object') {
-        // Handle various response formats with proper type checking
         const responseObj = response as any;
         if (Array.isArray(responseObj.schedules)) {
           schedulesData = responseObj.schedules;
@@ -596,15 +565,12 @@ const SchedulePage: React.FC = () => {
     return { schedulesData };
   };
 
-  // FIXED: Simplified function to manually refresh cleanliness
   const handleRefreshCleanliness = async (scheduleId: number) => {
     console.log(`🔄 Manual refresh requested for schedule ${scheduleId}`);
-    // Since the method doesn't exist, just reload all data
     await loadScheduleData();
     return false;
   };
 
-  // FIXED: Simplified function to refresh all schedules cleanliness
   const refreshAllCleanliness = async () => {
     try {
       console.log('🔄 Refreshing cleanliness for all schedules...');
@@ -619,13 +585,11 @@ const SchedulePage: React.FC = () => {
     }
   };
 
-  // Helper function to combine date and time into ISO string
   const combineDateTime = (date: string, time: string): string => {
     if (!date || !time) return '';
     return new Date(`${date}T${time}`).toISOString();
   };
 
-  // Time selection handlers
   const handleTimeSelect = (time: string, period: string, type: 'start' | 'end') => {
     const time24 = convertTo24Hour(time, period);
     setFormData(prev => ({
@@ -651,7 +615,6 @@ const SchedulePage: React.FC = () => {
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Combine date and time into ISO strings
     const startDateTime = combineDateTime(formData.start_date, formData.start_time);
     const endDateTime = combineDateTime(formData.end_date, formData.end_time);
     
@@ -721,7 +684,6 @@ const SchedulePage: React.FC = () => {
   const handleEditSchedule = (schedule: ScheduleEnrichedResponse) => {
     setEditingSchedule(schedule);
     
-    // Parse existing datetime into separate date and time
     const startDate = new Date(schedule.start_time);
     const endDate = new Date(schedule.end_time);
     
@@ -746,7 +708,6 @@ const SchedulePage: React.FC = () => {
   const handleUpdateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Combine date and time into ISO strings
     const startDateTime = combineDateTime(editFormData.start_date, editFormData.start_time);
     const endDateTime = combineDateTime(editFormData.end_date, editFormData.end_time);
     
@@ -864,11 +825,9 @@ const SchedulePage: React.FC = () => {
     schedule.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Loading Screen (similar to Dashboard)
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -891,7 +850,6 @@ const SchedulePage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-purple-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Your Schedule Manager
@@ -901,7 +859,6 @@ const SchedulePage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading schedules...</span>
@@ -915,7 +872,6 @@ const SchedulePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
           {[
             { text: "Schedules", color: "bg-blue-100 text-blue-600" },
@@ -935,14 +891,12 @@ const SchedulePage: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             Loading your timetable and class information...
@@ -952,7 +906,6 @@ const SchedulePage: React.FC = () => {
     );
   }
 
-  // Error Screen (similar to Dashboard)
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1026,7 +979,6 @@ const SchedulePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex relative">
-      {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16 shadow-sm">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center space-x-3">
@@ -1086,14 +1038,11 @@ const SchedulePage: React.FC = () => {
         </div>
       </header>
 
-      {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-40 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 ease-in-out`}>
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
-        {/* Dynamic Header - Only for desktop */}
         <div className="hidden lg:block">
           <DynamicHeader
             title={user?.role === 'student' ? "My Schedule" : "Schedule Management"}
@@ -1101,7 +1050,6 @@ const SchedulePage: React.FC = () => {
           />
         </div>
 
-        {/* Status Bar (similar to Dashboard) */}
         <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
@@ -1124,10 +1072,8 @@ const SchedulePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <main className="flex-1 bg-transparent p-4 lg:p-6 pt-14 lg:pt-4 overflow-hidden">
           <div className="max-w-7xl mx-auto h-full flex flex-col">
-            {/* ERROR BANNER */}
             {error && (
               <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
                 <div className="flex">
@@ -1156,9 +1102,7 @@ const SchedulePage: React.FC = () => {
               </div>
             )}
 
-            {/* SCHEDULE CONTAINER */}
             <div className="bg-white backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
-              {/* HEADER SECTION */}
               <div className="flex-shrink-0 bg-white backdrop-blur-sm rounded-t-xl border-b border-gray-200 p-3">
                 <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
                   <div className="flex items-center space-x-3">
@@ -1168,7 +1112,6 @@ const SchedulePage: React.FC = () => {
                     <span className="text-sm text-gray-600">
                       {filteredSchedules.length} {filteredSchedules.length === 1 ? 'schedule' : 'schedules'}
                     </span>
-                    {/* Cleanliness Indicator */}
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                       <span className="text-xs text-green-600 font-medium">
@@ -1177,7 +1120,6 @@ const SchedulePage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {/* NEW: Refresh Cleanliness Button */}
                     <button
                       onClick={refreshAllCleanliness}
                       className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 cursor-pointer"
@@ -1231,7 +1173,6 @@ const SchedulePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* TABLE CONTENT - GUARANTEED TO SHOW DATA FOR STUDENT */}
               <div className="flex-1 overflow-hidden">
                 <div className="h-full overflow-auto">
                   {user?.role === 'student' && filteredSchedules.length > 0 && (
@@ -1249,7 +1190,6 @@ const SchedulePage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* FIXED: Improved table container with better responsive design */}
                   <div className="min-w-full overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50 sticky top-0 z-10">
@@ -1260,7 +1200,6 @@ const SchedulePage: React.FC = () => {
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[150px]">Start Time</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[150px]">End Time</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[100px]">Status</th>
-                          {/* Cleanliness Report column removed */}
                           {user?.role !== 'student' && (
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[120px]">Actions</th>
                           )}
@@ -1295,7 +1234,6 @@ const SchedulePage: React.FC = () => {
                                   {schedule.status}
                                 </span>
                               </td>
-                              {/* Cleanliness Report cell removed */}
                               {user?.role !== 'student' && (
                                 <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
                                   <div className="flex items-center space-x-2">
@@ -1363,11 +1301,9 @@ const SchedulePage: React.FC = () => {
         </main>
       </div>
 
-      {/* Create Schedule Modal - FIXED TIME DISPLAY */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto border border-gray-300 cursor-auto">
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
               <div className="flex items-center justify-between">
                 <div>
@@ -1377,7 +1313,6 @@ const SchedulePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleCreateSchedule} className="p-6">
               {formError && (
                 <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
@@ -1386,7 +1321,6 @@ const SchedulePage: React.FC = () => {
               )}
 
               <div className="space-y-4">
-                {/* Class Selection */}
                 <div>
                   <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Class <span className="text-red-500">*</span>
@@ -1421,7 +1355,6 @@ const SchedulePage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Start Date and Time */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Start Date & Time <span className="text-red-500">*</span>
@@ -1453,7 +1386,6 @@ const SchedulePage: React.FC = () => {
                         </svg>
                       </div>
                       
-                      {/* Timepicker Dropdown */}
                       {showStartTimePicker && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           <div className="p-2">
@@ -1478,7 +1410,6 @@ const SchedulePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* End Date and Time */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     End Date & Time <span className="text-red-500">*</span>
@@ -1510,7 +1441,6 @@ const SchedulePage: React.FC = () => {
                         </svg>
                       </div>
                       
-                      {/* Timepicker Dropdown */}
                       {showEndTimePicker && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           <div className="p-2">
@@ -1535,7 +1465,6 @@ const SchedulePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Room Number */}
                 <div>
                   <label htmlFor="room-number" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Room Number <span className="text-red-500">*</span>
@@ -1552,7 +1481,6 @@ const SchedulePage: React.FC = () => {
                   />
                 </div>
 
-                {/* Status */}
                 <div>
                   <label htmlFor="status-select" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Status
@@ -1571,7 +1499,6 @@ const SchedulePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Modal Actions */}
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                 <button
                   type="button"
@@ -1598,7 +1525,6 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Schedule Modal - FIXED TIME DISPLAY */}
       {isEditModalOpen && editingSchedule && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto border border-gray-300 cursor-auto">
@@ -1632,7 +1558,6 @@ const SchedulePage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Start Date and Time */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     Start Date & Time <span className="text-red-500">*</span>
@@ -1664,7 +1589,6 @@ const SchedulePage: React.FC = () => {
                         </svg>
                       </div>
                       
-                      {/* Timepicker Dropdown */}
                       {showEditStartTimePicker && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           <div className="p-2">
@@ -1689,7 +1613,6 @@ const SchedulePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* End Date and Time */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
                     End Date & Time <span className="text-red-500">*</span>
@@ -1721,7 +1644,6 @@ const SchedulePage: React.FC = () => {
                         </svg>
                       </div>
                       
-                      {/* Timepicker Dropdown */}
                       {showEditEndTimePicker && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           <div className="p-2">
@@ -1805,7 +1727,6 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && deletingSchedule && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300 cursor-auto">

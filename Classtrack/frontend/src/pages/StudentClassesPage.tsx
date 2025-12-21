@@ -44,7 +44,6 @@ const StudentClassesPage: React.FC = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
-  // Metrics for student
   const [studentMetrics, setStudentMetrics] = useState({
     total_classes: 0,
     total_assignments: 0,
@@ -52,7 +51,6 @@ const StudentClassesPage: React.FC = () => {
     completed_assignments: 0
   });
 
-  // SweetAlert Helper Functions
   const showErrorAlert = (message: string) => {
     Swal.fire({
       icon: 'error',
@@ -103,7 +101,6 @@ const StudentClassesPage: React.FC = () => {
     setLoadingProgress(progress);
   };
 
-  // Fetch student classes and assignments on component mount
   useEffect(() => {
     if (!user || user.role !== 'student') return;
 
@@ -116,12 +113,10 @@ const StudentClassesPage: React.FC = () => {
         console.log('🔄 Fetching student data...');
         setLoadingProgress(10);
 
-        // Step 1: Load classes
         updateLoadingProgress(1, 4);
         const classesData = await getStudentClassesAll();
         console.log('✅ Student classes loaded:', classesData);
         
-        // Transform classes data
         const transformedClasses: Class[] = classesData.map((classItem: any) => ({
           id: classItem.id,
           name: classItem.name || `Class ${classItem.id}`,
@@ -136,19 +131,16 @@ const StudentClassesPage: React.FC = () => {
         setLoadingProgress(30);
         console.log('📊 Transformed classes:', transformedClasses);
 
-        // Step 2: Load assignments
         updateLoadingProgress(2, 4);
         const assignmentsData = await getStudentAssignmentsAll();
         console.log('✅ Student assignments loaded:', assignmentsData);
         
-        // Enrich assignments with class information
         const enrichedAssignments = enrichAssignmentsWithClassInfo(assignmentsData, transformedClasses);
         console.log('🎯 Enriched assignments:', enrichedAssignments);
         
         setAssignments(enrichedAssignments);
         setLoadingProgress(60);
 
-        // Step 3: Calculate metrics
         updateLoadingProgress(3, 4);
         const now = new Date();
         const upcomingAssignments = enrichedAssignments.filter(a => {
@@ -169,15 +161,12 @@ const StudentClassesPage: React.FC = () => {
         console.log('📊 Student metrics:', metrics);
         setLoadingProgress(90);
 
-        // Step 4: Save to localStorage
         updateLoadingProgress(4, 4);
         localStorage.setItem('student_classes', JSON.stringify(transformedClasses));
         localStorage.setItem('student_assignments', JSON.stringify(enrichedAssignments));
         
-        // Complete loading
         setLoadingProgress(100);
         
-        // Add a small delay to show 100% before hiding loader
         setTimeout(() => {
           setIsInitialLoading(false);
         }, 800);
@@ -188,7 +177,6 @@ const StudentClassesPage: React.FC = () => {
         setError(errorMessage);
         setHasInitialLoadError(true);
         
-        // Try to load from localStorage if API fails
         try {
           const savedClasses = localStorage.getItem('student_classes');
           const savedAssignments = localStorage.getItem('student_assignments');
@@ -207,7 +195,6 @@ const StudentClassesPage: React.FC = () => {
         } catch (localStorageError) {
           console.error('Failed to load from localStorage:', localStorageError);
         } finally {
-          // Still set to 100% even on error
           setLoadingProgress(100);
           setTimeout(() => {
             setIsInitialLoading(false);
@@ -219,16 +206,13 @@ const StudentClassesPage: React.FC = () => {
     fetchStudentData();
   }, [user]);
 
-  // Function to enrich assignments with class information
   const enrichAssignmentsWithClassInfo = (assignmentsData: any[], classesData: Class[]): Assignment[] => {
     return assignmentsData.map((assignment: any) => {
-      // Find the corresponding class
       const matchingClass = classesData.find(c => c.id === assignment.class_id);
       
       console.log(`📋 Enriching assignment ${assignment.id} (class_id: ${assignment.class_id})`);
       console.log(`   Matching class found:`, matchingClass);
       
-      // Use class info from matching class, fall back to assignment data
       const classInfo = matchingClass || {
         name: assignment.class_name || `Class ${assignment.class_id}`,
         code: assignment.class_code || `CODE-${assignment.class_id}`,
@@ -252,14 +236,12 @@ const StudentClassesPage: React.FC = () => {
     });
   };
 
-  // Filter classes based on search term
   const filteredClasses = classes.filter(classItem =>
     classItem.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     classItem.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
     classItem.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Filter assignments based on search term
   const filteredAssignments = assignments.filter(assignment =>
     assignment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     assignment.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -267,17 +249,15 @@ const StudentClassesPage: React.FC = () => {
     assignment.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Get assignments for a specific class
   const getAssignmentsForClass = (classId: number) => {
     return assignments.filter(assignment => assignment.class_id === classId);
   };
 
-  // Navigate to assignments page
+
   const handleViewAllAssignments = () => {
     navigate('/student/assignments');
   };
 
-  // Navigate to submit work page
   const handleSubmitWork = (assignmentId: number) => {
     Swal.fire({
       title: 'Submit Work',
@@ -295,12 +275,10 @@ const StudentClassesPage: React.FC = () => {
     });
   };
 
-  // Navigate to view assignment page
   const handleViewAssignment = (assignmentId: number) => {
     navigate(`/student/assignments/${assignmentId}`);
   };
 
-  // Refresh data with confirmation
   const refreshData = async () => {
     if (!user || user.role !== 'student') return;
 
@@ -321,11 +299,9 @@ const StudentClassesPage: React.FC = () => {
           
           console.log('🔄 Refreshing student data...');
           
-          // Fetch classes first
           setLoadingProgress(30);
           const classesData = await getStudentClassesAll();
           
-          // Transform classes data
           const transformedClasses: Class[] = classesData.map((classItem: any) => ({
             id: classItem.id,
             name: classItem.name || `Class ${classItem.id}`,
@@ -339,14 +315,12 @@ const StudentClassesPage: React.FC = () => {
           setClasses(transformedClasses);
           setLoadingProgress(60);
 
-          // Fetch assignments and enrich with class info
           const assignmentsData = await getStudentAssignmentsAll();
           const enrichedAssignments = enrichAssignmentsWithClassInfo(assignmentsData, transformedClasses);
           
           setAssignments(enrichedAssignments);
           setLoadingProgress(90);
 
-          // Calculate metrics
           const now = new Date();
           const upcomingAssignments = enrichedAssignments.filter(a => {
             if (a.due_date) {
@@ -385,11 +359,9 @@ const StudentClassesPage: React.FC = () => {
     });
   };
 
-  // Loading Screen - UPDATED with text similar to StudentDashboard
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -418,7 +390,6 @@ const StudentClassesPage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text - UPDATED to match StudentDashboard */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Your Classes & Assignments
@@ -428,7 +399,6 @@ const StudentClassesPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -442,7 +412,6 @@ const StudentClassesPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps - UPDATED to match StudentDashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
           {[
             { text: "Classes", color: "bg-blue-100 text-blue-600" },
@@ -463,7 +432,6 @@ const StudentClassesPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation - UPDATED to match StudentDashboard */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -471,7 +439,6 @@ const StudentClassesPage: React.FC = () => {
           <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
         </div>
 
-        {/* Loading Message - UPDATED to match StudentDashboard */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             This might take a moment. Please wait...
@@ -481,7 +448,6 @@ const StudentClassesPage: React.FC = () => {
     );
   }
 
-  // Error Screen - UPDATED to match StudentDashboard
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -569,7 +535,6 @@ const StudentClassesPage: React.FC = () => {
 
   return (
     <div className="h-screen w-full bg-white overflow-hidden relative flex">
-      {/* Mobile Header - ORIGINAL LAYOUT */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -630,12 +595,8 @@ const StudentClassesPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-0 h-screen pt-16 lg:pt-0">
-        {/* Dynamic Header */}
         <div className="hidden lg:block relative z-30 flex-shrink-0">
           <DynamicHeader 
             title="My Classes & Assignments"
@@ -643,12 +604,9 @@ const StudentClassesPage: React.FC = () => {
           />
         </div>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8 relative z-20">
           <div className="dashboard-content w-full max-w-7xl mx-auto">
-            {/* Search & Overview Card */}
             <div className="w-full bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 lg:mb-8 shadow-lg">
-              {/* Header Section */}
               <div className="flex flex-col space-y-4 mb-6 lg:mb-8">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -684,7 +642,6 @@ const StudentClassesPage: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Search Input */}
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-gray-700">
                     Search Classes & Assignments
@@ -719,7 +676,6 @@ const StudentClassesPage: React.FC = () => {
                 </div>
               </div>
               
-              {/* Student Metrics */}
               <div className="mt-6 grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                 <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-default">
                   <div className="flex items-center space-x-3">
@@ -771,7 +727,6 @@ const StudentClassesPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Error Message */}
             {error && (
               <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 lg:px-6 py-3 lg:py-4 rounded-xl mb-6 lg:mb-8">
                 <div className="flex items-center space-x-3">
@@ -794,7 +749,6 @@ const StudentClassesPage: React.FC = () => {
               </div>
             )}
 
-            {/* Classes Section */}
             <div className="w-full bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg mb-6 lg:mb-8">
               <div className="px-4 lg:px-8 py-4 bg-gray-50 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
@@ -846,14 +800,12 @@ const StudentClassesPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  {/* Mobile Card View */}
                   <div className="block lg:hidden">
                     <div className="space-y-3 p-4">
                       {filteredClasses.map((classItem) => {
                         const classAssignments = getAssignmentsForClass(classItem.id);
                         return (
                           <div key={classItem.id} className="bg-white rounded-xl p-4 border-2 border-gray-200 hover:bg-gray-50 transition-all duration-300">
-                            {/* Header */}
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center space-x-3 flex-1 min-w-0">
                                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -872,7 +824,6 @@ const StudentClassesPage: React.FC = () => {
                               </span>
                             </div>
                             
-                            {/* Details */}
                             <div className="space-y-2 mb-4">
                               <div className="flex items-center justify-between text-xs">
                                 <span className="text-gray-600 font-medium">Teacher:</span>
@@ -884,7 +835,6 @@ const StudentClassesPage: React.FC = () => {
                               </div>
                             </div>
                             
-                            {/* Assignments Preview */}
                             {classAssignments.length > 0 && (
                               <div className="mb-4">
                                 <div className="flex items-center justify-between mb-2">
@@ -920,7 +870,6 @@ const StudentClassesPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Desktop Table View */}
                   <table className="hidden lg:table min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-gray-50 to-blue-50">
                       <tr>
@@ -1008,7 +957,6 @@ const StudentClassesPage: React.FC = () => {
               )}
             </div>
 
-            {/* Assignments Section */}
             <div className="w-full bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg">
               <div className="px-4 lg:px-8 py-4 bg-gray-50 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
@@ -1061,12 +1009,10 @@ const StudentClassesPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  {/* Mobile Card View for Assignments */}
                   <div className="block lg:hidden">
                     <div className="space-y-4 p-4">
                       {filteredAssignments.map((assignment) => (
                         <div key={assignment.id} className="bg-white rounded-xl p-4 border-2 border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-sm hover:shadow-md">
-                          {/* Header */}
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center space-x-3 flex-1 min-w-0">
                               <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -1083,7 +1029,6 @@ const StudentClassesPage: React.FC = () => {
                             </div>
                           </div>
                           
-                          {/* Assignment Details */}
                           <div className="space-y-3 mb-4">
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-gray-600 font-medium">Teacher:</span>
@@ -1102,7 +1047,6 @@ const StudentClassesPage: React.FC = () => {
                             )}
                           </div>
                           
-                          {/* Action Buttons */}
                           <div className="flex items-center justify-between pt-3 border-t border-gray-200">
                             <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-700 border border-yellow-200">
                               <div className="w-2 h-2 bg-yellow-500 rounded-full mr-1.5"></div>
@@ -1135,7 +1079,6 @@ const StudentClassesPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Desktop Table View for Assignments */}
                   <table className="hidden lg:table min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-gray-50 to-orange-50">
                       <tr>

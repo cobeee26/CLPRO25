@@ -22,6 +22,7 @@ class User(Base):
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     profile_picture_url = Column(String, nullable=True)
+    # WALA NG EMAIL FIELD DITO! (removed email column)
 
     # Relationships with cascading deletion
     classes_taught = relationship("Class", back_populates="teacher", cascade="all, delete-orphan")
@@ -69,6 +70,82 @@ class Assignment(Base):
     class_ = relationship("Class", back_populates="assignments")
     creator = relationship("User", back_populates="assignments_created")
     submissions = relationship("Submission", back_populates="assignment", cascade="all, delete-orphan")
+
+class Submission(Base):
+    __tablename__ = "submissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=True)  # ADDED: For text-based submissions
+    file_path = Column(String, nullable=True)  # ADDED: For file uploads
+    file_name = Column(String, nullable=True)  # ADDED: Original filename
+    link_url = Column(String, nullable=True)  # ADDED: For link submissions
+    grade = Column(Float, nullable=True)  # For teacher to fill
+    feedback = Column(Text, nullable=True)  # ADDED: Teacher feedback
+    time_spent_minutes = Column(Float, nullable=False, default=0)  # Changed to Float
+    submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    assignment = relationship("Assignment", back_populates="submissions")
+    student = relationship("User", back_populates="submissions")
+
+class Violation(Base):
+    __tablename__ = "violations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=False)
+    violation_type = Column(String, nullable=False)  # e.g., "tab_switch", "ai_detected", "plagiarism"
+    description = Column(Text, nullable=False)
+    detected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    time_away_seconds = Column(Integer, nullable=False)
+    severity = Column(String, nullable=False)  # 'low', 'medium', 'high'
+    content_added_during_absence = Column(Integer, nullable=True)  # Characters added during absence
+    ai_similarity_score = Column(Float, nullable=True)  # AI detection similarity score
+    paste_content_length = Column(Integer, nullable=True)  # Length of pasted content
+
+    # Relationships
+    student = relationship("User")
+    assignment = relationship("Assignment")
+
+class Schedule(Base):
+    __tablename__ = "schedules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    room_number = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="Occupied")  # 'Occupied', 'Clean', 'Needs Cleaning'
+
+    # Relationships
+    class_ = relationship("Class", back_populates="schedules")
+
+class Announcement(Base):
+    __tablename__ = "announcements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    date_posted = Column(DateTime, default=datetime.utcnow, nullable=False)
+    is_urgent = Column(Boolean, default=False, nullable=False)
+
+class ClassroomReport(Base):
+    __tablename__ = "classroom_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_clean_before = Column(Boolean, nullable=False)
+    is_clean_after = Column(Boolean, nullable=False)
+    report_text = Column(Text, nullable=False)
+    photo_url = Column(String, nullable=True)  # URL to uploaded photo evidence
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    class_ = relationship("Class", back_populates="classroom_reports")
+    reporter = relationship("User")
 
 # Pydantic schemas for Class
 class ClassBase(BaseModel):
@@ -249,54 +326,101 @@ class ClassroomReportResponse(ClassroomReportBase):
 
     model_config = {"from_attributes": True}
 
-class Submission(Base):
-    __tablename__ = "submissions"
+# Pydantic schemas for Submission
+class SubmissionBase(BaseModel):
+    assignment_id: int
+    student_id: int
+    content: Optional[str] = None
+    file_path: Optional[str] = None
+    file_name: Optional[str] = None
+    link_url: Optional[str] = None
+    grade: Optional[float] = None
+    feedback: Optional[str] = None
+    time_spent_minutes: float
+    submitted_at: Optional[datetime] = None
 
-    id = Column(Integer, primary_key=True, index=True)
-    assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    grade = Column(Float, nullable=True)  # For teacher to fill
-    time_spent_minutes = Column(Integer, nullable=False)  # Core AI data input for engagement
-    submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+class SubmissionCreate(SubmissionBase):
+    @validator('assignment_id')
+    def validate_assignment_id(cls, v):
+        if v <= 0:
+            raise ValueError('Assignment ID must be a positive integer')
+        return v
+    
+    @validator('student_id')
+    def validate_student_id(cls, v):
+        if v <= 0:
+            raise ValueError('Student ID must be a positive integer')
+        return v
+    
+    @validator('time_spent_minutes')
+    def validate_time_spent_minutes(cls, v):
+        if v < 0:
+            raise ValueError('Time spent cannot be negative')
+        return v
 
-    # Relationships
-    assignment = relationship("Assignment", back_populates="submissions")
-    student = relationship("User", back_populates="submissions")
+class SubmissionResponse(BaseModel):
+    id: int
+    assignment_id: int
+    student_id: int
+    grade: Optional[float] = None
+    feedback: Optional[str] = None
+    time_spent_minutes: float
+    submitted_at: datetime
+    content: Optional[str] = None
+    file_path: Optional[str] = None
+    file_name: Optional[str] = None
+    link_url: Optional[str] = None
+    is_graded: bool = False
 
-class Schedule(Base):
-    __tablename__ = "schedules"
+    model_config = {"from_attributes": True}
 
-    id = Column(Integer, primary_key=True, index=True)
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
-    room_number = Column(String, nullable=False)
-    status = Column(String, nullable=False, default="Occupied")  # 'Occupied', 'Clean', 'Needs Cleaning'
+# Pydantic schemas for Violation
+class ViolationBase(BaseModel):
+    student_id: int
+    assignment_id: int
+    violation_type: str
+    description: str
+    time_away_seconds: int
+    severity: str
+    content_added_during_absence: Optional[int] = None
+    ai_similarity_score: Optional[float] = None
+    paste_content_length: Optional[int] = None
 
-    # Relationships
-    class_ = relationship("Class", back_populates="schedules")
+class ViolationCreate(ViolationBase):
+    @validator('student_id')
+    def validate_student_id(cls, v):
+        if v <= 0:
+            raise ValueError('Student ID must be a positive integer')
+        return v
+    
+    @validator('assignment_id')
+    def validate_assignment_id(cls, v):
+        if v <= 0:
+            raise ValueError('Assignment ID must be a positive integer')
+        return v
+    
+    @validator('violation_type')
+    def validate_violation_type(cls, v):
+        valid_types = ['tab_switch', 'ai_detected', 'plagiarism', 'copy_paste', 'time_exceeded']
+        if v not in valid_types:
+            raise ValueError(f'Violation type must be one of: {", ".join(valid_types)}')
+        return v
+    
+    @validator('severity')
+    def validate_severity(cls, v):
+        valid_severities = ['low', 'medium', 'high']
+        if v not in valid_severities:
+            raise ValueError(f'Severity must be one of: {", ".join(valid_severities)}')
+        return v
+    
+    @validator('time_away_seconds')
+    def validate_time_away_seconds(cls, v):
+        if v < 0:
+            raise ValueError('Time away cannot be negative')
+        return v
 
-class Announcement(Base):
-    __tablename__ = "announcements"
+class ViolationResponse(ViolationBase):
+    id: int
+    detected_at: datetime
 
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    content = Column(Text, nullable=False)
-    date_posted = Column(DateTime, default=datetime.utcnow, nullable=False)
-    is_urgent = Column(Boolean, default=False, nullable=False)
-
-class ClassroomReport(Base):
-    __tablename__ = "classroom_reports"
-
-    id = Column(Integer, primary_key=True, index=True)
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
-    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    is_clean_before = Column(Boolean, nullable=False)
-    is_clean_after = Column(Boolean, nullable=False)
-    report_text = Column(Text, nullable=False)
-    photo_url = Column(String, nullable=True)  # URL to uploaded photo evidence
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    # Relationships
-    class_ = relationship("Class", back_populates="classroom_reports")
-    reporter = relationship("User")
+    model_config = {"from_attributes": True}

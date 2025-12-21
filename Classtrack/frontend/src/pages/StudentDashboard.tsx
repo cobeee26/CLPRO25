@@ -155,7 +155,6 @@ const StudentDashboard: React.FC = () => {
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
 
-  // SweetAlert2 Configuration with Auto-Dismiss Timer
   const swalConfig = {
     customClass: {
       title: 'text-lg font-bold text-gray-900',
@@ -168,7 +167,6 @@ const StudentDashboard: React.FC = () => {
     background: '#ffffff'
   };
 
-  // SweetAlert Helper Functions with Auto-Dismiss
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -545,25 +543,20 @@ const StudentDashboard: React.FC = () => {
       console.log("🔄 Loading student data...");
       setIsInitialLoading(true);
       setHasInitialLoadError(false);
-      setLoadingProgress(10); // Start at 10%
+      setLoadingProgress(10); 
 
-      // Step 1: Load classes
       updateLoadingProgress(1, 4);
       await loadStudentClasses();
 
-      // Step 2: Load assignments
       updateLoadingProgress(2, 4);
       await loadStudentAssignments();
 
-      // Step 3: Load schedules
       updateLoadingProgress(3, 4);
       await loadSchedules();
 
-      // Step 4: Load announcements
       updateLoadingProgress(4, 4);
       await loadAnnouncements();
 
-      // Complete loading
       setTimeout(() => {
         setIsInitialLoading(false);
         setLoadingProgress(100);
@@ -579,7 +572,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Function to load student classes from API
   const loadStudentClasses = async () => {
     try {
       console.log("📚 Loading classes for student from API...");
@@ -635,11 +627,10 @@ const StudentDashboard: React.FC = () => {
     } catch (error: any) {
       console.error("❌ Error loading classes:", error);
       setClasses([]);
-      throw error; // Re-throw to be caught in main function
+      throw error; 
     }
   };
 
-  // Function to load student assignments from API
   const loadStudentAssignments = async (): Promise<Assignment[]> => {
     try {
       console.log("📝 Loading assignments for student from API...");
@@ -724,11 +715,10 @@ const StudentDashboard: React.FC = () => {
     } catch (error: any) {
       console.error("❌ Error loading assignments:", error);
       setAssignments([]);
-      throw error; // Re-throw to be caught in main function
+      throw error; 
     }
   };
 
-  // FIXED FUNCTION TO LOAD SCHEDULES FROM YOUR SCHEDULE PAGE
   const loadSchedules = async () => {
     try {
       console.log("📅 Loading student schedules...");
@@ -900,7 +890,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Function to load announcements from API
   const loadAnnouncements = async () => {
     try {
       console.log("📢 Loading announcements from API...");
@@ -934,11 +923,10 @@ const StudentDashboard: React.FC = () => {
     } catch (error) {
       console.error("❌ Error loading announcements:", error);
       setAnnouncements([]);
-      throw error; // Re-throw to be caught in main function
+      throw error; 
     }
   };
 
-  // Real-time sync for assignments
   useEffect(() => {
     if (isInitialLoading) return;
 
@@ -952,7 +940,6 @@ const StudentDashboard: React.FC = () => {
 
     window.addEventListener("storage", handleStorageChange);
 
-    // Set up periodic refresh for real-time updates
     const refreshInterval = setInterval(() => {
       console.log("🔄 Student: Periodic data refresh");
       loadSchedules();
@@ -964,7 +951,6 @@ const StudentDashboard: React.FC = () => {
     };
   }, [classes, isInitialLoading]);
 
-  // Time formatting functions
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -995,7 +981,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Format time range properly
   const formatTimeRange = (startTime: string, endTime: string) => {
     try {
       const start = formatTime(startTime);
@@ -1007,7 +992,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Format schedule date with day of week
   const formatScheduleDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -1033,7 +1017,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Format due date for assignments
   const formatDueDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -1104,7 +1087,6 @@ const StudentDashboard: React.FC = () => {
     return fullName;
   };
 
-  // Assignment submission function
   const handleSubmitAssignment = (assignment: Assignment) => {
     navigate("/student/assignments", {
       state: {
@@ -1114,7 +1096,6 @@ const StudentDashboard: React.FC = () => {
     });
   };
 
-  // Room Report Functions
   const handleCloseRoomReportModal = () => {
     setShowRoomReportModal(false);
     setReportFormErrors({});
@@ -1165,7 +1146,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Validation function
   const validateRoomReportForm = (): boolean => {
     const errors: { [key: string]: string } = {};
 
@@ -1202,7 +1182,6 @@ const StudentDashboard: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Room report submission with SweetAlert
   const handleSubmitRoomReport = async () => {
     if (!validateRoomReportForm() || !user) {
       return;
@@ -1300,7 +1279,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  // Refresh assignments data when classes are loaded
   useEffect(() => {
     if (classes.length > 0 && !isInitialLoading) {
       console.log("🔄 Classes loaded, automatically enriching assignments...");
@@ -1308,11 +1286,9 @@ const StudentDashboard: React.FC = () => {
     }
   }, [classes, isInitialLoading]);
 
-  // Loading Screen
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -1341,7 +1317,6 @@ const StudentDashboard: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Your Student Dashboard
@@ -1351,7 +1326,6 @@ const StudentDashboard: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -1365,7 +1339,6 @@ const StudentDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
           {[
             { text: "Classes", color: "bg-blue-100 text-blue-600" },
@@ -1386,7 +1359,6 @@ const StudentDashboard: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -1394,7 +1366,6 @@ const StudentDashboard: React.FC = () => {
           <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             This might take a moment. Please wait...
@@ -1404,7 +1375,6 @@ const StudentDashboard: React.FC = () => {
     );
   }
 
-  // Error Screen
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1492,12 +1462,8 @@ const StudentDashboard: React.FC = () => {
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden">
-      {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        {/* Mobile Header */}
         <header className="lg:hidden bg-white backdrop-blur-xl border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -1560,7 +1526,6 @@ const StudentDashboard: React.FC = () => {
           </div>
         </header>
 
-        {/* Dynamic Header - FOR DESKTOP */}
         <div className="hidden lg:block">
           <DynamicHeader
             title="Student Portal"
@@ -1568,7 +1533,6 @@ const StudentDashboard: React.FC = () => {
           />
         </div>
 
-        {/* Status Bar */}
         <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
@@ -1594,10 +1558,8 @@ const StudentDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-            {/* Welcome Section */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
@@ -1650,7 +1612,6 @@ const StudentDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* User Profile Card */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -1698,7 +1659,7 @@ const StudentDashboard: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                {/* VIEW PROFILE BUTTON */}
+          
                 <button
                   onClick={handleViewProfile}
                   className="px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow border border-gray-300 flex items-center gap-2 cursor-pointer"
@@ -1723,9 +1684,7 @@ const StudentDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Dashboard Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {/* Schedule Section */}
               <div className="lg:col-span-1">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
@@ -1872,7 +1831,6 @@ const StudentDashboard: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Scroll Indicator for Schedule */}
                     {schedule.length > 3 && showScheduleScrollIndicator && (
                       <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
                         <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
@@ -1899,7 +1857,6 @@ const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Announcements Section */}
               <div className="lg:col-span-1">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
@@ -2007,7 +1964,6 @@ const StudentDashboard: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Scroll Indicator for Announcements */}
                     {announcements.length > 3 &&
                       showAnnouncementsScrollIndicator && (
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
@@ -2035,7 +1991,6 @@ const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Assignments Section */}
               <div className="lg:col-span-2 xl:col-span-1">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm h-[400px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
@@ -2068,7 +2023,6 @@ const StudentDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Assignment Statistics */}
                   <div className="mb-4 grid grid-cols-4 gap-2">
                     <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-200">
                       <p className="text-lg font-bold text-blue-600">
@@ -2096,7 +2050,6 @@ const StudentDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Scrollable Assignments Area */}
                   <div className="relative flex-1">
                     <div
                       className="absolute inset-0 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
@@ -2204,7 +2157,6 @@ const StudentDashboard: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Scroll Indicator for Assignments */}
                     {assignments.length > 2 &&
                       showAssignmentsScrollIndicator && (
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300">
@@ -2233,7 +2185,6 @@ const StudentDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Actions */}
             <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
               <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -2377,7 +2328,6 @@ const StudentDashboard: React.FC = () => {
         </main>
       </div>
 
-      {/* Room Report Modal */}
       {showRoomReportModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -2426,7 +2376,6 @@ const StudentDashboard: React.FC = () => {
             </div>
 
             <div className="p-6">
-              {/* General Error Message */}
               {reportFormErrors.general && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
                   <div className="flex items-start">
@@ -2451,7 +2400,6 @@ const StudentDashboard: React.FC = () => {
               )}
 
               <form className="space-y-6">
-                {/* Class Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Class/Room <span className="text-red-500">*</span>
@@ -2486,7 +2434,6 @@ const StudentDashboard: React.FC = () => {
                   )}
                 </div>
 
-                {/* Cleanliness Status */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -2581,7 +2528,6 @@ const StudentDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Report Description */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Report Description <span className="text-red-500">*</span>
@@ -2609,7 +2555,6 @@ const StudentDashboard: React.FC = () => {
                   )}
                 </div>
 
-                {/* Photo Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Photo Evidence (Optional)

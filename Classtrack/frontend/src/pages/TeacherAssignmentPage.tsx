@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import Swal from 'sweetalert2';
+import { authService } from '../services/authService'; // Import authService
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -143,6 +144,16 @@ interface TeacherClassesResponse {
   classes: TeacherClass[];
 }
 
+// Predefined grade options
+const GRADE_OPTIONS = [
+  { value: 100, label: '100% - Excellent' },
+  { value: 90, label: '90% - Very Good' },
+  { value: 80, label: '80% - Good' },
+  { value: 70, label: '70% - Average' },
+  { value: 60, label: '60% - Pass' },
+  { value: 0, label: '0% - Fail' },
+];
+
 const TeacherAssignmentPage: React.FC = () => {
   const navigate = useNavigate();
   const { assignmentId } = useParams<{ assignmentId: string }>();
@@ -174,7 +185,7 @@ const TeacherAssignmentPage: React.FC = () => {
 
   // Modal refs
   const modalRef = useRef<HTMLDivElement>(null);
-  const gradeInputRefs = useRef<{[key: number]: HTMLInputElement | null}>({});
+  const gradeSelectRefs = useRef<{[key: number]: HTMLSelectElement | null}>({});
 
   const handleLogout = () => {
     // Show confirmation SweetAlert
@@ -299,7 +310,7 @@ const TeacherAssignmentPage: React.FC = () => {
       // Load all students in class
       await loadClassStudents(assignmentData.class_id, classes);
 
-      // Load submissions
+      // Load submissions - FIXED: Use authService instead of direct API call
       await loadSubmissions();
 
       // Load violations
@@ -429,28 +440,109 @@ const TeacherAssignmentPage: React.FC = () => {
     }
   };
 
+  // FIXED: Load submissions using authService
   const loadSubmissions = async () => {
     try {
-      const response = await apiClient.get(`/assignments/${assignmentId}/submissions`);
-      const submissionsData = response.data;
-      setSubmissions(submissionsData);
+      if (!assignmentId) {
+        console.error('No assignment ID provided');
+        setSubmissions([]);
+        return;
+      }
 
-      // Calculate grade statistics
-      calculateGradeStatistics(submissionsData);
+      const assignmentIdNum = parseInt(assignmentId);
+      if (isNaN(assignmentIdNum)) {
+        console.error('Invalid assignment ID');
+        setSubmissions([]);
+        return;
+      }
+
+      console.log('📋 Loading submissions for assignment:', assignmentIdNum);
+      
+      // Use authService to get assignment submissions
+      const submissionsData = await authService.getAssignmentSubmissions(assignmentIdNum);
+      console.log('✅ Submissions loaded via authService:', submissionsData);
+      
+      // Transform the data to match our Submission interface
+      const transformedSubmissions: Submission[] = submissionsData.map((sub: any) => ({
+        id: sub.id,
+        assignment_id: sub.assignment_id,
+        student_id: sub.student_id,
+        student_name: sub.student_name || `Student ${sub.student_id}`,
+        student_email: sub.student_email || 'No email',
+        content: sub.content || '',
+        file_path: sub.file_path,
+        file_name: sub.file_name,
+        submitted_at: sub.submitted_at || new Date().toISOString(),
+        grade: sub.grade,
+        feedback: sub.feedback,
+        is_graded: sub.grade !== null && sub.grade !== undefined,
+        time_spent_minutes: sub.time_spent_minutes || 0,
+        link_url: sub.link_url,
+        violations: sub.violations || []
+      }));
+      
+      setSubmissions(transformedSubmissions);
+      calculateGradeStatistics(transformedSubmissions);
+      
     } catch (error: any) {
-      console.error('Error loading submissions:', error);
-      setSubmissions([]);
-      calculateGradeStatistics([]);
+      console.error('Error loading submissions via authService:', error);
+      
+      // Fallback: Try direct API endpoint
+      try {
+        console.log('🔄 Trying direct API endpoint as fallback...');
+        const response = await apiClient.get(`/assignments/${assignmentId}/submissions`);
+        const submissionsData = response.data;
+        console.log('✅ Direct API fallback successful:', submissionsData);
+        
+        const transformedSubmissions: Submission[] = submissionsData.map((sub: any) => ({
+          id: sub.id,
+          assignment_id: sub.assignment_id,
+          student_id: sub.student_id,
+          student_name: sub.student_name || `Student ${sub.student_id}`,
+          student_email: sub.student_email || 'No email',
+          content: sub.content || '',
+          file_path: sub.file_path,
+          file_name: sub.file_name,
+          submitted_at: sub.submitted_at || new Date().toISOString(),
+          grade: sub.grade,
+          feedback: sub.feedback,
+          is_graded: sub.grade !== null && sub.grade !== undefined,
+          time_spent_minutes: sub.time_spent_minutes || 0,
+          link_url: sub.link_url,
+          violations: sub.violations || []
+        }));
+        
+        setSubmissions(transformedSubmissions);
+        calculateGradeStatistics(transformedSubmissions);
+      } catch (fallbackError) {
+        console.error('Both submission loading methods failed:', fallbackError);
+        setSubmissions([]);
+        calculateGradeStatistics([]);
+      }
     }
   };
 
   const loadViolations = async () => {
     try {
-      const response = await apiClient.get(`/assignments/${assignmentId}/violations`);
-      setViolations(response.data);
+      if (!assignmentId) return;
+      
+      const assignmentIdNum = parseInt(assignmentId);
+      if (isNaN(assignmentIdNum)) return;
+      
+      // Use authService to get violations
+      const violationsData = await authService.getAssignmentViolations(assignmentIdNum);
+      setViolations(violationsData);
     } catch (error: any) {
       console.error('Error loading violations:', error);
-      setViolations([]);
+      
+      // Fallback: Try direct API endpoint
+      try {
+        const response = await apiClient.get(`/assignments/${assignmentId}/violations`);
+        setViolations(response.data);
+      } catch (fallbackError) {
+        console.error('Both violation loading methods failed:', fallbackError);
+        setViolations([]);
+      }
     }
   };
 
@@ -483,12 +575,12 @@ const TeacherAssignmentPage: React.FC = () => {
     });
   };
 
-  const handleGradeChange = (submissionId: number, field: 'grade' | 'feedback', value: string) => {
+  const handleGradeChange = (submissionId: number, field: 'grade' | 'feedback', value: string | number) => {
     setEditingGrades(prev => ({
       ...prev,
       [submissionId]: {
         ...prev[submissionId],
-        [field]: field === 'grade' ? parseFloat(value) || 0 : value
+        [field]: field === 'grade' ? (typeof value === 'string' ? parseFloat(value) || 0 : value) : value
       }
     }));
   };
@@ -500,14 +592,14 @@ const TeacherAssignmentPage: React.FC = () => {
       
       if (!editedData) return;
 
-      const gradeValue = parseFloat(editedData.grade.toString());
+      const gradeValue = editedData.grade;
       if (gradeValue < 0 || gradeValue > 100) {
-        setError('Please enter a valid grade between 0 and 100');
+        setError('Please select a valid grade between 0 and 100');
         
         // Show SweetAlert error
         Swal.fire({
           title: 'Invalid Grade',
-          text: 'Please enter a valid grade between 0 and 100.',
+          text: 'Please select a valid grade between 0 and 100.',
           icon: 'error',
           confirmButtonText: 'OK',
           confirmButtonColor: '#dc2626'
@@ -528,8 +620,8 @@ const TeacherAssignmentPage: React.FC = () => {
         }
       });
 
-      // API call to save grade and feedback
-      await apiClient.patch(`/submissions/${submissionId}/grade`, {
+      // Use authService to save grade
+      await authService.updateSubmissionGrade(submissionId, {
         grade: gradeValue,
         feedback: editedData.feedback
       });
@@ -600,9 +692,9 @@ const TeacherAssignmentPage: React.FC = () => {
       }
     }));
     
-    // Focus on grade input after a brief delay
+    // Focus on grade select after a brief delay
     setTimeout(() => {
-      gradeInputRefs.current[submission.id]?.focus();
+      gradeSelectRefs.current[submission.id]?.focus();
     }, 100);
   };
 
@@ -742,11 +834,10 @@ const TeacherAssignmentPage: React.FC = () => {
         }
       });
 
-      const response = await apiClient.get(`/submissions/${submission.id}/download`, {
-        responseType: 'blob'
-      });
+      // Use authService to download file
+      const blob = await authService.downloadSubmissionFile(submission.id);
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', submission.file_name || 'submission_file');
@@ -1352,22 +1443,23 @@ const TeacherAssignmentPage: React.FC = () => {
                               </td>
                               <td className="px-6 py-4">
                                 {isEditing ? (
-                                  <input
+                                  <select
                                     ref={el => {
                                       if (el) {
-                                        gradeInputRefs.current[submission.id] = el;
+                                        gradeSelectRefs.current[submission.id] = el;
                                       }
                                     }}
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="0.1"
                                     value={editingGrades[submission.id].grade}
-                                    onChange={(e) => handleGradeChange(submission.id, 'grade', e.target.value)}
-                                    className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-text"
-                                    placeholder="Grade"
-                                    aria-label="Grade"
-                                  />
+                                    onChange={(e) => handleGradeChange(submission.id, 'grade', parseFloat(e.target.value))}
+                                    className="w-32 px-2 py-1 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-pointer"
+                                    aria-label="Select grade"
+                                  >
+                                    {GRADE_OPTIONS.map(option => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
                                 ) : submission.is_graded ? (
                                   <span className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${getGradeColor(submission.grade!)}`}>
                                     {submission.grade}%
@@ -1505,22 +1597,23 @@ const TeacherAssignmentPage: React.FC = () => {
                             <div className="mb-4">
                               {isEditing ? (
                                 <div className="space-y-2">
-                                  <input
+                                  <select
                                     ref={el => {
                                       if (el) {
-                                        gradeInputRefs.current[submission.id] = el;
+                                        gradeSelectRefs.current[submission.id] = el;
                                       }
                                     }}
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="0.1"
                                     value={editingGrades[submission.id].grade}
-                                    onChange={(e) => handleGradeChange(submission.id, 'grade', e.target.value)}
-                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-text"
-                                    placeholder="Enter grade (0-100)"
-                                    aria-label="Grade"
-                                  />
+                                    onChange={(e) => handleGradeChange(submission.id, 'grade', parseFloat(e.target.value))}
+                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-pointer"
+                                    aria-label="Select grade"
+                                  >
+                                    {GRADE_OPTIONS.map(option => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
                                   <textarea
                                     value={editingGrades[submission.id].feedback}
                                     onChange={(e) => handleGradeChange(submission.id, 'feedback', e.target.value)}
@@ -1599,7 +1692,7 @@ const TeacherAssignmentPage: React.FC = () => {
                 <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
                   <h3 className="text-lg font-semibold text-red-800 flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 a9 9 0 0118 0z" />
                     </svg>
                     Students Without Submissions ({allStudents.length - submissions.length})
                   </h3>

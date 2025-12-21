@@ -7,7 +7,6 @@ import axios from 'axios';
 import { getAllUsers, getAllClasses } from '../services/authService';
 import Swal from 'sweetalert2';
 
-// API configuration
 const API_BASE_URL = 'http://localhost:8000';
 
 const apiClient = axios.create({
@@ -17,7 +16,6 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
@@ -31,7 +29,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// SweetAlert2 Configuration with Auto-Dismiss Timer
 const swalConfig = {
   customClass: {
     title: 'text-lg font-bold text-gray-900',
@@ -51,7 +48,6 @@ const DashboardPage: React.FC = () => {
   const [showUtilityModal, setShowUtilityModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'schedule' | 'announcement'>('schedule');
   
-  // Dashboard stats state
   const [dashboardStats, setDashboardStats] = useState({
     totalUsers: 0,
     activeClasses: 0,
@@ -63,7 +59,6 @@ const DashboardPage: React.FC = () => {
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   
-  // Recent activities state
   const [recentActivities, setRecentActivities] = useState<Array<{
     id: number;
     type: 'user' | 'class' | 'report' | 'backup';
@@ -73,7 +68,6 @@ const DashboardPage: React.FC = () => {
     timeAgo: string;
   }>>([]);
   
-  // Schedule form state
   const [scheduleForm, setScheduleForm] = useState({
     class_id: '',
     start_time: '',
@@ -82,23 +76,19 @@ const DashboardPage: React.FC = () => {
     status: 'Occupied'
   });
   
-  // Announcement form state
   const [announcementForm, setAnnouncementForm] = useState({
     title: '',
     content: '',
     is_urgent: false
   });
   
-  // Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   
-  // Classes data for dropdown
   const [classes, setClasses] = useState<Array<{id: number, name: string, code: string, teacher_id: number | null}>>([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [classesError, setClassesError] = useState<string>('');
 
-  // SweetAlert Helper Functions with Auto-Dismiss
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -259,7 +249,6 @@ const DashboardPage: React.FC = () => {
     setLoadingProgress(progress);
   };
 
-  // Function to format time ago
   const formatTimeAgo = (timestamp: string) => {
     const now = new Date();
     const past = new Date(timestamp);
@@ -280,7 +269,6 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Fetch dashboard statistics
   const fetchDashboardStats = async () => {
     try {
       console.log('🔄 Loading dashboard data...');
@@ -290,7 +278,6 @@ const DashboardPage: React.FC = () => {
 
       updateLoadingProgress(1, 3);
       
-      // Fetch users and classes data
       const [usersData, classesData] = await Promise.all([
         getAllUsers(),
         getAllClasses()
@@ -305,7 +292,6 @@ const DashboardPage: React.FC = () => {
         storageUsed: 2.4
       });
       
-      // After fetching stats, also fetch recent activities
       await fetchRecentActivities(usersData, classesData);
       
       updateLoadingProgress(3, 3);
@@ -325,10 +311,8 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // UPDATED: Fetch recent activities with dynamic data
   const fetchRecentActivities = async (usersData: any[] = [], classesData: any[] = []) => {
     try {
-      // Build recent activities array with dynamic data
       const activities: Array<{
         id: number;
         type: 'user' | 'class' | 'report' | 'backup';
@@ -338,32 +322,26 @@ const DashboardPage: React.FC = () => {
         timeAgo: string;
       }> = [];
       
-      // Get current time for calculations
       const now = new Date();
       
-      // 1. User registration - Use real user data
       if (usersData.length > 0) {
-        // Get the newest user (assuming last in array is newest)
         const newestUser = usersData[usersData.length - 1];
-        const newestUserTime = new Date(now.getTime() - 2 * 60000); // 2 minutes ago
+        const newestUserTime = new Date(now.getTime() - 2 * 60000); 
         
         activities.push({
           id: 1,
           type: 'user',
           title: 'New user registered',
-          description: `Username "${newestUser.username || newestUser.email}" joined the system`, // Dynamic username
+          description: `Username "${newestUser.username || newestUser.email}" joined the system`, 
           timestamp: newestUserTime.toISOString(),
           timeAgo: formatTimeAgo(newestUserTime.toISOString())
         });
       }
       
-      // 2. Class creation - Use real class data
       if (classesData.length > 0) {
-        // Get the newest class
         const newestClass = classesData[classesData.length - 1];
-        const newestClassTime = new Date(now.getTime() - 15 * 60000); // 15 minutes ago
+        const newestClassTime = new Date(now.getTime() - 15 * 60000); 
         
-        // Try to find teacher name
         let teacherName = 'teacher@classtrack.edu';
         if (newestClass.teacher_id && usersData.length > 0) {
           const teacher = usersData.find(user => user.id === newestClass.teacher_id);
@@ -376,14 +354,13 @@ const DashboardPage: React.FC = () => {
           id: 2,
           type: 'class',
           title: 'Class created',
-          description: `"${newestClass.name}" created by "${teacherName}"`, // Dynamic class name and teacher
+          description: `"${newestClass.name}" created by "${teacherName}"`, 
           timestamp: newestClassTime.toISOString(),
           timeAgo: formatTimeAgo(newestClassTime.toISOString())
         });
       }
       
-      // 3. Report generated - Keep as static example
-      const reportTime = new Date(now.getTime() - 60 * 60000); // 1 hour ago
+      const reportTime = new Date(now.getTime() - 60 * 60000); 
       activities.push({
         id: 3,
         type: 'report',
@@ -393,8 +370,7 @@ const DashboardPage: React.FC = () => {
         timeAgo: formatTimeAgo(reportTime.toISOString())
       });
       
-      // 4. System backup - Keep as static example
-      const backupTime = new Date(now.getTime() - 120 * 60000); // 2 hours ago
+      const backupTime = new Date(now.getTime() - 120 * 60000); 
       activities.push({
         id: 4,
         type: 'backup',
@@ -408,7 +384,7 @@ const DashboardPage: React.FC = () => {
       
     } catch (error) {
       console.error('Failed to fetch recent activities:', error);
-      // Fallback to hardcoded activities if error
+
       const now = new Date();
       const activities = [
         {
@@ -448,7 +424,6 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Logout function
   const handleLogout = async () => {
     const result = await showConfirmDialog(
       'Confirm Logout',
@@ -469,7 +444,6 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Navigation functions for Quick Actions
   const handleManageUsers = () => {
     navigate('/admin/users');
   };
@@ -482,7 +456,6 @@ const DashboardPage: React.FC = () => {
     navigate('/admin/reports');
   };
 
-  // Form handlers
   const handleScheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -507,8 +480,7 @@ const DashboardPage: React.FC = () => {
 
       closeAlert();
       showSuccessAlert('Schedule Created!', 'Schedule has been created successfully.', 'schedule', true, 3000);
-      
-      // Reset form
+ 
       setScheduleForm({
         class_id: '',
         start_time: '',
@@ -517,7 +489,6 @@ const DashboardPage: React.FC = () => {
         status: 'Occupied'
       });
       
-      // Close modal after a short delay
       setTimeout(() => {
         setShowUtilityModal(false);
       }, 1000);
@@ -555,14 +526,12 @@ const DashboardPage: React.FC = () => {
       closeAlert();
       showSuccessAlert('Announcement Created!', 'Announcement has been created successfully.', 'announcement', true, 3000);
       
-      // Reset form
       setAnnouncementForm({
         title: '',
         content: '',
         is_urgent: false
       });
       
-      // Close modal after a short delay
       setTimeout(() => {
         setShowUtilityModal(false);
       }, 1000);
@@ -581,7 +550,6 @@ const DashboardPage: React.FC = () => {
     setShowUtilityModal(false);
     setSubmitError('');
     setActiveTab('schedule');
-    // Reset forms
     setScheduleForm({
       class_id: '',
       start_time: '',
@@ -596,13 +564,12 @@ const DashboardPage: React.FC = () => {
     });
   };
 
-  // Fetch classes function
   const fetchClasses = async () => {
     setLoadingClasses(true);
     setClassesError('');
     try {
       const response = await apiClient.get('/classes/');
-      // Validate response data
+
       if (Array.isArray(response.data)) {
         setClasses(response.data);
       } else {
@@ -618,7 +585,6 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Fetch classes when modal opens
   const openModal = () => {
     setShowUtilityModal(true);
     setSubmitError('');
@@ -627,7 +593,6 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Get icon based on activity type
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'user':
@@ -664,7 +629,6 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Get background color based on activity type
   const getActivityBgColor = (type: string) => {
     switch (type) {
       case 'user': return 'bg-blue-500';
@@ -675,7 +639,6 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Get background light color based on activity type
   const getActivityBgLightColor = (type: string) => {
     switch (type) {
       case 'user': return 'bg-blue-100';
@@ -686,7 +649,6 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Fetch dashboard stats on component mount
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -695,17 +657,15 @@ const DashboardPage: React.FC = () => {
     }
     
     fetchDashboardStats();
-    // Fetch classes on mount for better UX
+
     if (classes.length === 0) {
       fetchClasses();
     }
   }, []);
 
-  // Loading Screen
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -728,7 +688,6 @@ const DashboardPage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Admin Dashboard
@@ -738,7 +697,6 @@ const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -752,7 +710,6 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
           {[
             { text: "Users", color: "bg-blue-100 text-blue-600" },
@@ -772,14 +729,12 @@ const DashboardPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
           <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             This might take a moment. Please wait...
@@ -789,7 +744,6 @@ const DashboardPage: React.FC = () => {
     );
   }
 
-  // Error Screen
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -863,12 +817,8 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="h-screen bg-white flex overflow-hidden">
-      {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        {/* Mobile Header */}
         <header className="lg:hidden bg-white border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -885,7 +835,6 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Logout Button */}
             <button 
               onClick={handleLogout}
               className="p-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
@@ -896,7 +845,6 @@ const DashboardPage: React.FC = () => {
               </svg>
             </button>
             
-            {/* Menu Button */}
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
@@ -909,7 +857,6 @@ const DashboardPage: React.FC = () => {
           </div>
         </header>
 
-        {/* Dynamic Header */}
         <div className="hidden lg:block">
           <DynamicHeader 
             title="Admin Dashboard"
@@ -917,7 +864,6 @@ const DashboardPage: React.FC = () => {
           />
         </div>
 
-        {/* Status Bar */}
         <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
@@ -940,10 +886,8 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-            {/* Welcome Section */}
             <div className="text-center mb-10">
               <div className="relative inline-block">
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight text-gray-900">
@@ -956,9 +900,7 @@ const DashboardPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Stats Widgets */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-              {/* Total Users Card */}
               <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
@@ -982,7 +924,6 @@ const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Active Classes Card */}
               <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
@@ -1006,7 +947,6 @@ const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* System Health Card */}
               <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
@@ -1028,7 +968,6 @@ const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Storage Used Card */}
               <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
@@ -1051,9 +990,7 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Actions & Recent Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-              {/* Quick Actions */}
               <div className="lg:col-span-1">
                 <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg">
                   <h3 className="text-xl font-bold text-gray-900 flex items-center mb-6">
@@ -1132,7 +1069,6 @@ const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Recent Activity - 2/3 Width */}
               <div className="lg:col-span-2">
                 <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg">
                   <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
@@ -1154,7 +1090,6 @@ const DashboardPage: React.FC = () => {
                         <p className="text-gray-500">No recent activities found</p>
                       </div>
                     ) : (
-                      // Actual activities
                       recentActivities.map((activity) => (
                         <div 
                           key={activity.id} 
@@ -1183,7 +1118,6 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Additional Content */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
@@ -1235,11 +1169,9 @@ const DashboardPage: React.FC = () => {
         </main>
       </div>
 
-      {/* Utility Modal */}
       {showUtilityModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
@@ -1262,7 +1194,6 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Tab Navigation */}
             <div className="flex border-b border-gray-200">
               <button
                 onClick={() => setActiveTab('schedule')}
@@ -1286,9 +1217,7 @@ const DashboardPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6 max-h-[60vh] overflow-y-auto">
-              {/* Error Messages */}
               {submitError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl cursor-default">
                   <p className="text-red-700 text-sm">{submitError}</p>
@@ -1307,7 +1236,6 @@ const DashboardPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Schedule Tab */}
               {activeTab === 'schedule' && (
                 <form onSubmit={handleScheduleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1429,7 +1357,6 @@ const DashboardPage: React.FC = () => {
                 </form>
               )}
 
-              {/* Announcement Tab */}
               {activeTab === 'announcement' && (
                 <form onSubmit={handleAnnouncementSubmit} className="space-y-6">
                   <div>
