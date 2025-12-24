@@ -1328,16 +1328,6 @@ const AssignmentPage: React.FC = () => {
                                   </svg>
                                 </button>
                                 <button
-                                  onClick={() => handleViewSubmissions(assignment)}
-                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer flex-shrink-0"
-                                  title="View Submissions"
-                                  aria-label="View Submissions"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                  </svg>
-                                </button>
-                                <button
                                   onClick={() => handleEditAssignment(assignment)}
                                   className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer flex-shrink-0"
                                   title="Edit Assignment"

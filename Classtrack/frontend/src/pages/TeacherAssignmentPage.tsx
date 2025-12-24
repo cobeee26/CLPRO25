@@ -440,7 +440,7 @@ const TeacherAssignmentPage: React.FC = () => {
     }
   };
 
-  // FIXED: Load submissions using authService
+  // Load submissions using authService
   const loadSubmissions = async () => {
     try {
       if (!assignmentId) {
@@ -476,10 +476,15 @@ const TeacherAssignmentPage: React.FC = () => {
         grade: sub.grade,
         feedback: sub.feedback,
         is_graded: sub.grade !== null && sub.grade !== undefined,
-        time_spent_minutes: sub.time_spent_minutes || 0,
+        time_spent_minutes: sub.time_spent_minutes || 0, // This should contain the time spent data
         link_url: sub.link_url,
         violations: sub.violations || []
       }));
+      
+      console.log('📊 Transformed submissions with time spent:', transformedSubmissions.map(s => ({
+        name: s.student_name,
+        time_spent: s.time_spent_minutes
+      })));
       
       setSubmissions(transformedSubmissions);
       calculateGradeStatistics(transformedSubmissions);
@@ -511,6 +516,11 @@ const TeacherAssignmentPage: React.FC = () => {
           link_url: sub.link_url,
           violations: sub.violations || []
         }));
+        
+        console.log('📊 Direct API transformed submissions with time spent:', transformedSubmissions.map(s => ({
+          name: s.student_name,
+          time_spent: s.time_spent_minutes
+        })));
         
         setSubmissions(transformedSubmissions);
         calculateGradeStatistics(transformedSubmissions);
@@ -759,6 +769,12 @@ const TeacherAssignmentPage: React.FC = () => {
     const studentsWithViolations = new Set(violations.map(v => v.student_id)).size;
     const violationRate = totalStudents > 0 ? (studentsWithViolations / totalStudents) * 100 : 0;
 
+    // Calculate average time spent
+    const submissionsWithTime = submissions.filter(s => s.time_spent_minutes > 0);
+    const averageTimeSpent = submissionsWithTime.length > 0 
+      ? submissionsWithTime.reduce((sum, sub) => sum + sub.time_spent_minutes, 0) / submissionsWithTime.length 
+      : 0;
+
     return {
       totalStudents,
       totalSubmissions: submissions.length,
@@ -767,7 +783,8 @@ const TeacherAssignmentPage: React.FC = () => {
       averageGrade: Math.round(averageGrade * 10) / 10,
       submissionRate: Math.round(submissionRate),
       violationRate: Math.round(violationRate),
-      studentsWithViolations
+      studentsWithViolations,
+      averageTimeSpent: Math.round(averageTimeSpent * 10) / 10
     };
   };
 
@@ -1214,18 +1231,19 @@ const TeacherAssignmentPage: React.FC = () => {
                     <div className="text-3xl font-bold text-emerald-700">{stats.gradedSubmissions}</div>
                     <div className="text-sm text-emerald-600 font-medium">Graded</div>
                   </div>
-                  <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-2xl p-4 shadow-sm">
-                    <div className="text-3xl font-bold text-yellow-700">{stats.pendingSubmissions}</div>
-                    <div className="text-sm text-yellow-600 font-medium">Pending</div>
+                  {/* Changed from "Pending" to "Violation" */}
+                  <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-2xl p-4 shadow-sm">
+                    <div className="text-3xl font-bold text-red-700">{stats.studentsWithViolations}</div>
+                    <div className="text-sm text-red-600 font-medium">Violation</div>
+                    <div className="text-xs text-red-500 mt-1">{stats.violationRate}% rate</div>
                   </div>
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-purple-700">{stats.averageGrade}%</div>
-                    <div className="text-sm text-purple-600 font-medium">Average</div>
+                    <div className="text-sm text-purple-600 font-medium">Average Grade</div>
                   </div>
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl p-4 shadow-sm">
-                    <div className="text-3xl font-bold text-gray-700">{stats.studentsWithViolations}</div>
-                    <div className="text-sm text-gray-600 font-medium">Violations</div>
-                    <div className="text-xs text-gray-500 mt-1">{violations.length} records</div>
+                  <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200 rounded-2xl p-4 shadow-sm">
+                    <div className="text-3xl font-bold text-cyan-700">{stats.averageTimeSpent}m</div>
+                    <div className="text-sm text-cyan-600 font-medium">Avg Time Spent</div>
                   </div>
                 </div>
 
