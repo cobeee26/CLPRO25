@@ -65,6 +65,10 @@ interface Assignment {
   points?: number;
   assignment_type?: string;
   teacher_name?: string;
+  submission_status?: 'not_started' | 'submitted' | 'graded' | 'late';
+  grade?: number | null;
+  feedback?: string | null;
+  submitted_at?: string;
 }
 
 interface ScheduleItem {
@@ -117,6 +121,8 @@ const StudentDashboard: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
+  
+  const [studentSubmissions, setStudentSubmissions] = useState<any[]>([]);
 
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
@@ -380,13 +386,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  const assignmentStats = {
-    total: assignments.length,
-    submitted: 0,
-    available: assignments.length,
-    pending: assignments.length,
-  };
-
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -519,6 +518,10 @@ const StudentDashboard: React.FC = () => {
     navigate("/profile");
   };
 
+  const handleViewClasses = () => {
+    navigate("/student/classes");
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     const userRole = localStorage.getItem("userRole");
@@ -538,6 +541,97 @@ const StudentDashboard: React.FC = () => {
     setLoadingProgress(progress);
   };
 
+  const loadStudentSubmissions = async () => {
+    try {
+      console.log("📥 Loading student submissions...");
+      
+      const submissions: any[] = [];
+      
+      if (!user) {
+        console.log('❌ No user found');
+        return [];
+      }
+      
+      try {
+     
+        const assignmentsResponse = await apiClient.get("/assignments/student/");
+        const assignmentsData = assignmentsResponse.data || [];
+        console.log('📝 Total assignments found:', assignmentsData.length);
+        
+        for (const assignment of assignmentsData) {
+          try {
+          
+            try {
+              const response = await apiClient.get(`/assignments/${assignment.id}/submissions/my`);
+              console.log(`✅ Found submission for assignment ${assignment.id}:`, response.data);
+              if (response.data) {
+                submissions.push({
+                  id: response.data.id,
+                  assignment_id: assignment.id,
+                  student_id: user.id,
+                  content: response.data.content || '',
+                  file_path: response.data.file_path,
+                  submitted_at: response.data.submitted_at,
+                  grade: response.data.grade,
+                  feedback: response.data.feedback
+                });
+              }
+            } catch (firstError: any) {
+              console.log(`❌ First endpoint failed for assignment ${assignment.id}:`, firstError.message);
+              
+              try {
+               
+                const response = await apiClient.get(`/assignments/${assignment.id}/submissions`);
+                console.log(`✅ Found submission (alternative) for assignment ${assignment.id}`);
+                if (response.data && Array.isArray(response.data)) {
+                  const mySubmission = response.data.find((sub: any) => sub.student_id === user.id);
+                  if (mySubmission) {
+                    submissions.push({
+                      id: mySubmission.id,
+                      assignment_id: assignment.id,
+                      student_id: user.id,
+                      content: mySubmission.content || '',
+                      file_path: mySubmission.file_path,
+                      submitted_at: mySubmission.submitted_at,
+                      grade: mySubmission.grade,
+                      feedback: mySubmission.feedback
+                    });
+                  }
+                }
+              } catch (secondError: any) {
+                console.log(`❌ Both endpoints failed for assignment ${assignment.id}:`, secondError.message);
+                
+                if (secondError.response?.status === 404 || firstError.response?.status === 404) {
+                  console.log(`ℹ️ No submission found for assignment ${assignment.id} (404)`);
+                  continue;
+                }
+              }
+            }
+          } catch (submissionError: any) {
+            console.warn(`⚠️ Error loading submission for assignment ${assignment.id}:`, submissionError.message);
+          }
+        }
+        
+        console.log(`✅ Total loaded submissions: ${submissions.length}`);
+        console.log('📋 Submission details:', submissions.map(s => ({
+          id: s.id,
+          assignment_id: s.assignment_id,
+          grade: s.grade,
+          submitted_at: s.submitted_at
+        })));
+        
+      } catch (error: any) {
+        console.warn('⚠️ Could not load assignments for submissions:', error.message);
+      }
+      
+      setStudentSubmissions(submissions);
+      return submissions;
+    } catch (error) {
+      console.error('❌ Error loading student submissions:', error);
+      return [];
+    }
+  };
+
   const loadStudentData = async () => {
     try {
       console.log("🔄 Loading student data...");
@@ -545,24 +639,28 @@ const StudentDashboard: React.FC = () => {
       setHasInitialLoadError(false);
       setLoadingProgress(10); 
 
-      updateLoadingProgress(1, 4);
+      updateLoadingProgress(1, 5);
       await loadStudentClasses();
 
-      updateLoadingProgress(2, 4);
+      updateLoadingProgress(2, 5);
+     
+      const submissions = await loadStudentSubmissions();
+      console.log("📥 Loaded submissions:", submissions);
+      setStudentSubmissions(submissions);
+
+      updateLoadingProgress(3, 5);
+
       await loadStudentAssignments();
 
-      updateLoadingProgress(3, 4);
+      updateLoadingProgress(4, 5);
       await loadSchedules();
 
-      updateLoadingProgress(4, 4);
+      updateLoadingProgress(5, 5);
       await loadAnnouncements();
 
-      setTimeout(() => {
-        setIsInitialLoading(false);
-        setLoadingProgress(100);
-      }, 500);
-
       console.log("✅ Student data loaded successfully");
+      setIsInitialLoading(false);
+      setLoadingProgress(100);
     } catch (error) {
       console.error("❌ Error loading student data:", error);
       setHasInitialLoadError(true);
@@ -642,20 +740,46 @@ const StudentDashboard: React.FC = () => {
         console.log("✅ Assignments API response:", response.data);
 
         if (response.status === 200 && Array.isArray(response.data)) {
-          assignmentsData = response.data.map((assignment: any) => ({
-            id: assignment.id,
-            name: assignment.name || `Assignment ${assignment.id}`,
-            description: assignment.description,
-            class_id: assignment.class_id,
-            creator_id: assignment.creator_id || 0,
-            created_at: assignment.created_at || new Date().toISOString(),
-            class_name: assignment.class_name,
-            class_code: assignment.class_code,
-            teacher_name: assignment.teacher_name,
-            due_date: assignment.due_date,
-            points: assignment.points || 100,
-            assignment_type: assignment.assignment_type || "Homework",
-          }));
+          assignmentsData = response.data.map((assignment: any) => {
+        
+            const submission = studentSubmissions.find(sub => sub.assignment_id === assignment.id);
+            
+            let submissionStatus: 'not_started' | 'submitted' | 'graded' | 'late' = 'not_started';
+            let grade = null;
+            let feedback = null;
+            let submittedAt = undefined;
+            
+            if (submission) {
+              submittedAt = submission.submitted_at;
+              
+              if (submission.grade !== null && submission.grade !== undefined) {
+                submissionStatus = 'graded';
+                grade = submission.grade;
+                feedback = submission.feedback;
+              } else if (submission.submitted_at) {
+                submissionStatus = 'submitted';
+              }
+            }
+
+            return {
+              id: assignment.id,
+              name: assignment.name || `Assignment ${assignment.id}`,
+              description: assignment.description,
+              class_id: assignment.class_id,
+              creator_id: assignment.creator_id || 0,
+              created_at: assignment.created_at || new Date().toISOString(),
+              class_name: assignment.class_name,
+              class_code: assignment.class_code,
+              teacher_name: assignment.teacher_name,
+              due_date: assignment.due_date,
+              points: assignment.points || 100,
+              assignment_type: assignment.assignment_type || "Homework",
+              submission_status: submissionStatus, // Set status here
+              grade: grade,
+              feedback: feedback,
+              submitted_at: submittedAt
+            };
+          });
 
           console.log("📝 Raw assignments from API:", assignmentsData);
         } else {
@@ -928,6 +1052,41 @@ const StudentDashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    if (studentSubmissions.length > 0 && assignments.length > 0) {
+      console.log("🔄 Updating assignments with submission status...");
+      console.log("📥 Student submissions:", studentSubmissions);
+      console.log("📝 Current assignments:", assignments);
+      
+      const updatedAssignments = assignments.map(assignment => {
+        const submission = studentSubmissions.find(sub => sub.assignment_id === assignment.id);
+        
+        if (submission) {
+          console.log(`✅ Found submission for assignment ${assignment.id}:`, submission);
+          
+          let submissionStatus: 'not_started' | 'submitted' | 'graded' | 'late' = 'submitted';
+          
+          if (submission.grade !== null && submission.grade !== undefined) {
+            submissionStatus = 'graded';
+          }
+          
+          return {
+            ...assignment,
+            submission_status: submissionStatus,
+            grade: submission.grade || null,
+            feedback: submission.feedback || null,
+            submitted_at: submission.submitted_at
+          };
+        }
+        
+        return assignment;
+      });
+      
+      console.log("✅ Updated assignments:", updatedAssignments);
+      setAssignments(updatedAssignments);
+    }
+  }, [studentSubmissions]);
+
+  useEffect(() => {
     if (isInitialLoading) return;
 
     const handleStorageChange = (e: StorageEvent) => {
@@ -1056,6 +1215,19 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  const getAssignmentStatusColor = (status: string) => {
+    switch (status) {
+      case 'graded':
+        return 'bg-green-100 text-green-700 border-green-200';
+      case 'submitted':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'late':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
   const formatTeacherName = (fullName: string) => {
     if (!fullName || fullName === "Unknown Teacher") return "Teacher";
 
@@ -1088,12 +1260,7 @@ const StudentDashboard: React.FC = () => {
   };
 
   const handleSubmitAssignment = (assignment: Assignment) => {
-    navigate("/student/assignments", {
-      state: {
-        selectedAssignment: assignment,
-        assignments: assignments,
-      },
-    });
+    navigate(`/student/assignments/${assignment.id}`);
   };
 
   const handleCloseRoomReportModal = () => {
@@ -1390,7 +1557,7 @@ const StudentDashboard: React.FC = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 a9 9 0 0118 0z"
               />
             </svg>
           </div>
@@ -1737,7 +1904,7 @@ const StudentDashboard: React.FC = () => {
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 a9 9 0 0118 0z"
                                 />
                               </svg>
                               <span className="text-sm text-blue-700">
@@ -1848,7 +2015,7 @@ const StudentDashboard: React.FC = () => {
                             />
                           </svg>
                           <span className="text-xs text-gray-600">
-                            Scroll for more
+                            Scroll for more ({schedule.length} total)
                           </span>
                         </div>
                       </div>
@@ -1982,7 +2149,7 @@ const StudentDashboard: React.FC = () => {
                               />
                             </svg>
                             <span className="text-xs text-gray-600">
-                              Scroll for more
+                              Scroll for more ({announcements.length} total)
                             </span>
                           </div>
                         </div>
@@ -2018,35 +2185,8 @@ const StudentDashboard: React.FC = () => {
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <span className="text-xs text-blue-600 font-medium">
-                        {assignmentStats.total} Total
+                        {assignments.length} Total
                       </span>
-                    </div>
-                  </div>
-
-                  <div className="mb-4 grid grid-cols-4 gap-2">
-                    <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-200">
-                      <p className="text-lg font-bold text-blue-600">
-                        {assignmentStats.total}
-                      </p>
-                      <p className="text-xs text-blue-700">Total</p>
-                    </div>
-                    <div className="bg-green-50 rounded-xl p-3 text-center border border-green-200">
-                      <p className="text-lg font-bold text-green-600">
-                        {assignmentStats.submitted}
-                      </p>
-                      <p className="text-xs text-green-700">Submitted</p>
-                    </div>
-                    <div className="bg-orange-50 rounded-xl p-3 text-center border border-orange-200">
-                      <p className="text-lg font-bold text-orange-600">
-                        {assignmentStats.available}
-                      </p>
-                      <p className="text-xs text-orange-700">Available</p>
-                    </div>
-                    <div className="bg-purple-50 rounded-xl p-3 text-center border border-purple-200">
-                      <p className="text-lg font-bold text-purple-600">
-                        {assignmentStats.pending}
-                      </p>
-                      <p className="text-xs text-purple-700">Pending</p>
                     </div>
                   </div>
 
@@ -2069,6 +2209,10 @@ const StudentDashboard: React.FC = () => {
                               ? assignment.teacher_name.substring(0, 12) + "..."
                               : assignment.teacher_name
                             : "Teacher";
+                          
+                          const isSubmitted = assignment.submission_status === 'submitted' || assignment.submission_status === 'graded';
+                          const isGraded = assignment.submission_status === 'graded';
+                          const hasGrade = assignment.grade !== null && assignment.grade !== undefined;
 
                           return (
                             <div
@@ -2091,6 +2235,11 @@ const StudentDashboard: React.FC = () => {
 
                                   <h4 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-1 break-words">
                                     {assignment.name}
+                                    {isSubmitted && (
+                                      <span className="ml-2 text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+                                        ✓
+                                      </span>
+                                    )}
                                   </h4>
 
                                   <p className="text-xs text-gray-600 leading-relaxed mb-2 line-clamp-2 break-words">
@@ -2117,10 +2266,36 @@ const StudentDashboard: React.FC = () => {
                                         </span>
                                       )}
                                     </div>
-                                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 border border-blue-200 whitespace-nowrap">
-                                      Active
+                                    <span
+                                      className={`px-2 py-1 text-xs rounded-full border whitespace-nowrap ${
+                                        isGraded 
+                                          ? 'bg-green-100 text-green-700 border-green-200'
+                                          : isSubmitted
+                                          ? 'bg-blue-100 text-blue-700 border-blue-200'
+                                          : 'bg-gray-100 text-gray-700 border-gray-200'
+                                      }`}
+                                    >
+                                      {isGraded
+                                        ? '✓ Graded'
+                                        : isSubmitted
+                                        ? '✓ Submitted'
+                                        : 'Active'}
                                     </span>
                                   </div>
+                                  
+                                  {hasGrade && (
+                                    <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-green-700 font-medium">Grade:</span>
+                                        <span className="text-sm font-bold text-green-800">{assignment.grade}%</span>
+                                      </div>
+                                      {assignment.feedback && (
+                                        <div className="text-xs text-green-600 mt-1 truncate" title={assignment.feedback}>
+                                          Feedback: {assignment.feedback}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -2128,9 +2303,13 @@ const StudentDashboard: React.FC = () => {
                                 onClick={() =>
                                   handleSubmitAssignment(assignment)
                                 }
-                                className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg`}
+                                className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer ${
+                                  isSubmitted
+                                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg'
+                                }`}
                               >
-                                Submit Assignment
+                                {isSubmitted ? 'View Submission' : 'Submit Assignment'}
                               </button>
                             </div>
                           );
@@ -2175,7 +2354,7 @@ const StudentDashboard: React.FC = () => {
                               />
                             </svg>
                             <span className="text-xs text-gray-600">
-                              Scroll for more
+                              Scroll for more ({assignments.length} total)
                             </span>
                           </div>
                         </div>
@@ -2251,7 +2430,7 @@ const StudentDashboard: React.FC = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z"
                       />
                     </svg>
                   </div>
@@ -2266,10 +2445,10 @@ const StudentDashboard: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => navigate("/student/grades")}
+                  onClick={handleViewClasses}
                   className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-sm">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
                       className="w-5 h-5 text-white"
                       fill="none"
@@ -2281,15 +2460,17 @@ const StudentDashboard: React.FC = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                       />
                     </svg>
                   </div>
                   <div className="text-left">
                     <p className="text-gray-900 font-semibold text-sm">
-                      View Grades
+                      View Classes
                     </p>
-                    <p className="text-xs text-gray-600">Check your progress</p>
+                    <p className="text-xs text-gray-600">
+                      See your enrolled classes
+                    </p>
                   </div>
                 </button>
 
@@ -2297,7 +2478,7 @@ const StudentDashboard: React.FC = () => {
                   onClick={() => navigate("/student/schedule")}
                   className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-sm">
                     <svg
                       className="w-5 h-5 text-white"
                       fill="none"
@@ -2346,7 +2527,7 @@ const StudentDashboard: React.FC = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z"
                       />
                     </svg>
                   </div>
@@ -2389,7 +2570,7 @@ const StudentDashboard: React.FC = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 a9 9 0 0118 0z"
                       />
                     </svg>
                     <p className="text-red-700 text-sm">

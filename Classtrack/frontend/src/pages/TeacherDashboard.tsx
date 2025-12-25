@@ -2111,8 +2111,8 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Scroll Indicator for Student Engagement Insights */}
-                      {engagementInsights.length > 5 && showInsightsScrollIndicator && (
+                      {/* SCROLL INDICATOR FOR STUDENT ENGAGEMENT INSIGHTS - ADDED HERE */}
+                      {engagementInsights.length > 4 && showInsightsScrollIndicator && (
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
                           <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
                             <svg

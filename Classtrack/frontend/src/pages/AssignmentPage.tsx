@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import DynamicHeader from '../components/DynamicHeader';
 import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
-import { getTeacherAssignments, getTeacherClasses, authService, getStudentClassesAll } from '../services/authService';
+import { authService, getStudentClassesAll } from '../services/authService';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import Swal from 'sweetalert2';
+import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8000';
-
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -40,6 +39,11 @@ interface Assignment {
   class_name?: string;
   class_code?: string;
   teacher_name?: string;
+  teacher_full_name?: string;
+  submission_status?: 'not_started' | 'submitted' | 'graded' | 'late';
+  submitted_at?: string;
+  grade?: number | null;
+  feedback?: string | null;
 }
 
 interface Class {
@@ -50,29 +54,32 @@ interface Class {
   teacher_name?: string;
 }
 
+interface StudentSubmission {
+  id: number;
+  assignment_id: number;
+  student_id: number;
+  content: string;
+  file_path?: string;
+  submitted_at: string;
+  grade?: number | null;
+  feedback?: string | null;
+  time_spent_minutes?: number;
+  link_url?: string;
+  file_name?: string;
+}
+
 interface CreateAssignmentRequest {
   name: string;
   description?: string;
   class_id: number;
 }
 
-const swalConfig = {
-  customClass: {
-    title: 'text-lg font-bold text-gray-900',
-    htmlContainer: 'text-sm text-gray-600',
-    confirmButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
-    cancelButton: 'px-4 py-2 rounded-lg font-medium cursor-pointer',
-    popup: 'rounded-xl border border-gray-200'
-  },
-  buttonsStyling: false,
-  background: '#ffffff'
-};
-
 const AssignmentPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
+  const [studentSubmissions, setStudentSubmissions] = useState<StudentSubmission[]>([]);
   
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
@@ -83,12 +90,8 @@ const AssignmentPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [assignmentToDelete, setAssignmentToDelete] = useState<Assignment | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   const nameRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const classRef = useRef<HTMLSelectElement>(null);
@@ -109,9 +112,7 @@ const AssignmentPage: React.FC = () => {
       icon: iconColor,
       confirmButtonText: 'OK',
       confirmButtonColor,
-      ...swalConfig,
       customClass: {
-        ...swalConfig.customClass,
         title: `text-lg font-bold ${
           type === 'delete' ? 'text-yellow-900' : 
           type === 'refresh' ? 'text-blue-900' : 
@@ -146,9 +147,7 @@ const AssignmentPage: React.FC = () => {
       icon: 'error',
       confirmButtonText: 'OK',
       confirmButtonColor: '#EF4444',
-      ...swalConfig,
       customClass: {
-        ...swalConfig.customClass,
         title: 'text-lg font-bold text-red-900',
         confirmButton: 'px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white cursor-pointer'
       }
@@ -179,9 +178,7 @@ const AssignmentPage: React.FC = () => {
       confirmButtonColor: '#3B82F6',
       cancelButtonColor: '#6B7280',
       reverseButtons: true,
-      ...swalConfig,
       customClass: {
-        ...swalConfig.customClass,
         title: 'text-lg font-bold text-gray-900',
         confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer',
         cancelButton: 'px-4 py-2 rounded-lg font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer'
@@ -203,8 +200,7 @@ const AssignmentPage: React.FC = () => {
       showConfirmButton: false,
       didOpen: () => {
         Swal.showLoading();
-      },
-      ...swalConfig
+      }
     };
 
     if (autoDismiss) {
@@ -231,9 +227,7 @@ const AssignmentPage: React.FC = () => {
       icon: 'info',
       confirmButtonText: 'OK',
       confirmButtonColor: '#3B82F6',
-      ...swalConfig,
       customClass: {
-        ...swalConfig.customClass,
         title: 'text-lg font-bold text-blue-900',
         confirmButton: 'px-4 py-2 rounded-lg font-medium bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
       }
@@ -278,7 +272,7 @@ const AssignmentPage: React.FC = () => {
       return;
     }
 
-    if (user.role !== 'teacher' && user.role !== 'student') {
+    if (user.role !== 'student' && user.role !== 'teacher') {
       navigate(`/${user.role}/dashboard`);
       return;
     }
@@ -287,23 +281,9 @@ const AssignmentPage: React.FC = () => {
   }, [user, navigate]);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showDeleteModal) {
-        cancelDeleteAssignment();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [showDeleteModal]);
-
-  useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'assignments_updated') {
         console.log('🔄 Storage change detected, reloading assignments...');
-        showInfoAlert('New Assignments', 'New assignments are available!', true, 2000);
         loadAssignmentData();
       }
     };
@@ -315,7 +295,7 @@ const AssignmentPage: React.FC = () => {
       refreshInterval = setInterval(() => {
         console.log('🔄 Student: Periodic assignment refresh');
         loadAssignmentData();
-      }, 10000); 
+      }, 30000); 
     }
 
     return () => {
@@ -324,36 +304,6 @@ const AssignmentPage: React.FC = () => {
     };
   }, [user]);
 
-  const loadAssignmentData = async () => {
-    try {
-      console.log('🔄 Loading assignment data...');
-      setIsInitialLoading(true);
-      setHasInitialLoadError(false);
-      setLoadingProgress(10);
-
-      updateLoadingProgress(1, 3);
-      const loadedClasses = await loadClasses();
-
-      updateLoadingProgress(2, 3);
-      await loadAssignments(loadedClasses);
-
-      updateLoadingProgress(3, 3);
-      setTimeout(() => {
-        setIsInitialLoading(false);
-        setLoadingProgress(100);
-      }, 500);
-
-      console.log('✅ Assignment data loaded successfully');
-
-    } catch (error) {
-      console.error('❌ Error loading assignment data:', error);
-      setHasInitialLoadError(true);
-      setIsInitialLoading(false);
-      
-      showErrorAlert("Load Error", "Failed to load assignment data. Please refresh the page.", true, 4000);
-    }
-  };
-
   const loadClasses = async (): Promise<Class[]> => {
     try {
       console.log('📚 Loading classes from API...');
@@ -361,7 +311,9 @@ const AssignmentPage: React.FC = () => {
       let classesData: Class[] = [];
       
       if (user?.role === 'teacher') {
+      
         try {
+          console.log('👨‍🏫 Loading teacher classes...');
           const response = await apiClient.get('/teachers/me/classes');
           console.log('📊 Teacher classes API response:', response.data);
           
@@ -382,34 +334,28 @@ const AssignmentPage: React.FC = () => {
               teacher_name: user?.username || 'Teacher'
             }));
           }
-        } catch (apiError: any) {
-          console.warn('⚠️ Teacher classes API failed, trying alternative endpoint');
-          try {
-            const teacherData = await getTeacherClasses();
-            console.log('📊 Alternative teacher data:', teacherData);
-            
-            if (teacherData && Array.isArray(teacherData.classes)) {
-              classesData = teacherData.classes.map((cls: any) => ({
-                id: cls.id,
-                name: cls.name || `Class ${cls.id}`,
-                code: cls.code || `CLASS-${cls.id}`,
-                teacher_id: cls.teacher_id ?? user?.id,
-                teacher_name: user?.username || 'Teacher'
-              }));
-            } else if (Array.isArray(teacherData)) {
-              classesData = teacherData.map((cls: any) => ({
-                id: cls.id,
-                name: cls.name || `Class ${cls.id}`,
-                code: cls.code || `CLASS-${cls.id}`,
-                teacher_id: cls.teacher_id ?? user?.id,
-                teacher_name: user?.username || 'Teacher'
-              }));
+        } catch (teacherError: any) {
+          console.warn('⚠️ Teacher classes API failed:', teacherError.message);
+        
+          classesData = [
+            {
+              id: 1,
+              name: 'Computer Programming',
+              code: 'CPP-101',
+              teacher_id: user?.id,
+              teacher_name: user?.username || 'Teacher'
+            },
+            {
+              id: 2,
+              name: 'Web Development',
+              code: 'WEB-201',
+              teacher_id: user?.id,
+              teacher_name: user?.username || 'Teacher'
             }
-          } catch (secondError) {
-            console.warn('⚠️ All teacher class endpoints failed, using fallback');
-          }
+          ];
         }
       } else if (user?.role === 'student') {
+    
         try {
           console.log('🎓 Loading student classes using getStudentClassesAll...');
           const studentClassesData = await getStudentClassesAll();
@@ -429,17 +375,17 @@ const AssignmentPage: React.FC = () => {
           
           try {
             console.log('🔄 Trying to get classes from assignments data...');
-            const assignmentsResponse = await apiClient.get('/assignments/student/');
-            if (Array.isArray(assignmentsResponse.data)) {
+            const assignmentsResponse = await authService.getStudentAssignmentsAll();
+            if (Array.isArray(assignmentsResponse)) {
               const uniqueClasses = new Map();
-              assignmentsResponse.data.forEach((assignment: any) => {
+              assignmentsResponse.forEach((assignment: any) => {
                 if (assignment.class_id && assignment.class_name) {
                   uniqueClasses.set(assignment.class_id, {
                     id: assignment.class_id,
                     name: assignment.class_name,
                     code: assignment.class_code || `CLASS-${assignment.class_id}`,
                     teacher_id: assignment.creator_id,
-                    teacher_name: assignment.teacher_name || 'Teacher'
+                    teacher_name: assignment.teacher_name || assignment.teacher_full_name || 'Teacher'
                   });
                 }
               });
@@ -450,6 +396,7 @@ const AssignmentPage: React.FC = () => {
           }
         }
       }
+      
       if (classesData.length === 0) {
         const savedClasses = localStorage.getItem('synchronized_classes');
         if (savedClasses) {
@@ -486,37 +433,86 @@ const AssignmentPage: React.FC = () => {
       let assignmentsData: Assignment[] = [];
       
       try {
-        let endpoint = '';
-        
         if (user?.role === 'teacher') {
-          endpoint = '/assignments/'; 
+          
+          console.log('👨‍🏫 Loading teacher assignments...');
+          const response = await apiClient.get('/assignments/');
+          console.log('✅ Teacher assignments from database:', response.data);
+          
+          if (Array.isArray(response.data)) {
+            assignmentsData = response.data.map((assignment: any) => {
+              const classInfo = loadedClasses.find(c => c.id === assignment.class_id);
+              
+              return {
+                id: assignment.id,
+                name: assignment.name || `Assignment ${assignment.id}`,
+                description: assignment.description,
+                class_id: assignment.class_id,
+                creator_id: assignment.creator_id,
+                created_at: assignment.created_at || new Date().toISOString(),
+                class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
+                class_code: assignment.class_code || classInfo?.code || `CLASS-${assignment.class_id}`,
+                teacher_name: assignment.teacher_name || user?.username || 'Teacher'
+              };
+            });
+          }
         } else if (user?.role === 'student') {
-          endpoint = '/assignments/student/'; 
-        }
-        
-        console.log('🌐 Calling endpoint:', endpoint);
-        const response = await apiClient.get(endpoint);
-        console.log('✅ Assignments from database:', response.data);
-        
-        if (Array.isArray(response.data)) {
-          assignmentsData = response.data.map((assignment: any) => {
-            const classInfo = loadedClasses.find(c => c.id === assignment.class_id) || 
-                            classes.find(c => c.id === assignment.class_id);
-            
-            console.log(`📋 Assignment ${assignment.id} - class_id: ${assignment.class_id}, classInfo:`, classInfo);
-            
-            return {
-              id: assignment.id,
-              name: assignment.name || `Assignment ${assignment.id}`,
-              description: assignment.description,
-              class_id: assignment.class_id,
-              creator_id: assignment.creator_id,
-              created_at: assignment.created_at || new Date().toISOString(),
-              class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
-              class_code: assignment.class_code || classInfo?.code || `CLASS-${assignment.class_id}`,
-              teacher_name: assignment.teacher_name || assignment.creator?.username || classInfo?.teacher_name || 'Teacher'
-            };
-          });
+          
+          console.log('🌐 Calling student assignments endpoint...');
+          const response = await authService.getStudentAssignmentsAll();
+          console.log('✅ Assignments from database:', response);
+          
+          if (Array.isArray(response)) {
+            assignmentsData = response.map((assignment: any) => {
+              const classInfo = loadedClasses.find(c => c.id === assignment.class_id);
+              
+              let className = assignment.class_name || `Class ${assignment.class_id}`;
+              let classCode = assignment.class_code || `CLASS-${assignment.class_id}`;
+              let teacherName = 'Unknown Teacher';
+              
+              if (assignment.teacher_name) {
+                teacherName = assignment.teacher_name;
+              } else if (assignment.teacher_full_name) {
+                teacherName = assignment.teacher_full_name;
+              } else if (assignment.creator_name) {
+                teacherName = assignment.creator_name;
+              } else if (assignment.creator_username) {
+                teacherName = assignment.creator_username;
+              } else if (classInfo?.teacher_name) {
+                teacherName = classInfo.teacher_name;
+              }
+              
+              if (classInfo) {
+                className = classInfo.name || className;
+                classCode = classInfo.code || classCode;
+                teacherName = classInfo.teacher_name || teacherName;
+              }
+              
+              if (assignment.class && typeof assignment.class === 'object') {
+                if (assignment.class.name) className = assignment.class.name;
+                if (assignment.class.code) classCode = assignment.class.code;
+                if (assignment.class.teacher_name && teacherName === 'Unknown Teacher') {
+                  teacherName = assignment.class.teacher_name;
+                }
+              }
+              
+              return {
+                id: assignment.id,
+                name: assignment.name || `Assignment ${assignment.id}`,
+                description: assignment.description,
+                class_id: assignment.class_id,
+                creator_id: assignment.creator_id,
+                created_at: assignment.created_at || new Date().toISOString(),
+                class_name: className,
+                class_code: classCode,
+                teacher_name: teacherName,
+                teacher_full_name: teacherName,
+                submission_status: 'not_started',
+                grade: null,
+                feedback: null
+              };
+            });
+          }
         }
         
       } catch (apiError: any) {
@@ -533,35 +529,15 @@ const AssignmentPage: React.FC = () => {
         console.log('🔄 Using fallback data for demonstration');
       }
       
-      const classesToUse = loadedClasses.length > 0 ? loadedClasses : classes;
-      if (classesToUse.length > 0) {
-        assignmentsData = assignmentsData.map(assignment => {
-          const classInfo = classesToUse.find(c => c.id === assignment.class_id);
-          console.log(`🎯 Enriching assignment ${assignment.id} with class:`, classInfo);
-          
-          return {
-            ...assignment,
-            class_name: classInfo?.name || assignment.class_name || `Class ${assignment.class_id}`,
-            class_code: assignment.class_code || classInfo?.code || `CLASS-${assignment.class_id}`,
-            teacher_name: classInfo?.teacher_name || assignment.teacher_name || 'Teacher'
-          };
-        });
-      }
-      
       localStorage.setItem('synchronized_assignments', JSON.stringify(assignmentsData));
       
       console.log('📝 Final assignments for', user?.role + ':', assignmentsData.length, 'assignments');
-      console.log('👨‍🏫 Teachers in assignments:', [...new Set(assignmentsData.map(a => a.teacher_name))]);
-      console.log('🏫 Class names in assignments:', [...new Set(assignmentsData.map(a => a.class_name))]);
-      console.log('🔤 Class codes in assignments:', [...new Set(assignmentsData.map(a => a.class_code))]);
-      setAssignments(assignmentsData);
       
       return assignmentsData;
     } catch (error) {
       console.error('❌ Error loading assignments:', error);
       
       const fallbackData = getFallbackAssignments(classes);
-      setAssignments(fallbackData);
       return fallbackData;
     }
   };
@@ -577,23 +553,10 @@ const AssignmentPage: React.FC = () => {
         created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
         class_name: classItem.name,
         class_code: classItem.code, 
-        teacher_name: classItem.teacher_name || 'Teacher'
-      }));
-    }
-    
-    const storedClasses = classes.length > 0 ? classes : 
-      JSON.parse(localStorage.getItem('synchronized_classes') || '[]');
-    if (storedClasses.length > 0) {
-      return storedClasses.map((classItem: Class, index: number) => ({
-        id: index + 1,
-        name: `Assignment for ${classItem.name}`,
-        description: `This is a sample assignment for ${classItem.name}`,
-        class_id: classItem.id,
-        creator_id: classItem.teacher_id || 1,
-        created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
-        class_name: classItem.name,
-        class_code: classItem.code, 
-        teacher_name: classItem.teacher_name || 'Teacher'
+        teacher_name: classItem.teacher_name || 'Teacher',
+        submission_status: user?.role === 'student' ? 'not_started' : undefined,
+        grade: user?.role === 'student' ? null : undefined,
+        feedback: user?.role === 'student' ? null : undefined
       }));
     }
     
@@ -607,7 +570,10 @@ const AssignmentPage: React.FC = () => {
         created_at: new Date().toISOString(),
         class_name: 'Computer Programming',
         class_code: 'CPP-101',
-        teacher_name: 'Ms. Davis'
+        teacher_name: 'Ms. Davis',
+        submission_status: user?.role === 'student' ? 'not_started' : undefined,
+        grade: user?.role === 'student' ? null : undefined,
+        feedback: user?.role === 'student' ? null : undefined
       },
       {
         id: 2,
@@ -618,21 +584,192 @@ const AssignmentPage: React.FC = () => {
         created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
         class_name: 'Web Development',
         class_code: 'WEB-201',
-        teacher_name: 'Dr. Smith'
-      },
-      {
-        id: 3,
-        name: 'Math Problem Set',
-        description: 'Solve the following calculus problems',
-        class_id: 3,
-        creator_id: 3,
-        created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        class_name: 'Mathematics',
-        class_code: 'MATH-10',
-        teacher_name: 'Prof. Johnson'
+        teacher_name: 'Dr. Smith',
+        submission_status: user?.role === 'student' ? 'not_started' : undefined,
+        grade: user?.role === 'student' ? null : undefined,
+        feedback: user?.role === 'student' ? null : undefined
       }
     ];
   };
+
+  const loadStudentSubmissions = async (): Promise<StudentSubmission[]> => {
+    try {
+      console.log('📥 Loading student submissions...');
+      
+      const submissions: StudentSubmission[] = [];
+      
+      if (!user || user.role !== 'student') {
+        console.log('❌ Not a student user');
+        return [];
+      }
+      
+      try {
+        
+        const assignmentsResponse = await authService.getStudentAssignmentsAll();
+        console.log('📝 Total assignments found:', assignmentsResponse.length);
+        
+        for (const assignment of assignmentsResponse) {
+          try {
+         
+            let submissionData: any = null;
+            
+            try {
+              submissionData = await authService.getStudentMySubmission(assignment.id);
+              console.log(`✅ Found submission for assignment ${assignment.id}:`, submissionData);
+            } catch (firstError: any) {
+              console.log(`❌ First endpoint failed for assignment ${assignment.id}:`, firstError.message);
+              
+              try {
+              
+                submissionData = await authService.getStudentSubmissionForAssignment(assignment.id);
+                console.log(`✅ Found submission (alternative) for assignment ${assignment.id}`);
+              } catch (secondError: any) {
+                console.log(`❌ Both endpoints failed for assignment ${assignment.id}:`, secondError.message);
+                
+                if (secondError.response?.status === 404 || firstError.response?.status === 404) {
+                  console.log(`ℹ️ No submission found for assignment ${assignment.id} (404)`);
+                  continue;
+                }
+              }
+            }
+            
+            if (submissionData) {
+              submissions.push({
+                id: submissionData.id,
+                assignment_id: assignment.id,
+                student_id: user.id,
+                content: submissionData.content || '',
+                file_path: submissionData.file_path,
+                submitted_at: submissionData.submitted_at,
+                grade: submissionData.grade,
+                feedback: submissionData.feedback,
+                time_spent_minutes: submissionData.time_spent_minutes,
+                link_url: submissionData.link_url,
+                file_name: submissionData.file_name
+              });
+              
+              console.log(`✅ Loaded submission for assignment ${assignment.id}:`, {
+                grade: submissionData.grade,
+                feedback: submissionData.feedback,
+                submitted: submissionData.submitted_at ? 'Yes' : 'No'
+              });
+            }
+          } catch (submissionError: any) {
+            console.warn(`⚠️ Error loading submission for assignment ${assignment.id}:`, submissionError.message);
+          }
+        }
+        
+        console.log(`✅ Total loaded submissions: ${submissions.length}`);
+        
+      } catch (error: any) {
+        console.warn('⚠️ Could not load assignments for submissions:', error.message);
+        
+
+        try {
+          console.log('🔄 Trying bulk submissions endpoint...');
+          const allSubmissions = await authService.get('/students/me/submissions');
+          if (Array.isArray(allSubmissions)) {
+            allSubmissions.forEach((sub: any) => {
+              submissions.push({
+                id: sub.id,
+                assignment_id: sub.assignment_id,
+                student_id: sub.student_id,
+                content: sub.content || '',
+                file_path: sub.file_path,
+                submitted_at: sub.submitted_at,
+                grade: sub.grade,
+                feedback: sub.feedback,
+                time_spent_minutes: sub.time_spent_minutes,
+                link_url: sub.link_url,
+                file_name: sub.file_name
+              });
+            });
+            console.log(`✅ Loaded ${submissions.length} submissions from bulk endpoint`);
+          }
+        } catch (bulkError: any) {
+          console.warn('⚠️ Bulk submissions endpoint also failed:', bulkError.message);
+        }
+      }
+      
+      return submissions;
+    } catch (error) {
+      console.error('❌ Error loading student submissions:', error);
+      return [];
+    }
+  };
+
+  const loadAssignmentData = async () => {
+    try {
+      console.log('🔄 Loading assignment data for', user?.role + '...');
+      setIsInitialLoading(true);
+      setHasInitialLoadError(false);
+      setLoadingProgress(10);
+
+      updateLoadingProgress(1, 4);
+      const loadedClasses = await loadClasses();
+
+      updateLoadingProgress(2, 4);
+      const loadedAssignments = await loadAssignments(loadedClasses);
+
+      if (user?.role === 'student') {
+        updateLoadingProgress(3, 4);
+        const submissions = await loadStudentSubmissions();
+        setStudentSubmissions(submissions);
+
+        const enrichedAssignments = loadedAssignments.map(assignment => {
+          const submission = submissions.find(sub => sub.assignment_id === assignment.id);
+          
+          let submissionStatus: 'not_started' | 'submitted' | 'graded' | 'late' = 'not_started';
+          let grade = null;
+          let feedback = null;
+          let submittedAt = undefined;
+          
+          if (submission) {
+            submittedAt = submission.submitted_at;
+            
+            if (submission.grade !== null && submission.grade !== undefined) {
+              submissionStatus = 'graded';
+              grade = submission.grade;
+              feedback = submission.feedback;
+            } else if (submission.submitted_at) {
+              submissionStatus = 'submitted';
+            }
+          }
+          
+          return {
+            ...assignment,
+            submission_status: submissionStatus,
+            grade: grade,
+            feedback: feedback,
+            submitted_at: submittedAt
+          };
+        });
+        
+        setAssignments(enrichedAssignments);
+      } else {
+        setAssignments(loadedAssignments);
+      }
+
+      updateLoadingProgress(4, 4);
+      setTimeout(() => {
+        setIsInitialLoading(false);
+        setLoadingProgress(100);
+      }, 500);
+
+      console.log('✅ Assignment data loaded successfully');
+
+    } catch (error) {
+      console.error('❌ Error loading assignment data:', error);
+      setHasInitialLoadError(true);
+      setIsInitialLoading(false);
+      
+      showErrorAlert("Load Error", "Failed to load assignment data. Please refresh the page.", true, 4000);
+    }
+  };
+
+  const displayAssignments = user?.role === 'teacher' 
+    ? assignments.filter(assignment => assignment.creator_id === user.id)
+    : assignments;
 
   const syncAssignmentsAcrossClients = (updatedAssignments: Assignment[]) => {
     setAssignments(updatedAssignments);
@@ -733,11 +870,10 @@ const AssignmentPage: React.FC = () => {
   };
 
   const handleSubmitWork = (assignment: Assignment) => {
-    navigate(`/student/assignments/${assignment.id}/submit`);
+    navigate(`/student/assignments/${assignment.id}`);
   };
 
   const deleteAssignmentConfirmed = async (assignment: Assignment) => {
-    setIsDeleting(true);
     try {
       console.log('🗑️  Deleting assignment:', assignment.id);
 
@@ -762,15 +898,7 @@ const AssignmentPage: React.FC = () => {
       console.error('Error deleting assignment:', error);
       closeAlert();
       showErrorAlert('Error!', 'Failed to delete assignment. Please try again.', true, 3000);
-    } finally {
-      setIsDeleting(false);
     }
-  };
-
-  const cancelDeleteAssignment = () => {
-    setShowDeleteModal(false);
-    setAssignmentToDelete(null);
-    setIsDeleting(false);
   };
 
   const handleCloseModal = () => {
@@ -940,9 +1068,29 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  const displayAssignments = user?.role === 'teacher' 
-    ? assignments.filter(assignment => assignment.creator_id === user.id)
-    : assignments;
+  const getGradeColor = (grade: number) => {
+    if (grade >= 90) return 'text-green-600 bg-green-50 border-green-200';
+    if (grade >= 80) return 'text-blue-600 bg-blue-50 border-blue-200';
+    if (grade >= 70) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    return 'text-red-600 bg-red-50 border-red-200';
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'graded':
+        return 'bg-green-100 text-green-700 border-green-200';
+      case 'submitted':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'late':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      default:
+        return 'bg-red-100 text-red-700 border-red-200';
+    }
+  };
+
+  const activeAssignmentsCount = user?.role === 'student' 
+    ? assignments.filter(a => a.submission_status === 'not_started').length
+    : displayAssignments.length;
 
   if (isInitialLoading) {
     return (
@@ -974,7 +1122,7 @@ const AssignmentPage: React.FC = () => {
             Loading Your Assignments
           </h2>
           <p className="text-gray-600 max-w-md">
-            Fetching your classes and assignments...
+            Fetching your classes, assignments, and grades...
           </p>
         </div>
 
@@ -991,16 +1139,17 @@ const AssignmentPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
+        <div className="grid grid-cols-4 gap-3 max-w-md mb-8">
           {[
             { text: "Classes", color: "bg-red-100 text-red-600" },
             { text: "Assignments", color: "bg-green-100 text-green-600" },
-            { text: "Synchronizing", color: "bg-purple-100 text-purple-600" },
+            { text: "Submissions", color: "bg-blue-100 text-blue-600" },
+            { text: "Grades", color: "bg-purple-100 text-purple-600" },
           ].map((step, index) => (
             <div
               key={index}
               className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
-                loadingProgress >= ((index + 1) * 33)
+                loadingProgress >= ((index + 1) * 25)
                   ? `${step.color} shadow-sm`
                   : "bg-gray-100 text-gray-400"
               }`}
@@ -1013,7 +1162,8 @@ const AssignmentPage: React.FC = () => {
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
         </div>
 
         <div className="mt-6 text-center">
@@ -1040,7 +1190,7 @@ const AssignmentPage: React.FC = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 a9 9 0 0118 0z"
               />
             </svg>
           </div>
@@ -1130,7 +1280,7 @@ const AssignmentPage: React.FC = () => {
                 {user?.role === 'student' ? "My Assignments" : "Manage Assignments"}
               </h1>
               <p className="text-xs text-gray-600">
-                {user?.role === 'student' ? "View your assigned tasks" : "Create and manage assignments"}
+                {user?.role === 'student' ? "View your assigned tasks and grades" : "Create and manage assignments"}
               </p>
             </div>
           </div>
@@ -1158,8 +1308,8 @@ const AssignmentPage: React.FC = () => {
         <div className="hidden lg:block">
           <DynamicHeader 
             title={user?.role === 'student' ? "My Assignments" : "Manage Class Assignments"}
-            subtitle={user?.role === 'student' ? "View your assigned tasks and deadlines" : "Create, edit, and manage your assignments"}
-            showBackButton={user?.role !== 'student'}
+            subtitle={user?.role === 'student' ? "View your assigned tasks, deadlines, and grades" : "Create, edit, and manage your assignments"}
+            showBackButton={false}
           />
         </div>
 
@@ -1176,14 +1326,24 @@ const AssignmentPage: React.FC = () => {
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span className="text-red-600 font-medium">
-                {user?.role === 'student' 
-                  ? `${displayAssignments.length} Active Assignments`
-                  : `${displayAssignments.length} Created Assignments`
-                }
-              </span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <span className="text-red-600 font-medium">
+                  {user?.role === 'student' 
+                    ? `${activeAssignmentsCount} Active Assignments`
+                    : `${displayAssignments.length} Created Assignments`
+                  }
+                </span>
+              </div>
+              {user?.role === 'student' && (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-green-600 font-medium">
+                    {assignments.filter(a => a.submission_status === 'graded').length} Graded
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1200,17 +1360,18 @@ const AssignmentPage: React.FC = () => {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      {user?.role === 'student' ? 'My Assignments' : 'Assignment Management'}
+                      {user?.role === 'student' ? 'My Assignments Dashboard' : 'Assignment Management'}
                     </h2>
                     <p className="text-gray-600 leading-relaxed">
                       {user?.role === 'student' 
-                        ? `You have ${displayAssignments.length} assigned tasks from ${new Set(displayAssignments.map(a => a.teacher_name)).size} different teachers.`
+                        ? `You have ${assignments.length} assigned tasks from ${new Set(assignments.map(a => a.teacher_name)).size} different teachers. ${activeAssignmentsCount} still need submission, and ${assignments.filter(a => a.submission_status === 'graded').length} have been graded.`
                         : `You have created ${displayAssignments.length} assignments. Students will see these assignments immediately.`
                       }
                     </p>
                   </div>
                 </div>
-                {user?.role === 'teacher' && (
+                
+                {user?.role === 'teacher' ? (
                   <button
                     onClick={handleCreateAssignment}
                     className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 w-full lg:w-auto justify-center cursor-pointer"
@@ -1220,174 +1381,291 @@ const AssignmentPage: React.FC = () => {
                     </svg>
                     Create New Assignment
                   </button>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                      <span className="text-sm text-gray-600">Active</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span className="text-sm text-gray-600">Submitted</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm text-gray-600">Graded</span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden cursor-default relative">
-              <div className="absolute top-0 right-0 h-full w-4 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10"></div>
+            <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden cursor-default">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">All Assignments</h3>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {user?.role === 'student' ? 'All Assignments' : 'My Created Assignments'}
+                    </h3>
                     <p className="text-sm text-gray-600">
                       {user?.role === 'student' 
-                        ? `Showing ${displayAssignments.length} assignments from ${new Set(displayAssignments.map(a => a.teacher_name)).size} teachers` 
+                        ? `Showing ${assignments.length} assignments with submission status and grades`
                         : 'Manage your class assignments - Students see these immediately'
                       }
                     </p>
                   </div>
-                  {user?.role === 'student' && displayAssignments.length > 0 && (
-                    <div className="bg-green-100 border border-green-200 rounded-lg px-3 py-1 cursor-default">
-                      <span className="text-green-700 text-sm font-medium">
-                        {displayAssignments.length} Active
-                      </span>
+                  {user?.role === 'student' && assignments.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span className="text-red-700 text-xs">
+                          Active: {assignments.filter(a => a.submission_status === 'not_started').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-blue-700 text-xs">
+                          Submitted: {assignments.filter(a => a.submission_status === 'submitted').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-green-700 text-xs">
+                          Graded: {assignments.filter(a => a.submission_status === 'graded').length}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
               
-              <div className="overflow-x-auto relative">
-                <table className="w-full min-w-max">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                   <thead className="bg-gray-50 cursor-default">
                     <tr>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">
-                        Assignment Name
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/3">
+                        Assignment Details
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[180px]">
-                        Class
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Class & Teacher
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">
-                        Teacher
-                      </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Created
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">
+                      <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">
+                      {user?.role === 'student' && (
+                        <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Grade
+                        </th>
+                      )}
+                      <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {displayAssignments.length > 0 ? (
-                      displayAssignments.map((assignment) => (
-                        <tr key={assignment.id} className="hover:bg-gray-50 transition-colors duration-200 cursor-default">
-                          <td className="px-4 lg:px-6 py-4">
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm mr-4 flex-shrink-0">
-                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm font-semibold text-gray-900 truncate">{assignment.name}</div>
-                                <div className="text-xs text-gray-500 truncate">
-                                  {assignment.description || 'No description provided'}
+                      displayAssignments.map((assignment) => {
+                        const isSubmitted = user?.role === 'student' && 
+                          (assignment.submission_status === 'submitted' || assignment.submission_status === 'graded');
+                        const isGraded = user?.role === 'student' && assignment.submission_status === 'graded';
+                        const hasGrade = user?.role === 'student' && assignment.grade !== null && assignment.grade !== undefined;
+                        
+                        return (
+                          <tr key={assignment.id} className="hover:bg-gray-50 transition-colors duration-200 cursor-default">
+                            <td className="px-4 lg:px-6 py-4">
+                              <div className="flex items-start">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm mr-3 flex-shrink-0 ${
+                                  user?.role === 'student'
+                                    ? isGraded 
+                                      ? 'bg-gradient-to-br from-green-400 to-green-600' 
+                                      : isSubmitted
+                                      ? 'bg-gradient-to-br from-blue-400 to-blue-600'
+                                      : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                                    : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                                }`}>
+                                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start">
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-sm font-semibold text-gray-900 mb-1 truncate">
+                                        {assignment.name}
+                                        {user?.role === 'student' && isSubmitted && (
+                                          <span className="ml-2 text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+                                            ✓
+                                          </span>
+                                        )}
+                                      </h4>
+                                      <p className="text-xs text-gray-500 line-clamp-2 mb-1">
+                                        {assignment.description || 'No description provided'}
+                                      </p>
+                                      {user?.role === 'student' && assignment.submitted_at && (
+                                        <div className="text-xs text-gray-400 mt-1">
+                                          Submitted: {formatDate(assignment.submitted_at)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 lg:px-6 py-4">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {assignment.class_name || getClassName(assignment.class_id)}
+                            </td>
+                            <td className="px-4 lg:px-6 py-4">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 mb-1">
+                                  {assignment.class_name || getClassName(assignment.class_id)}
+                                </div>
+                                <div className="text-xs text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200 inline-block">
+                                  {assignment.class_code || getClassCode(assignment.class_id)}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {assignment.teacher_name || getTeacherName(assignment.class_id)}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200 inline-block mt-1">
-                                {assignment.class_code || getClassCode(assignment.class_id)}
+                            </td>
+                            <td className="px-4 lg:px-6 py-4">
+                              <div className="text-sm text-gray-600 whitespace-nowrap">
+                                {formatDate(assignment.created_at)}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 lg:px-6 py-4">
-                            <div className="text-sm text-gray-600">
-                              {assignment.teacher_name || getTeacherName(assignment.class_id)}
-                            </div>
-                          </td>
-                          <td className="px-4 lg:px-6 py-4">
-                            <div className="text-sm text-gray-600 whitespace-nowrap">{formatDate(assignment.created_at)}</div>
-                          </td>
-                          <td className="px-4 lg:px-6 py-4">
-                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200 whitespace-nowrap cursor-default">
-                              Active
-                            </span>
-                          </td>
-                          <td className="px-4 lg:px-6 py-4">
-                            {user?.role === 'teacher' ? (
-                              <div className="flex items-center justify-end space-x-2">
-                                <button
-                                  onClick={() => handleManageAssignment(assignment)}
-                                  className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all duration-200 border border-purple-200 hover:border-purple-300 cursor-pointer flex-shrink-0"
-                                  title="Manage Assignment"
-                                  aria-label="Manage Assignment"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => handleEditAssignment(assignment)}
-                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer flex-shrink-0"
-                                  title="Edit Assignment"
-                                  aria-label="Edit Assignment"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteAssignment(assignment)}
-                                  className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer flex-shrink-0"
-                                  title="Delete Assignment"
-                                  aria-label="Delete Assignment"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-end space-x-2">
-                                <button
-                                  onClick={() => handleViewAssignment(assignment)}
-                                  className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer flex-shrink-0"
-                                  title="View Assignment"
-                                  aria-label="View Assignment"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => handleSubmitWork(assignment)}
-                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer flex-shrink-0"
-                                  title="Submit Work"
-                                  aria-label="Submit Work"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </button>
-                              </div>
+                            </td>
+                            <td className="px-4 lg:px-6 py-4">
+                              {user?.role === 'student' ? (
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full border whitespace-nowrap cursor-default ${
+                                  assignment.submission_status === 'graded'
+                                    ? 'bg-green-100 text-green-800 border-green-200'
+                                    : assignment.submission_status === 'submitted'
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                    : assignment.submission_status === 'late'
+                                    ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                    : 'bg-red-100 text-red-800 border-red-200'
+                                }`}>
+                                  {assignment.submission_status === 'graded'
+                                    ? '✓ Graded'
+                                    : assignment.submission_status === 'submitted'
+                                    ? '✓ Submitted'
+                                    : assignment.submission_status === 'late'
+                                    ? '⚠ Late'
+                                    : 'Active'
+                                  }
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200 whitespace-nowrap cursor-default">
+                                  Active
+                                </span>
+                              )}
+                            </td>
+                            {user?.role === 'student' && (
+                              <td className="px-4 lg:px-6 py-4">
+                                {hasGrade ? (
+                                  <div className={`px-3 py-2 text-center text-sm font-bold rounded-lg border ${getGradeColor(assignment.grade!)}`}>
+                                    <div className="text-base">{assignment.grade}%</div>
+                                    {assignment.feedback && (
+                                      <div className="text-xs text-gray-600 mt-1 truncate max-w-[120px]" title={assignment.feedback}>
+                                        {assignment.feedback}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : isSubmitted ? (
+                                  <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+                                    Waiting for grade
+                                  </div>
+                                ) : (
+                                  <div className="text-sm text-gray-400 px-3 py-2">-</div>
+                                )}
+                              </td>
                             )}
-                          </td>
-                        </tr>
-                      ))
+                            <td className="px-4 lg:px-6 py-4">
+                              <div className="flex items-center justify-end space-x-2">
+                                {user?.role === 'teacher' ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleManageAssignment(assignment)}
+                                      className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all duration-200 border border-blue-200 hover:border-blue-300 cursor-pointer flex-shrink-0"
+                                      title="Manage Assignment"
+                                      aria-label="Manage Assignment"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => handleEditAssignment(assignment)}
+                                      className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer flex-shrink-0"
+                                      title="Edit Assignment"
+                                      aria-label="Edit Assignment"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteAssignment(assignment)}
+                                      className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer flex-shrink-0"
+                                      title="Delete Assignment"
+                                      aria-label="Delete Assignment"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => handleViewAssignment(assignment)}
+                                      className={`px-3 py-2 rounded-lg transition-all duration-200 border cursor-pointer flex items-center gap-1 text-sm ${
+                                        isSubmitted
+                                          ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200 hover:border-gray-300'
+                                          : 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-200 hover:border-blue-300'
+                                      }`}
+                                      title={isSubmitted ? "View Submission" : "View Assignment"}
+                                      aria-label={isSubmitted ? "View Submission" : "View Assignment"}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                      </svg>
+                                      <span>View</span>
+                                    </button>
+                                    {!isSubmitted && (
+                                      <button
+                                        onClick={() => handleSubmitWork(assignment)}
+                                        className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer flex items-center gap-1 text-sm"
+                                        title="Submit Work"
+                                        aria-label="Submit Work"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>Submit</span>
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center cursor-default">
+                        <td colSpan={user?.role === 'student' ? 6 : 5} className="px-6 py-12 text-center cursor-default">
                           <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No assignments yet</h3>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            {user?.role === 'student' ? 'No assignments yet' : 'No assignments created yet'}
+                          </h3>
                           <p className="text-gray-500 mb-4">
                             {user?.role === 'student' 
-                              ? 'You currently have no assigned tasks. Check back later for new assignments.'
+                              ? 'You currently have no assigned tasks. Check back later for new assignments from your teachers.'
                               : 'Create your first assignment to get started - Students will see it immediately'
                             }
                           </p>
@@ -1399,32 +1677,102 @@ const AssignmentPage: React.FC = () => {
                               Create Assignment
                             </button>
                           )}
+                          {user?.role === 'student' && (
+                            <button
+                              onClick={loadAssignmentData}
+                              className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
+                            >
+                              Refresh Assignments
+                            </button>
+                          )}
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
-                
-                <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-gray-100 to-transparent opacity-50 pointer-events-none"></div>
               </div>
               {displayAssignments.length > 0 && (
                 <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-center">
-                  <span className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
-                    </svg>
-                    Scroll horizontally to see more
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                  </span>
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    {user?.role === 'student' ? (
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                          <span>Active: Need to submit</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span>Submitted: Waiting for grade</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span>Graded: Assignment completed</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-600">
+                        Only showing assignments you created. Students see assignments immediately.
+                      </div>
+                    )}
+                    <span className="text-xs text-gray-500 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                      </svg>
+                      Scroll horizontally to see more
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
+            {user?.role === 'student' && assignments.filter(a => a.grade !== null).length > 0 && (
+              <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm p-6 mt-6 cursor-default">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Grades Summary</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
+                    <div className="text-sm font-medium text-green-700 mb-1">Average Grade</div>
+                    <div className="text-2xl font-bold text-green-800">
+                      {Math.round(
+                        assignments
+                          .filter(a => a.grade !== null)
+                          .reduce((sum, a) => sum + (a.grade || 0), 0) / 
+                        assignments.filter(a => a.grade !== null).length
+                      )}%
+                    </div>
+                    <div className="text-xs text-green-600 mt-1">
+                      Based on {assignments.filter(a => a.grade !== null).length} graded assignments
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
+                    <div className="text-sm font-medium text-blue-700 mb-1">Highest Grade</div>
+                    <div className="text-2xl font-bold text-blue-800">
+                      {Math.max(...assignments.filter(a => a.grade !== null).map(a => a.grade || 0))}%
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1 truncate">
+                      {assignments.find(a => a.grade === Math.max(...assignments.filter(a => a.grade !== null).map(a => a.grade || 0)))?.name}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
+                    <div className="text-sm font-medium text-purple-700 mb-1">Completion Rate</div>
+                    <div className="text-2xl font-bold text-purple-800">
+                      {Math.round((assignments.filter(a => a.submission_status === 'submitted' || a.submission_status === 'graded').length / assignments.length) * 100)}%
+                    </div>
+                    <div className="text-xs text-purple-600 mt-1">
+                      {assignments.filter(a => a.submission_status === 'submitted' || a.submission_status === 'graded').length} of {assignments.length} assignments submitted
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
-      {showCreateModal && (
+      
+      {showCreateModal && user?.role === 'teacher' && (
         <div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-default"
           onClick={(e) => {
@@ -1500,7 +1848,7 @@ const AssignmentPage: React.FC = () => {
                     </option>
                     {classes.map((classItem) => (
                       <option key={classItem.id} value={classItem.id}>
-                        {classItem.name} ({classItem.code}) - {classItem.teacher_name}
+                        {classItem.name} ({classItem.code})
                       </option>
                     ))}
                   </select>
