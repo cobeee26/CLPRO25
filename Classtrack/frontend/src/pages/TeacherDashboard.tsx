@@ -1918,17 +1918,13 @@ const TeacherDashboard: React.FC = () => {
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="text-gray-600">
                                     {formatDate(assignment.created_at)}
-                                  </span>
-                                  <span className="text-gray-500">
-                                    {assignment.class_name || `Class ${assignment.class_id}`}
-                                  </span>
+                                  </span>                   
                                 </div>
                               </div>
                             ))
                           )}
                         </div>
 
-                        {/* Scroll Indicator */}
                         {assignments.length > 4 && showAssignmentsScrollIndicator && (
                           <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
                             <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
@@ -1955,7 +1951,6 @@ const TeacherDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Student Engagement Insights - AI Powered - AUTO REFRESH */}
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center space-x-3">
@@ -2005,7 +2000,6 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Engagement Metrics - Based on real data */}
                     <div className="relative">
                       <div 
                         className="grid grid-cols-1 md:grid-cols-2 gap-4 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
@@ -2111,7 +2105,7 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {/* SCROLL INDICATOR FOR STUDENT ENGAGEMENT INSIGHTS - ADDED HERE */}
+  
                       {engagementInsights.length > 4 && showInsightsScrollIndicator && (
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
                           <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
@@ -2136,7 +2130,7 @@ const TeacherDashboard: React.FC = () => {
                       )}
                     </div>
                     
-                    {/* Auto-refresh indicator */}
+                
                     {engagementInsights.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <div className="flex items-center justify-center gap-2">
@@ -2149,7 +2143,7 @@ const TeacherDashboard: React.FC = () => {
                     )}
                   </div>
                 </div>
-                {/* Right Column - Announcements */}
+    
                 <div className="xl:col-span-1">
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                     <div className="flex items-center justify-between mb-4">
@@ -2185,7 +2179,6 @@ const TeacherDashboard: React.FC = () => {
                     </div>
 
                     <div className="relative">
-                      {/* Scrollable Container */}
                       <div 
                         className="space-y-3 h-[220px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
                         ref={announcementsScrollRef}
@@ -2273,7 +2266,6 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Scroll indicator */}
                       {announcements.length > 2 && showAnnouncementsScrollIndicator && (
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
                           <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
@@ -2301,7 +2293,6 @@ const TeacherDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Quick Actions */}
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                 <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center space-x-3">
                   <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
@@ -2402,10 +2393,10 @@ const TeacherDashboard: React.FC = () => {
                     </div>
                     <div className="text-left">
                       <p className="text-gray-900 font-semibold text-sm">
-                        Manage Students
+                        Manage Classes 
                       </p>
                       <p className="text-xs text-gray-600">
-                        Student administration
+                        View Classes for student
                       </p>
                     </div>
                   </button>
@@ -2444,8 +2435,6 @@ const TeacherDashboard: React.FC = () => {
           </main>
         </div>
       </div>
-
-      {/* Announcement Modal */}
       <AnnouncementModal
         isOpen={showAnnouncementModal}
         onClose={() => setShowAnnouncementModal(false)}
