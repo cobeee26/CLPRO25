@@ -6,11 +6,10 @@ import Sidebar from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import Swal from 'sweetalert2';
-import { authService } from '../services/authService'; // Import authService
+import { authService } from '../services/authService';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-// Create axios instance with interceptor
 const createApiClient = () => {
   const instance = axios.create({
     baseURL: API_BASE_URL,
@@ -19,7 +18,6 @@ const createApiClient = () => {
     },
   });
 
-  // Request interceptor
   instance.interceptors.request.use(
     (config) => {
       const token = localStorage.getItem('authToken');
@@ -33,7 +31,6 @@ const createApiClient = () => {
     }
   );
 
-  // Response interceptor
   instance.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -75,6 +72,7 @@ interface Submission {
   time_spent_minutes: number;
   link_url?: string;
   violations?: Violation[];
+  violations_count?: number;
 }
 
 interface Assignment {
@@ -102,7 +100,7 @@ interface Violation {
   id?: number;
   student_id: number;
   assignment_id: number;
-  violation_type: 'tab_switch' | 'app_switch' | 'rapid_completion' | 'paste_detected' | 'suspicious_activity';
+  violation_type: 'tab_switch' | 'app_switch' | 'rapid_completion' | 'paste_detected' | 'suspicious_activity' | 'excessive_inactivity' | 'ai_content_detected';
   description: string;
   detected_at: string;
   time_away_seconds: number;
@@ -144,7 +142,6 @@ interface TeacherClassesResponse {
   classes: TeacherClass[];
 }
 
-// Predefined grade options
 const GRADE_OPTIONS = [
   { value: 100, label: '100% - Excellent' },
   { value: 90, label: '90% - Very Good' },
@@ -183,12 +180,10 @@ const TeacherAssignmentPage: React.FC = () => {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
 
-  // Modal refs
   const modalRef = useRef<HTMLDivElement>(null);
   const gradeSelectRefs = useRef<{[key: number]: HTMLSelectElement | null}>({});
 
   const handleLogout = () => {
-    // Show confirmation SweetAlert
     Swal.fire({
       title: 'Are you sure?',
       text: "You will be logged out of your account.",
@@ -212,10 +207,8 @@ const TeacherAssignmentPage: React.FC = () => {
     });
   };
 
-  // Load teacher classes at the start
   const loadTeacherClasses = useCallback(async () => {
     try {
-      // Show loading SweetAlert
       Swal.fire({
         title: 'Loading Classes...',
         text: 'Please wait while we load your classes.',
@@ -257,7 +250,6 @@ const TeacherAssignmentPage: React.FC = () => {
     loadAssignmentData();
   }, [user, assignmentId]);
 
-  // Close modal when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
@@ -280,7 +272,6 @@ const TeacherAssignmentPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Show loading SweetAlert
       Swal.fire({
         title: 'Loading Assignment...',
         text: 'Please wait while we load assignment data.',
@@ -292,28 +283,21 @@ const TeacherAssignmentPage: React.FC = () => {
         }
       });
 
-      // Load teacher classes first
       const classes = await loadTeacherClasses();
 
-      // Load assignment details
       const assignmentResponse = await apiClient.get(`/assignments/${assignmentId}`);
       const assignmentData = assignmentResponse.data;
       
       console.log('📋 Assignment Data:', assignmentData);
       
-      // Load class info and update assignment immediately
       await loadClassInfoFromTeacherClasses(assignmentData.class_id, assignmentData, classes);
       
-      // Set assignment after loading class info
       setAssignment(assignmentData);
 
-      // Load all students in class
       await loadClassStudents(assignmentData.class_id, classes);
 
-      // Load submissions - FIXED: Use authService instead of direct API call
       await loadSubmissions();
 
-      // Load violations
       await loadViolations();
 
       Swal.close();
@@ -340,7 +324,6 @@ const TeacherAssignmentPage: React.FC = () => {
     teacherClassesList: TeacherClass[]
   ) => {
     try {
-      // Get class info directly from teacher's classes
       const teacherClass = teacherClassesList.find(c => c.id === classId);
       
       let enhancedClassInfo: Class;
@@ -356,7 +339,6 @@ const TeacherAssignmentPage: React.FC = () => {
           teacher_name: user?.username || 'Teacher'
         };
       } else {
-        // If not found in teacher classes, use fallback
         console.log('📋 Class not found in teacher classes, using fallback...');
         
         enhancedClassInfo = {
@@ -386,7 +368,6 @@ const TeacherAssignmentPage: React.FC = () => {
     } catch (error: any) {
       console.error('Error loading class info:', error);
       
-      // Fallback class info
       const fallbackClass: Class = {
         id: classId,
         name: `Class ${classId}`,
@@ -397,7 +378,6 @@ const TeacherAssignmentPage: React.FC = () => {
       
       setClassInfo(fallbackClass);
       
-      // Update assignment with fallback class code
       const updatedAssignment = {
         ...currentAssignment,
         class_code: fallbackClass.code,
@@ -414,11 +394,9 @@ const TeacherAssignmentPage: React.FC = () => {
 
   const loadClassStudents = async (classId: number, teacherClassesList: TeacherClass[]) => {
     try {
-      // First try to get students from teacher classes
       const teacherClass = teacherClassesList.find(c => c.id === classId);
       
       if (teacherClass) {
-        // Try to get students from the /teachers/me/classes/{id}/students endpoint
         try {
           const response = await apiClient.get(`/teachers/me/classes/${classId}/students`);
           console.log('📋 Students from teacher class:', response.data);
@@ -429,7 +407,6 @@ const TeacherAssignmentPage: React.FC = () => {
         }
       }
       
-      // Fallback to regular endpoint
       console.log('📋 Trying regular students endpoint...');
       const response = await apiClient.get(`/classes/${classId}/students`);
       setAllStudents(response.data);
@@ -440,7 +417,6 @@ const TeacherAssignmentPage: React.FC = () => {
     }
   };
 
-  // Load submissions using authService
   const loadSubmissions = async () => {
     try {
       if (!assignmentId) {
@@ -458,48 +434,16 @@ const TeacherAssignmentPage: React.FC = () => {
 
       console.log('📋 Loading submissions for assignment:', assignmentIdNum);
       
-      // Use authService to get assignment submissions
       const submissionsData = await authService.getAssignmentSubmissions(assignmentIdNum);
       console.log('✅ Submissions loaded via authService:', submissionsData);
       
-      // Transform the data to match our Submission interface
-      const transformedSubmissions: Submission[] = submissionsData.map((sub: any) => ({
-        id: sub.id,
-        assignment_id: sub.assignment_id,
-        student_id: sub.student_id,
-        student_name: sub.student_name || `Student ${sub.student_id}`,
-        student_email: sub.student_email || 'No email',
-        content: sub.content || '',
-        file_path: sub.file_path,
-        file_name: sub.file_name,
-        submitted_at: sub.submitted_at || new Date().toISOString(),
-        grade: sub.grade,
-        feedback: sub.feedback,
-        is_graded: sub.grade !== null && sub.grade !== undefined,
-        time_spent_minutes: sub.time_spent_minutes || 0, // This should contain the time spent data
-        link_url: sub.link_url,
-        violations: sub.violations || []
-      }));
-      
-      console.log('📊 Transformed submissions with time spent:', transformedSubmissions.map(s => ({
-        name: s.student_name,
-        time_spent: s.time_spent_minutes
-      })));
-      
-      setSubmissions(transformedSubmissions);
-      calculateGradeStatistics(transformedSubmissions);
-      
-    } catch (error: any) {
-      console.error('Error loading submissions via authService:', error);
-      
-      // Fallback: Try direct API endpoint
-      try {
-        console.log('🔄 Trying direct API endpoint as fallback...');
-        const response = await apiClient.get(`/assignments/${assignmentId}/submissions`);
-        const submissionsData = response.data;
-        console.log('✅ Direct API fallback successful:', submissionsData);
+      const transformedSubmissions: Submission[] = submissionsData.map((sub: any) => {
+        const violationsArray = sub.violations || [];
+        const violationsCount = sub.violations_count || violationsArray.length;
         
-        const transformedSubmissions: Submission[] = submissionsData.map((sub: any) => ({
+        console.log(`📊 Student ${sub.student_name}: violations_count = ${sub.violations_count}, violations array = ${violationsArray.length}, calculated = ${violationsCount}`);
+        
+        return {
           id: sub.id,
           assignment_id: sub.assignment_id,
           student_id: sub.student_id,
@@ -514,12 +458,58 @@ const TeacherAssignmentPage: React.FC = () => {
           is_graded: sub.grade !== null && sub.grade !== undefined,
           time_spent_minutes: sub.time_spent_minutes || 0,
           link_url: sub.link_url,
-          violations: sub.violations || []
-        }));
+          violations: violationsArray,
+          violations_count: violationsCount
+        };
+      });
+      
+      console.log('📊 Transformed submissions with violations:', transformedSubmissions.map(s => ({
+        name: s.student_name,
+        time_spent: s.time_spent_minutes,
+        violations_count: s.violations_count,
+        violations_array_length: s.violations?.length || 0
+      })));
+      
+      setSubmissions(transformedSubmissions);
+      calculateGradeStatistics(transformedSubmissions);
+      
+    } catch (error: any) {
+      console.error('Error loading submissions via authService:', error);
+    
+      try {
+        console.log('🔄 Trying direct API endpoint as fallback...');
+        const response = await apiClient.get(`/assignments/${assignmentId}/submissions`);
+        const submissionsData = response.data;
+        console.log('✅ Direct API fallback successful:', submissionsData);
         
-        console.log('📊 Direct API transformed submissions with time spent:', transformedSubmissions.map(s => ({
+        const transformedSubmissions: Submission[] = submissionsData.map((sub: any) => {
+          const violationsArray = sub.violations || [];
+          const violationsCount = sub.violations_count || violationsArray.length;
+          
+          return {
+            id: sub.id,
+            assignment_id: sub.assignment_id,
+            student_id: sub.student_id,
+            student_name: sub.student_name || `Student ${sub.student_id}`,
+            student_email: sub.student_email || 'No email',
+            content: sub.content || '',
+            file_path: sub.file_path,
+            file_name: sub.file_name,
+            submitted_at: sub.submitted_at || new Date().toISOString(),
+            grade: sub.grade,
+            feedback: sub.feedback,
+            is_graded: sub.grade !== null && sub.grade !== undefined,
+            time_spent_minutes: sub.time_spent_minutes || 0,
+            link_url: sub.link_url,
+            violations: violationsArray,
+            violations_count: violationsCount
+          };
+        });
+        
+        console.log('📊 Direct API transformed submissions:', transformedSubmissions.map(s => ({
           name: s.student_name,
-          time_spent: s.time_spent_minutes
+          time_spent: s.time_spent_minutes,
+          violations_count: s.violations_count
         })));
         
         setSubmissions(transformedSubmissions);
@@ -539,19 +529,84 @@ const TeacherAssignmentPage: React.FC = () => {
       const assignmentIdNum = parseInt(assignmentId);
       if (isNaN(assignmentIdNum)) return;
       
-      // Use authService to get violations
-      const violationsData = await authService.getAssignmentViolations(assignmentIdNum);
-      setViolations(violationsData);
-    } catch (error: any) {
-      console.error('Error loading violations:', error);
+      console.log('🔍 Loading violations for assignment:', assignmentIdNum);
       
-      // Fallback: Try direct API endpoint
+      const violationsData = await authService.getAssignmentViolations(assignmentIdNum);
+      console.log('✅ Violations loaded via authService:', violationsData);
+      
+      const transformedViolations = violationsData.map((violation: any) => ({
+        id: violation.id,
+        student_id: violation.student_id,
+        assignment_id: violation.assignment_id,
+        violation_type: violation.violation_type as Violation['violation_type'],
+        description: violation.description || `Violation detected: ${violation.violation_type}`,
+        detected_at: violation.detected_at || new Date().toISOString(),
+        time_away_seconds: violation.time_away_seconds || 0,
+        severity: violation.severity as Violation['severity'] || 'medium',
+        content_added_during_absence: violation.content_added_during_absence,
+        student_name: violation.student_name || `Student ${violation.student_id}`
+      }));
+      
+      console.log('📊 Transformed violations:', transformedViolations);
+      setViolations(transformedViolations);
+      
+    } catch (error: any) {
+      console.error('Error loading violations via authService:', error);
+      
       try {
+        console.log('🔄 Trying direct violations API endpoint as fallback...');
         const response = await apiClient.get(`/assignments/${assignmentId}/violations`);
-        setViolations(response.data);
+        const violationsData = response.data;
+        console.log('✅ Direct violations API successful:', violationsData);
+        
+        const transformedViolations = violationsData.map((violation: any) => ({
+          id: violation.id,
+          student_id: violation.student_id,
+          assignment_id: violation.assignment_id,
+          violation_type: violation.violation_type as Violation['violation_type'],
+          description: violation.description || `Violation detected: ${violation.violation_type}`,
+          detected_at: violation.detected_at || new Date().toISOString(),
+          time_away_seconds: violation.time_away_seconds || 0,
+          severity: violation.severity as Violation['severity'] || 'medium',
+          content_added_during_absence: violation.content_added_during_absence,
+          student_name: violation.student_name || `Student ${violation.student_id}`
+        }));
+        
+        setViolations(transformedViolations);
       } catch (fallbackError) {
         console.error('Both violation loading methods failed:', fallbackError);
-        setViolations([]);
+        
+        try {
+          console.log('🔄 Trying to get violations from submissions endpoint...');
+          const submissionsResponse = await apiClient.get(`/assignments/${assignmentId}/submissions`);
+          const submissionsData = submissionsResponse.data;
+          
+          const allViolations: Violation[] = [];
+          submissionsData.forEach((submission: any) => {
+            if (submission.violations && Array.isArray(submission.violations)) {
+              submission.violations.forEach((violation: any) => {
+                allViolations.push({
+                  id: violation.id,
+                  student_id: submission.student_id,
+                  assignment_id: submission.assignment_id,
+                  violation_type: violation.violation_type as Violation['violation_type'] || 'suspicious_activity',
+                  description: violation.description || 'Suspicious activity detected',
+                  detected_at: violation.detected_at || new Date().toISOString(),
+                  time_away_seconds: violation.time_away_seconds || 0,
+                  severity: violation.severity as Violation['severity'] || 'medium',
+                  content_added_during_absence: violation.content_added_during_absence,
+                  student_name: submission.student_name
+                });
+              });
+            }
+          });
+          
+          console.log('✅ Extracted violations from submissions:', allViolations);
+          setViolations(allViolations);
+        } catch (finalError) {
+          console.error('All violation loading methods failed:', finalError);
+          setViolations([]);
+        }
       }
     }
   };
@@ -606,7 +661,6 @@ const TeacherAssignmentPage: React.FC = () => {
       if (gradeValue < 0 || gradeValue > 100) {
         setError('Please select a valid grade between 0 and 100');
         
-        // Show SweetAlert error
         Swal.fire({
           title: 'Invalid Grade',
           text: 'Please select a valid grade between 0 and 100.',
@@ -618,7 +672,6 @@ const TeacherAssignmentPage: React.FC = () => {
         return;
       }
 
-      // Show loading SweetAlert
       Swal.fire({
         title: 'Saving Grade...',
         text: 'Please wait while we save the grade.',
@@ -630,13 +683,11 @@ const TeacherAssignmentPage: React.FC = () => {
         }
       });
 
-      // Use authService to save grade
       await authService.updateSubmissionGrade(submissionId, {
         grade: gradeValue,
         feedback: editedData.feedback
       });
 
-      // Update local state
       setSubmissions(prev => prev.map(sub => 
         sub.id === submissionId 
           ? { 
@@ -648,14 +699,12 @@ const TeacherAssignmentPage: React.FC = () => {
           : sub
       ));
 
-      // Recalculate statistics
       calculateGradeStatistics(submissions.map(sub => 
         sub.id === submissionId 
           ? { ...sub, grade: gradeValue, feedback: editedData.feedback, is_graded: true }
           : sub
       ));
 
-      // Remove from editing state
       setEditingGrades(prev => {
         const newState = { ...prev };
         delete newState[submissionId];
@@ -663,8 +712,7 @@ const TeacherAssignmentPage: React.FC = () => {
       });
 
       setSuccess('Grade saved successfully!');
-      
-      // Show success SweetAlert
+     
       Swal.fire({
         title: '✅ Grade Saved!',
         text: 'Grade has been saved successfully.',
@@ -679,7 +727,6 @@ const TeacherAssignmentPage: React.FC = () => {
       console.error('Error saving grade:', error);
       setError('Failed to save grade. Please try again.');
       
-      // Show error SweetAlert
       Swal.fire({
         title: '❌ Save Failed',
         text: 'Failed to save grade. Please try again.',
@@ -702,7 +749,6 @@ const TeacherAssignmentPage: React.FC = () => {
       }
     }));
     
-    // Focus on grade select after a brief delay
     setTimeout(() => {
       gradeSelectRefs.current[submission.id]?.focus();
     }, 100);
@@ -723,7 +769,17 @@ const TeacherAssignmentPage: React.FC = () => {
 
   const handleViewViolations = (studentId: number, studentName: string) => {
     const studentViolations = violations.filter(v => v.student_id === studentId);
-    setSelectedStudentViolations(studentViolations);
+    const studentSubmission = submissions.find(s => s.student_id === studentId);
+    const submissionViolations = studentSubmission?.violations || [];
+    
+    const allViolations = [...studentViolations, ...submissionViolations];
+    
+    const uniqueViolations = allViolations.filter((violation, index, self) =>
+      index === self.findIndex(v => v.id === violation.id)
+    );
+    
+    console.log('🔍 Student violations for', studentName, ':', uniqueViolations);
+    setSelectedStudentViolations(uniqueViolations);
     setSelectedStudentName(studentName);
     setShowViolationModal(true);
   };
@@ -766,10 +822,13 @@ const TeacherAssignmentPage: React.FC = () => {
       : 0;
     
     const submissionRate = totalStudents > 0 ? (submissions.length / totalStudents) * 100 : 0;
-    const studentsWithViolations = new Set(violations.map(v => v.student_id)).size;
+    
+    const studentsWithViolations = submissions
+      .filter(sub => (sub.violations_count && sub.violations_count > 0) || (sub.violations && sub.violations.length > 0))
+      .length;
+    
     const violationRate = totalStudents > 0 ? (studentsWithViolations / totalStudents) * 100 : 0;
 
-    // Calculate average time spent
     const submissionsWithTime = submissions.filter(s => s.time_spent_minutes > 0);
     const averageTimeSpent = submissionsWithTime.length > 0 
       ? submissionsWithTime.reduce((sum, sub) => sum + sub.time_spent_minutes, 0) / submissionsWithTime.length 
@@ -790,16 +849,14 @@ const TeacherAssignmentPage: React.FC = () => {
 
   const stats = calculateStatistics();
 
-  // Filter and sort submissions
   const filteredAndSortedSubmissions = submissions
     .filter(submission => {
-      // Filter by search term
+      
       if (searchTerm && !submission.student_name.toLowerCase().includes(searchTerm.toLowerCase()) && 
           !submission.student_email.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false;
       }
       
-      // Filter by status
       if (filterStatus === 'graded' && !submission.is_graded) return false;
       if (filterStatus === 'pending' && submission.is_graded) return false;
       
@@ -837,7 +894,6 @@ const TeacherAssignmentPage: React.FC = () => {
     if (!submission?.file_path || !submission.id) return;
     
     try {
-      // Show loading SweetAlert
       Swal.fire({
         title: 'Preparing Download...',
         text: 'Please wait while we prepare your file.',
@@ -851,7 +907,6 @@ const TeacherAssignmentPage: React.FC = () => {
         }
       });
 
-      // Use authService to download file
       const blob = await authService.downloadSubmissionFile(submission.id);
       
       const url = window.URL.createObjectURL(new Blob([blob]));
@@ -882,7 +937,6 @@ const TeacherAssignmentPage: React.FC = () => {
       } catch (fallbackError) {
         setError('Failed to download file. Please try again.');
         
-        // Show error SweetAlert
         Swal.fire({
           title: '❌ Download Failed',
           text: 'Failed to download file. Please try again.',
@@ -896,7 +950,6 @@ const TeacherAssignmentPage: React.FC = () => {
 
   const exportGrades = () => {
     try {
-      // Show confirmation SweetAlert
       Swal.fire({
         title: 'Export Grades?',
         text: 'This will export all grades to a CSV file.',
@@ -909,7 +962,6 @@ const TeacherAssignmentPage: React.FC = () => {
         reverseButtons: true
       }).then((result) => {
         if (result.isConfirmed) {
-          // Show loading SweetAlert
           Swal.fire({
             title: 'Exporting...',
             text: 'Please wait while we prepare your export.',
@@ -930,7 +982,7 @@ const TeacherAssignmentPage: React.FC = () => {
               sub.feedback || '',
               sub.time_spent_minutes,
               formatDate(sub.submitted_at),
-              sub.violations?.length || 0
+              sub.violations_count || sub.violations?.length || 0
             ])
           ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
 
@@ -944,7 +996,6 @@ const TeacherAssignmentPage: React.FC = () => {
           link.remove();
           window.URL.revokeObjectURL(url);
 
-          // Show success SweetAlert
           Swal.fire({
             title: '✅ Export Successful!',
             text: 'Grades have been exported successfully.',
@@ -959,7 +1010,6 @@ const TeacherAssignmentPage: React.FC = () => {
     } catch (error) {
       console.error('Error exporting grades:', error);
       
-      // Show error SweetAlert
       Swal.fire({
         title: '❌ Export Failed',
         text: 'Failed to export grades. Please try again.',
@@ -1011,7 +1061,7 @@ const TeacherAssignmentPage: React.FC = () => {
             <div className="space-y-3">
               <button
                 onClick={() => navigate('/teacher/assignments')}
-                className="w-full px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
+                className="w-full px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer"
                 title="Go back to assignments"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1041,7 +1091,6 @@ const TeacherAssignmentPage: React.FC = () => {
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        {/* Mobile Header */}
         <header className="lg:hidden bg-white/80 backdrop-blur-xl border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -1082,7 +1131,6 @@ const TeacherAssignmentPage: React.FC = () => {
           </div>
         </header>
 
-        {/* Desktop Header */}
         <div className="hidden lg:block">
           <DynamicHeader 
             title={`Submissions - ${assignment?.name}`}
@@ -1092,10 +1140,8 @@ const TeacherAssignmentPage: React.FC = () => {
           />
         </div>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            {/* Error Alert */}
             {error && (
               <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center">
@@ -1120,7 +1166,6 @@ const TeacherAssignmentPage: React.FC = () => {
               </div>
             )}
 
-            {/* Success Alert */}
             {success && (
               <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center">
@@ -1145,7 +1190,6 @@ const TeacherAssignmentPage: React.FC = () => {
               </div>
             )}
 
-            {/* Assignment Info Card */}
             <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg mb-6 overflow-hidden">
               <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -1214,28 +1258,23 @@ const TeacherAssignmentPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
-              {/* Statistics Grid */}
+
               <div className="p-6">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-4 shadow-sm">
-                    <div className="text-3xl font-bold text-blue-700">{stats.totalStudents}</div>
-                    <div className="text-sm text-blue-600 font-medium">Total Students</div>
-                  </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">        
                   <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-green-700">{stats.totalSubmissions}</div>
                     <div className="text-sm text-green-600 font-medium">Submissions</div>
-                    <div className="text-xs text-green-500 mt-1">{stats.submissionRate}% rate</div>
+                 
                   </div>
                   <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-emerald-700">{stats.gradedSubmissions}</div>
                     <div className="text-sm text-emerald-600 font-medium">Graded</div>
                   </div>
-                  {/* Changed from "Pending" to "Violation" */}
+            
                   <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-red-700">{stats.studentsWithViolations}</div>
                     <div className="text-sm text-red-600 font-medium">Violation</div>
-                    <div className="text-xs text-red-500 mt-1">{stats.violationRate}% rate</div>
+                 
                   </div>
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-purple-700">{stats.averageGrade}%</div>
@@ -1246,8 +1285,7 @@ const TeacherAssignmentPage: React.FC = () => {
                     <div className="text-sm text-cyan-600 font-medium">Avg Time Spent</div>
                   </div>
                 </div>
-
-                {/* Analytics Section */}
+          
                 {showAnalytics && gradeStatistics && (
                   <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -1298,7 +1336,6 @@ const TeacherAssignmentPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Controls Bar */}
                 <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex-1">
@@ -1385,7 +1422,6 @@ const TeacherAssignmentPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Submissions Display */}
                 {filteredAndSortedSubmissions.length === 0 ? (
                   <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-gray-300 rounded-2xl">
                     <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
@@ -1401,7 +1437,7 @@ const TeacherAssignmentPage: React.FC = () => {
                     </p>
                   </div>
                 ) : viewMode === 'list' ? (
-                  /* List View */
+               
                   <div className="overflow-hidden border border-gray-200 rounded-2xl shadow-sm">
                     <table className="w-full">
                       <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
@@ -1432,7 +1468,20 @@ const TeacherAssignmentPage: React.FC = () => {
                       <tbody className="divide-y divide-gray-200">
                         {filteredAndSortedSubmissions.map((submission) => {
                           const isEditing = editingGrades[submission.id];
+                      
                           const submissionViolations = violations.filter(v => v.student_id === submission.student_id);
+                        
+                          const embeddedViolations = submission.violations || [];
+                          
+                      
+                          const violationCount = submission.violations_count || 
+                                                 (submission.violations ? submission.violations.length : 0) || 
+                                                 submissionViolations.length;
+                          
+                          console.log(`📊 [Table Row] Student: ${submission.student_name}, Violations Count: ${violationCount}, 
+                            from field: ${submission.violations_count}, 
+                            from array: ${submission.violations?.length || 0}, 
+                            from violations list: ${submissionViolations.length}`);
                           
                           return (
                             <tr key={submission.id} className="hover:bg-gray-50 transition-colors duration-200">
@@ -1498,14 +1547,18 @@ const TeacherAssignmentPage: React.FC = () => {
                                 </span>
                               </td>
                               <td className="px-6 py-4">
-                                {submissionViolations.length > 0 ? (
+                                {violationCount > 0 ? (
                                   <button
                                     onClick={() => handleViewViolations(submission.student_id, submission.student_name)}
-                                    className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${getViolationColor(submissionViolations[0].severity)} cursor-pointer`}
-                                    title="View violations"
-                                    aria-label="View violations"
+                                    className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${
+                                      violationCount > 0 
+                                        ? 'bg-gradient-to-r from-red-100 to-red-50 text-red-800 border-red-200'
+                                        : 'bg-gradient-to-r from-green-100 to-green-50 text-green-800 border-green-200'
+                                    } cursor-pointer`}
+                                    title={`View ${violationCount} violation${violationCount !== 1 ? 's' : ''}`}
+                                    aria-label={`View ${violationCount} violation${violationCount !== 1 ? 's' : ''}`}
                                   >
-                                    {submissionViolations.length} ⚠️
+                                    {violationCount} ⚠️
                                   </button>
                                 ) : (
                                   <span className="px-3 py-1 bg-gradient-to-r from-green-100 to-green-50 text-green-800 text-xs rounded-full border border-green-200">
@@ -1558,11 +1611,18 @@ const TeacherAssignmentPage: React.FC = () => {
                     </table>
                   </div>
                 ) : (
-                  /* Grid View */
+                
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredAndSortedSubmissions.map((submission) => {
                       const isEditing = editingGrades[submission.id];
+                      
                       const submissionViolations = violations.filter(v => v.student_id === submission.student_id);
+                     
+                      const embeddedViolations = submission.violations || [];
+                      
+                      const violationCount = submission.violations_count || 
+                                             (submission.violations ? submission.violations.length : 0) || 
+                                             submissionViolations.length;
                       
                       return (
                         <div key={submission.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden">
@@ -1579,14 +1639,18 @@ const TeacherAssignmentPage: React.FC = () => {
                                   <div className="text-xs text-gray-500 truncate max-w-[150px]">{submission.student_email}</div>
                                 </div>
                               </div>
-                              {submissionViolations.length > 0 && (
+                              {violationCount > 0 && (
                                 <button
                                   onClick={() => handleViewViolations(submission.student_id, submission.student_name)}
-                                  className={`px-2 py-1 rounded-lg text-xs font-bold ${getViolationColor(submissionViolations[0].severity)} cursor-pointer`}
-                                  title="View violations"
-                                  aria-label="View violations"
+                                  className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                                    violationCount > 0 
+                                      ? 'bg-gradient-to-r from-red-100 to-red-50 text-red-800 border border-red-200'
+                                      : 'bg-gradient-to-r from-green-100 to-green-50 text-green-800 border border-green-200'
+                                  } cursor-pointer`}
+                                  title={`View ${violationCount} violation${violationCount !== 1 ? 's' : ''}`}
+                                  aria-label={`View ${violationCount} violation${violationCount !== 1 ? 's' : ''}`}
                                 >
-                                  {submissionViolations.length} ⚠️
+                                  {violationCount} ⚠️
                                 </button>
                               )}
                             </div>
@@ -1704,7 +1768,6 @@ const TeacherAssignmentPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Students Without Submissions - ONLY SHOW IF THERE ARE STUDENTS */}
             {allStudents.length > 0 && allStudents.length > submissions.length && (
               <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg mb-6 overflow-hidden">
                 <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
@@ -1737,7 +1800,6 @@ const TeacherAssignmentPage: React.FC = () => {
               </div>
             )}
 
-            {/* Violations Summary - ONLY SHOW IF THERE ARE VIOLATIONS */}
             {violations.length > 0 && (
               <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
@@ -1779,7 +1841,6 @@ const TeacherAssignmentPage: React.FC = () => {
         </main>
       </div>
 
-      {/* Submission Detail Modal */}
       {showSubmissionModal && selectedSubmission && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div ref={modalRef} className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
@@ -1887,7 +1948,6 @@ const TeacherAssignmentPage: React.FC = () => {
         </div>
       )}
 
-      {/* Violations Modal */}
       {showViolationModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div ref={modalRef} className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">

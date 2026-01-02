@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, validator
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import enum
 from datetime import datetime, timedelta
 import os
@@ -15,7 +15,7 @@ from database import engine, SessionLocal, get_db
 from models import Base, User, Class, UserRole, ClassCreate, ClassResponse, Assignment, AssignmentCreate, AssignmentResponse, Schedule, ScheduleCreate, ScheduleResponse, Announcement, AnnouncementCreate, AnnouncementResponse, Submission, ClassroomReport, ClassroomReportCreate, ClassroomReportResponse, Enrollment
 from schemas import ClassExport, SubmissionCreate, Submission as SubmissionSchema, SubmissionResponse
 from security import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password, get_password_hash, create_access_token, verify_token
-from crud import create_class, get_class, get_classes, update_class, delete_class, delete_user, count_total_users, count_total_classes, get_all_users, get_all_classes, create_assignment, create_submission, get_assignments_for_student, get_assignments, get_assignments_by_teacher, create_schedule, get_schedules, get_schedules_live, get_schedules_live_enriched, get_schedule, update_schedule, delete_schedule, create_announcement, get_announcements, get_announcements_live, get_announcement, update_announcement, delete_announcement, create_classroom_report, get_classroom_reports, get_classroom_reports_by_class, get_classroom_reports_by_reporter, get_classroom_report, delete_classroom_report, change_user_password, update_user_profile, update_user_profile_picture, get_classes_by_teacher
+import crud  # IMPORTANT: DITO NILAGAY ANG ACTUAL VIOLATION CRUD FUNCTIONS
 
 # Security scheme
 security = HTTPBearer()
@@ -152,6 +152,25 @@ class ViolationResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# ENRICHED VIOLATION RESPONSE
+class ViolationWithStudentResponse(ViolationResponse):
+    student_name: str
+    student_email: str
+    assignment_name: str
+    class_name: str
+
+# VIOLATION SUMMARY MODEL
+class ViolationSummary(BaseModel):
+    assignment_id: int
+    assignment_name: str
+    class_name: str
+    total_violations: int
+    violations_by_type: Dict[str, int]
+    violations_by_severity: Dict[str, int]
+    average_time_away_seconds: float
+    students_with_violations: int
+    total_students: int
+
 # SUBMISSION WITH CONTENT MODEL
 class SubmissionWithContent(BaseModel):
     assignment_id: int
@@ -176,6 +195,8 @@ class SubmissionDetailResponse(BaseModel):
     is_graded: bool
     time_spent_minutes: float
     link_url: Optional[str] = None
+    violations_count: Optional[int] = None
+    violations: Optional[List[ViolationResponse]] = None
     
     class Config:
         from_attributes = True
@@ -191,7 +212,8 @@ class GradeUpdate(BaseModel):
             raise ValueError('Grade must be between 0 and 100')
         return v
 
-# Database lifespan function@asynccontextmanager
+# Database lifespan function
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create database tables
     Base.metadata.create_all(bind=engine)
@@ -358,38 +380,32 @@ async def create_violation(
     try:
         print(f"📝 Creating violation for student {violation.student_id}, assignment {violation.assignment_id}")
         
-        # For now, we'll create a simple dictionary for the violation
-        # In production, you should use the SQLAlchemy model
-        violation_dict = {
-            "student_id": violation.student_id,
-            "assignment_id": violation.assignment_id,
-            "violation_type": violation.violation_type,
-            "description": violation.description,
-            "detected_at": datetime.utcnow(),
-            "time_away_seconds": violation.time_away_seconds,
-            "severity": violation.severity,
-            "content_added_during_absence": violation.content_added_during_absence,
-            "ai_similarity_score": violation.ai_similarity_score,
-            "paste_content_length": violation.paste_content_length
-        }
+        # Use the actual CRUD function
+        new_violation = crud.create_violation(db, violation_in=violation)
         
-        print(f"✅ Violation recorded: {violation_dict}")
+        print(f"✅ Violation recorded: {new_violation}")
         
-        # Return a mock response (you'll need to implement database storage)
+        # Convert to response
         return ViolationResponse(
-            id=1,  # Mock ID
-            student_id=violation.student_id,
-            assignment_id=violation.assignment_id,
-            violation_type=violation.violation_type,
-            description=violation.description,
-            detected_at=datetime.utcnow().isoformat(),
-            time_away_seconds=violation.time_away_seconds,
-            severity=violation.severity,
-            content_added_during_absence=violation.content_added_during_absence,
-            ai_similarity_score=violation.ai_similarity_score,
-            paste_content_length=violation.paste_content_length
+            id=new_violation.id,
+            student_id=new_violation.student_id,
+            assignment_id=new_violation.assignment_id,
+            violation_type=new_violation.violation_type,
+            description=new_violation.description,
+            detected_at=new_violation.detected_at.isoformat(),
+            time_away_seconds=new_violation.time_away_seconds,
+            severity=new_violation.severity,
+            content_added_during_absence=new_violation.content_added_during_absence,
+            ai_similarity_score=new_violation.ai_similarity_score,
+            paste_content_length=new_violation.paste_content_length
         )
         
+    except ValueError as e:
+        print(f"❌ Validation error creating violation: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         print(f"❌ Error creating violation: {str(e)}")
         raise HTTPException(
@@ -420,9 +436,27 @@ async def get_all_violations(
     try:
         print(f"📊 Fetching all violations for user: {current_user.username}")
         
-        # Return empty list for now (you'll need to implement database query)
-        # This is a placeholder - you should query your violations table
-        return []
+        # Use the actual CRUD function
+        violations = crud.get_violations(db)
+        
+        # Convert to response format
+        violation_responses = []
+        for violation in violations:
+            violation_responses.append(ViolationResponse(
+                id=violation.id,
+                student_id=violation.student_id,
+                assignment_id=violation.assignment_id,
+                violation_type=violation.violation_type,
+                description=violation.description,
+                detected_at=violation.detected_at.isoformat(),
+                time_away_seconds=violation.time_away_seconds,
+                severity=violation.severity,
+                content_added_during_absence=violation.content_added_during_absence,
+                ai_similarity_score=violation.ai_similarity_score,
+                paste_content_length=violation.paste_content_length
+            ))
+        
+        return violation_responses
         
     except Exception as e:
         print(f"❌ Error fetching violations: {str(e)}")
@@ -473,9 +507,27 @@ async def get_assignment_violations(
                 detail="Not authorized to view violations for this assignment"
             )
         
-        # Return empty list for now (you'll need to implement database query)
-        # This is a placeholder - you should query your violations table
-        return []
+        # Use the actual CRUD function
+        violations = crud.get_violations_by_assignment(db, assignment_id)
+        
+        # Convert to response format
+        violation_responses = []
+        for violation in violations:
+            violation_responses.append(ViolationResponse(
+                id=violation.id,
+                student_id=violation.student_id,
+                assignment_id=violation.assignment_id,
+                violation_type=violation.violation_type,
+                description=violation.description,
+                detected_at=violation.detected_at.isoformat(),
+                time_away_seconds=violation.time_away_seconds,
+                severity=violation.severity,
+                content_added_during_absence=violation.content_added_during_absence,
+                ai_similarity_score=violation.ai_similarity_score,
+                paste_content_length=violation.paste_content_length
+            ))
+        
+        return violation_responses
         
     except HTTPException:
         raise
@@ -484,6 +536,556 @@ async def get_assignment_violations(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch assignment violations: {str(e)}"
+        )
+
+# ====================================
+# NEW ENDPOINTS FOR FRONTEND COMPATIBILITY
+# ====================================
+
+@app.get("/submissions/{submission_id}/violations")
+async def get_violations_for_submission(
+    submission_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get violations for a specific submission
+    
+    Args:
+        submission_id: ID of the submission
+        
+    Returns:
+        List of violations for the submission
+        
+    Requires authentication.
+    Teachers and Admins can view violations for any submission.
+    Students can view violations for their own submissions.
+    """
+    try:
+        print(f"📊 Fetching violations for submission {submission_id}")
+        
+        # Get the submission
+        submission = db.query(Submission).filter(Submission.id == submission_id).first()
+        if not submission:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Submission not found"
+            )
+        
+        # Check permissions
+        if current_user.role == UserRole.STUDENT:
+            # Students can only view their own violations
+            if submission.student_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to view violations for this submission"
+                )
+        elif current_user.role == UserRole.TEACHER:
+            # Teachers can view violations for submissions in their assignments
+            assignment = db.query(Assignment).filter(Assignment.id == submission.assignment_id).first()
+            if assignment.creator_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to view violations for this submission"
+                )
+        
+        # Get violations for this student in this assignment
+        violations = crud.get_violations_by_student_and_assignment(db, submission.student_id, submission.assignment_id)
+        
+        # Convert to response format
+        violation_responses = []
+        for violation in violations:
+            violation_responses.append(ViolationResponse(
+                id=violation.id,
+                student_id=violation.student_id,
+                assignment_id=violation.assignment_id,
+                violation_type=violation.violation_type,
+                description=violation.description,
+                detected_at=violation.detected_at.isoformat(),
+                time_away_seconds=violation.time_away_seconds,
+                severity=violation.severity,
+                content_added_during_absence=violation.content_added_during_absence,
+                ai_similarity_score=violation.ai_similarity_score,
+                paste_content_length=violation.paste_content_length
+            ))
+        
+        return violation_responses
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching submission violations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch submission violations: {str(e)}"
+        )
+
+@app.get("/assignments/{assignment_id}/violations/enriched")
+async def get_enriched_violations_for_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get enriched violations for a specific assignment with student and assignment information
+    
+    Args:
+        assignment_id: ID of the assignment
+        
+    Returns:
+        List of enriched violations with student and assignment details
+        
+    Requires authentication and TEACHER or ADMIN role.
+    """
+    # Check if current user is a teacher or admin
+    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view enriched violations"
+        )
+    
+    try:
+        print(f"📊 Fetching enriched violations for assignment {assignment_id}")
+        
+        # Verify the assignment exists
+        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Assignment not found"
+            )
+        
+        # For teachers, verify they created this assignment
+        if current_user.role == UserRole.TEACHER and assignment.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to view violations for this assignment"
+            )
+        
+        # Use the actual CRUD function with enriched data
+        violations = crud.get_assignment_violations_with_student_info(db, assignment_id)
+        
+        return violations
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching enriched violations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch enriched violations: {str(e)}"
+        )
+
+@app.get("/assignments/{assignment_id}/violations/summary")
+async def get_violations_summary(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get violations summary for a specific assignment
+    
+    Args:
+        assignment_id: ID of the assignment
+        
+    Returns:
+        Summary of violations for the assignment
+        
+    Requires authentication and TEACHER or ADMIN role.
+    """
+    # Check if current user is a teacher or admin
+    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view violations summary"
+        )
+    
+    try:
+        print(f"📊 Fetching violations summary for assignment {assignment_id}")
+        
+        # Verify the assignment exists
+        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Assignment not found"
+            )
+        
+        # For teachers, verify they created this assignment
+        if current_user.role == UserRole.TEACHER and assignment.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to view violations summary for this assignment"
+            )
+        
+        # Get violation summary using CRUD function
+        summary = crud.get_violation_summary_for_assignment(db, assignment_id)
+        
+        # Convert to response model
+        return ViolationSummary(
+            assignment_id=assignment_id,
+            assignment_name=summary['assignment_name'],
+            class_name=summary['class_name'],
+            total_violations=summary['total_violations'],
+            violations_by_type=summary['violations_by_type'],
+            violations_by_severity=summary['violations_by_severity'],
+            average_time_away_seconds=summary['average_time_away_seconds'],
+            students_with_violations=summary['students_with_violations'],
+            total_students=summary['total_students']
+        )
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching violations summary: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch violations summary: {str(e)}"
+        )
+
+@app.get("/assignments/{assignment_id}/submissions-with-violations")
+async def get_submissions_with_violations(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get submissions with their violations for a specific assignment
+    
+    Args:
+        assignment_id: ID of the assignment
+        
+    Returns:
+        List of submissions with their violations
+        
+    Requires authentication and TEACHER or ADMIN role.
+    """
+    # Check if current user is a teacher or admin
+    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view submissions with violations"
+        )
+    
+    try:
+        print(f"📊 Fetching submissions with violations for assignment {assignment_id}")
+        
+        # Verify the assignment exists
+        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Assignment not found"
+            )
+        
+        # For teachers, verify they created this assignment
+        if current_user.role == UserRole.TEACHER and assignment.creator_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to view submissions for this assignment"
+            )
+        
+        # Get submissions for this assignment
+        submissions = db.query(Submission).filter(Submission.assignment_id == assignment_id).all()
+        
+        # Get all violations for this assignment
+        violations = crud.get_violations_by_assignment(db, assignment_id)
+        violations_by_student = {}
+        for violation in violations:
+            if violation.student_id not in violations_by_student:
+                violations_by_student[violation.student_id] = []
+            violations_by_student[violation.student_id].append(violation)
+        
+        # Return submissions with violations
+        result = []
+        for submission in submissions:
+            # Get student information
+            student = db.query(User).filter(User.id == submission.student_id).first()
+            student_name = student.username if student else "Unknown"
+            
+            # Get violations for this student
+            student_violations = violations_by_student.get(submission.student_id, [])
+            
+            # Convert violations to response format
+            violation_responses = []
+            for violation in student_violations:
+                violation_responses.append(ViolationResponse(
+                    id=violation.id,
+                    student_id=violation.student_id,
+                    assignment_id=violation.assignment_id,
+                    violation_type=violation.violation_type,
+                    description=violation.description,
+                    detected_at=violation.detected_at.isoformat(),
+                    time_away_seconds=violation.time_away_seconds,
+                    severity=violation.severity,
+                    content_added_during_absence=violation.content_added_during_absence,
+                    ai_similarity_score=violation.ai_similarity_score,
+                    paste_content_length=violation.paste_content_length
+                ))
+            
+            result.append({
+                "submission_id": submission.id,
+                "student_id": submission.student_id,
+                "student_name": student_name,
+                "grade": submission.grade,
+                "time_spent_minutes": submission.time_spent_minutes,
+                "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
+                "is_graded": submission.grade is not None,
+                "violation_count": len(student_violations),
+                "violations": violation_responses
+            })
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching submissions with violations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch submissions with violations: {str(e)}"
+        )
+
+@app.get("/violations/")
+async def get_all_violations_paginated(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all violations with pagination
+    
+    Args:
+        skip: Number of violations to skip (for pagination)
+        limit: Maximum number of violations to return
+        
+    Returns:
+        List of violations
+        
+    Requires authentication and TEACHER or ADMIN role.
+    """
+    # Check if current user is a teacher or admin
+    if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view all violations"
+        )
+    
+    try:
+        print(f"📊 Fetching all violations (skip={skip}, limit={limit})")
+        
+        # Use the actual CRUD function
+        violations = crud.get_violations(db, skip=skip, limit=limit)
+        
+        # Convert to response format
+        violation_responses = []
+        for violation in violations:
+            violation_responses.append(ViolationResponse(
+                id=violation.id,
+                student_id=violation.student_id,
+                assignment_id=violation.assignment_id,
+                violation_type=violation.violation_type,
+                description=violation.description,
+                detected_at=violation.detected_at.isoformat(),
+                time_away_seconds=violation.time_away_seconds,
+                severity=violation.severity,
+                content_added_during_absence=violation.content_added_during_absence,
+                ai_similarity_score=violation.ai_similarity_score,
+                paste_content_length=violation.paste_content_length
+            ))
+        
+        return violation_responses
+        
+    except Exception as e:
+        print(f"❌ Error fetching all violations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch all violations: {str(e)}"
+        )
+
+@app.get("/violations/student/{student_id}")
+async def get_violations_for_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get violations for a specific student
+    
+    Args:
+        student_id: ID of the student
+        
+    Returns:
+        List of violations for the student
+        
+    Requires authentication.
+    Teachers and Admins can view violations for any student.
+    Students can view their own violations only.
+    """
+    try:
+        print(f"📊 Fetching violations for student {student_id}")
+        
+        # Check permissions
+        if current_user.role == UserRole.STUDENT:
+            # Students can only view their own violations
+            if current_user.id != student_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to view violations for this student"
+                )
+        
+        # Use the actual CRUD function
+        violations = crud.get_violations_by_student(db, student_id)
+        
+        # Convert to response format
+        violation_responses = []
+        for violation in violations:
+            violation_responses.append(ViolationResponse(
+                id=violation.id,
+                student_id=violation.student_id,
+                assignment_id=violation.assignment_id,
+                violation_type=violation.violation_type,
+                description=violation.description,
+                detected_at=violation.detected_at.isoformat(),
+                time_away_seconds=violation.time_away_seconds,
+                severity=violation.severity,
+                content_added_during_absence=violation.content_added_during_absence,
+                ai_similarity_score=violation.ai_similarity_score,
+                paste_content_length=violation.paste_content_length
+            ))
+        
+        return violation_responses
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching student violations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch student violations: {str(e)}"
+        )
+
+@app.get("/violations/{violation_id}")
+async def get_violation_by_id(
+    violation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a specific violation by ID
+    
+    Args:
+        violation_id: ID of the violation
+        
+    Returns:
+        The violation
+        
+    Requires authentication.
+    Teachers and Admins can view any violation.
+    Students can view their own violations only.
+    """
+    try:
+        print(f"📊 Fetching violation {violation_id}")
+        
+        # Use the actual CRUD function
+        violation = crud.get_violation(db, violation_id)
+        if not violation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Violation not found"
+            )
+        
+        # Check permissions
+        if current_user.role == UserRole.STUDENT:
+            # Students can only view their own violations
+            if violation.student_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to view this violation"
+                )
+        elif current_user.role == UserRole.TEACHER:
+            # Teachers can only view violations for assignments they created
+            assignment = db.query(Assignment).filter(Assignment.id == violation.assignment_id).first()
+            if assignment.creator_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to view this violation"
+                )
+        
+        # Convert to response
+        return ViolationResponse(
+            id=violation.id,
+            student_id=violation.student_id,
+            assignment_id=violation.assignment_id,
+            violation_type=violation.violation_type,
+            description=violation.description,
+            detected_at=violation.detected_at.isoformat(),
+            time_away_seconds=violation.time_away_seconds,
+            severity=violation.severity,
+            content_added_during_absence=violation.content_added_during_absence,
+            ai_similarity_score=violation.ai_similarity_score,
+            paste_content_length=violation.paste_content_length
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching violation: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch violation: {str(e)}"
+        )
+
+@app.delete("/violations/{violation_id}")
+async def delete_violation(
+    violation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a violation (Admin only)
+    
+    Args:
+        violation_id: ID of the violation to delete
+        
+    Returns:
+        Success message
+        
+    Requires authentication and ADMIN role.
+    """
+    # Check if current user is an admin
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete violations"
+        )
+    
+    try:
+        print(f"🗑️ Deleting violation {violation_id}")
+        
+        # Use the actual CRUD function
+        success = crud.delete_violation(db, violation_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Violation not found"
+            )
+        
+        return {"message": "Violation deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error deleting violation: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete violation: {str(e)}"
         )
 
 # ====================================
@@ -898,7 +1500,15 @@ async def get_assignment_submissions(
             Submission.assignment_id == assignment_id
         ).all()
         
-        # Format response with student names
+        # Get violations for this assignment
+        violations = crud.get_violations_by_assignment(db, assignment_id)
+        violations_by_student = {}
+        for violation in violations:
+            if violation.student_id not in violations_by_student:
+                violations_by_student[violation.student_id] = []
+            violations_by_student[violation.student_id].append(violation)
+        
+        # Format response with student names and violations
         result = []
         for submission in submissions:
             student = submission.student
@@ -911,6 +1521,24 @@ async def get_assignment_submissions(
                 student_name = student.first_name
             elif student.last_name:
                 student_name = student.last_name
+            
+            # Get violations for this student
+            student_violations = violations_by_student.get(submission.student_id, [])
+            violation_responses = []
+            for violation in student_violations:
+                violation_responses.append(ViolationResponse(
+                    id=violation.id,
+                    student_id=violation.student_id,
+                    assignment_id=violation.assignment_id,
+                    violation_type=violation.violation_type,
+                    description=violation.description,
+                    detected_at=violation.detected_at.isoformat(),
+                    time_away_seconds=violation.time_away_seconds,
+                    severity=violation.severity,
+                    content_added_during_absence=violation.content_added_during_absence,
+                    ai_similarity_score=violation.ai_similarity_score,
+                    paste_content_length=violation.paste_content_length
+                ))
             
             result.append({
                 "id": submission.id,
@@ -926,7 +1554,9 @@ async def get_assignment_submissions(
                 "time_spent_minutes": submission.time_spent_minutes,
                 "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
                 "is_graded": submission.grade is not None,
-                "link_url": submission.link_url
+                "link_url": submission.link_url,
+                "violations_count": len(student_violations),
+                "violations": violation_responses
             })
         
         return result
@@ -1072,6 +1702,10 @@ async def get_student_assignment_detail(
                 detail="You are not enrolled in the class for this assignment"
             )
         
+        # Get violations for this student in this assignment
+        violations = crud.get_violations_by_student_and_assignment(db, current_user.id, assignment_id)
+        violation_count = len(violations)
+        
         return {
             "id": assignment.id,
             "name": assignment.name,
@@ -1082,7 +1716,8 @@ async def get_student_assignment_detail(
             "teacher_name": teacher_name,
             "creator_id": assignment.creator_id,
             "created_at": assignment.created_at.isoformat() if assignment.created_at else None,
-            "due_date": assignment.due_date.isoformat() if assignment.due_date else None
+            "due_date": assignment.due_date.isoformat() if assignment.due_date else None,
+            "violation_count": violation_count
         }
         
     except HTTPException:
@@ -1154,6 +1789,10 @@ async def get_student_my_assignment(
                 detail="You are not enrolled in the class for this assignment"
             )
         
+        # Get violations for this student in this assignment
+        violations = crud.get_violations_by_student_and_assignment(db, current_user.id, assignment_id)
+        violation_count = len(violations)
+        
         return {
             "id": assignment.id,
             "name": assignment.name,
@@ -1164,7 +1803,8 @@ async def get_student_my_assignment(
             "teacher_name": teacher_name,
             "creator_id": assignment.creator_id,
             "created_at": assignment.created_at.isoformat() if assignment.created_at else None,
-            "due_date": assignment.due_date.isoformat() if assignment.due_date else None
+            "due_date": assignment.due_date.isoformat() if assignment.due_date else None,
+            "violation_count": violation_count
         }
         
     except HTTPException:
@@ -1210,6 +1850,24 @@ async def get_student_submission_for_assignment(
                 detail="No submission found for this assignment"
             )
         
+        # Get violations for this student in this assignment
+        violations = crud.get_violations_by_student_and_assignment(db, current_user.id, assignment_id)
+        violation_responses = []
+        for violation in violations:
+            violation_responses.append(ViolationResponse(
+                id=violation.id,
+                student_id=violation.student_id,
+                assignment_id=violation.assignment_id,
+                violation_type=violation.violation_type,
+                description=violation.description,
+                detected_at=violation.detected_at.isoformat(),
+                time_away_seconds=violation.time_away_seconds,
+                severity=violation.severity,
+                content_added_during_absence=violation.content_added_during_absence,
+                ai_similarity_score=violation.ai_similarity_score,
+                paste_content_length=violation.paste_content_length
+            ))
+        
         return {
             "id": submission.id,
             "assignment_id": submission.assignment_id,
@@ -1222,7 +1880,9 @@ async def get_student_submission_for_assignment(
             "time_spent_minutes": submission.time_spent_minutes,
             "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
             "is_graded": submission.grade is not None,
-            "link_url": submission.link_url
+            "link_url": submission.link_url,
+            "violations_count": len(violations),
+            "violations": violation_responses
         }
         
     except HTTPException:
@@ -1268,6 +1928,24 @@ async def get_student_my_submission(
                 detail="No submission found for this assignment"
             )
         
+        # Get violations for this student in this assignment
+        violations = crud.get_violations_by_student_and_assignment(db, current_user.id, assignment_id)
+        violation_responses = []
+        for violation in violations:
+            violation_responses.append(ViolationResponse(
+                id=violation.id,
+                student_id=violation.student_id,
+                assignment_id=violation.assignment_id,
+                violation_type=violation.violation_type,
+                description=violation.description,
+                detected_at=violation.detected_at.isoformat(),
+                time_away_seconds=violation.time_away_seconds,
+                severity=violation.severity,
+                content_added_during_absence=violation.content_added_during_absence,
+                ai_similarity_score=violation.ai_similarity_score,
+                paste_content_length=violation.paste_content_length
+            ))
+        
         return {
             "id": submission.id,
             "assignment_id": submission.assignment_id,
@@ -1280,7 +1958,9 @@ async def get_student_my_submission(
             "time_spent_minutes": submission.time_spent_minutes,
             "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
             "is_graded": submission.grade is not None,
-            "link_url": submission.link_url
+            "link_url": submission.link_url,
+            "violations_count": len(violations),
+            "violations": violation_responses
         }
         
     except HTTPException:
@@ -1463,7 +2143,7 @@ async def delete_user_by_admin(
         )
     
     try:
-        success = delete_user(db, user_id=user_id)
+        success = crud.delete_user(db, user_id=user_id)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -1516,7 +2196,7 @@ async def get_classes_endpoint(
         )
     
     try:
-        classes = get_classes(db, skip=skip, limit=limit)
+        classes = crud.get_classes(db, skip=skip, limit=limit)
         return classes
     except Exception as e:
         raise HTTPException(
@@ -1547,7 +2227,7 @@ async def create_new_class(
         )
     
     try:
-        new_class = create_class(db, class_in=class_data)
+        new_class = crud.create_class(db, class_in=class_data)
         return new_class
     except ValueError as e:
         raise HTTPException(
@@ -1585,7 +2265,7 @@ async def update_existing_class(
         )
     
     try:
-        updated_class = update_class(db, class_id=class_id, class_in=class_data)
+        updated_class = crud.update_class(db, class_id=class_id, class_in=class_data)
         if not updated_class:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -1626,7 +2306,7 @@ async def delete_existing_class(
         )
     
     try:
-        success = delete_class(db, class_id=class_id)
+        success = crud.delete_class(db, class_id=class_id)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -1684,10 +2364,10 @@ async def get_assignments_endpoint(
     try:
         if current_user.role == UserRole.ADMIN:
             # Admins can see all assignments
-            assignments = get_assignments(db, skip=skip, limit=limit)
+            assignments = crud.get_assignments(db, skip=skip, limit=limit)
         else:
             # Teachers can only see their own assignments
-            assignments = get_assignments_by_teacher(db, teacher_id=current_user.id, skip=skip, limit=limit)
+            assignments = crud.get_assignments_by_teacher(db, teacher_id=current_user.id, skip=skip, limit=limit)
         
         return assignments
     except Exception as e:
@@ -1734,7 +2414,7 @@ async def create_new_assignment(
                 detail="Valid class ID is required"
             )
         
-        new_assignment = create_assignment(db, assignment_in=assignment_data, creator_id=current_user.id)
+        new_assignment = crud.create_assignment(db, assignment_in=assignment_data, creator_id=current_user.id)
         print(f"API: Successfully created assignment {new_assignment.id}")
         return new_assignment
         
@@ -1779,7 +2459,7 @@ async def get_my_assignments(
         )
     
     try:
-        assignments = get_assignments_for_student(db, user_id=current_user.id)
+        assignments = crud.get_assignments_for_student(db, user_id=current_user.id)
         return assignments
     except ValueError as e:
         raise HTTPException(
@@ -2156,7 +2836,7 @@ async def create_new_submission(
         print(f"API: Creating submission for user {current_user.id} with data: {submission_data}")
         
         # Always use the authenticated user's ID, ignoring any student_id from the frontend
-        new_submission = create_submission(db, submission_in=submission_data, student_id=current_user.id)
+        new_submission = crud.create_submission(db, submission_in=submission_data, student_id=current_user.id)
         print(f"API: Successfully created submission {new_submission.id}")
         return new_submission
     except HTTPException:
@@ -2501,7 +3181,7 @@ async def update_user_profile_endpoint(
             update_data['last_name'] = user_update.last_name
         
         # Update the user's profile
-        updated_user = update_user_profile(
+        updated_user = crud.update_user_profile(
             db=db,
             user_id=current_user.id,
             update_data=update_data
@@ -2574,7 +3254,7 @@ async def upload_profile_photo_endpoint(
         full_photo_url = f"http://localhost:8000{photo_url}"
         
         # Update user's profile picture URL in database (store relative path)
-        updated_user = update_user_profile_picture(
+        updated_user = crud.update_user_profile_picture(
             db=db,
             user_id=current_user.id,
             profile_picture_url=photo_url
@@ -2624,7 +3304,7 @@ async def change_password_endpoint(
     """
     try:
         # Change the user's password
-        success = change_user_password(
+        success = crud.change_user_password(
             db=db,
             user_id=current_user.id,
             current_password=password_data.current_password,
@@ -2692,7 +3372,7 @@ async def get_users_count(
         )
     
     try:
-        count = count_total_users(db)
+        count = crud.count_total_users(db)
         return {"count": count}
     except Exception as e:
         raise HTTPException(
@@ -2720,7 +3400,7 @@ async def get_classes_count(
         )
     
     try:
-        count = count_total_classes(db)
+        count = crud.count_total_classes(db)
         return {"count": count}
     except Exception as e:
         raise HTTPException(
@@ -2750,7 +3430,7 @@ async def export_all_users(
         )
     
     try:
-        users = get_all_users(db)
+        users = crud.get_all_users(db)
         return users
     except Exception as e:
         raise HTTPException(
@@ -2779,7 +3459,7 @@ async def export_all_classes_data(
         )
     
     # Get classes as simple dictionaries (no ORM serialization issues)
-    classes = get_all_classes(db)
+    classes = crud.get_all_classes(db)
     return classes
 
 # Schedule endpoints
@@ -2800,7 +3480,7 @@ async def create_schedule_endpoint(
         )
     
     try:
-        return create_schedule(db, schedule)
+        return crud.create_schedule(db, schedule)
     except HTTPException:
         # Re-raise HTTPExceptions (like 404 for invalid class_id)
         raise
@@ -2828,7 +3508,7 @@ async def get_schedules_endpoint(
         )
     
     try:
-        return get_schedules(db, skip=skip, limit=limit)
+        return crud.get_schedules(db, skip=skip, limit=limit)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2842,7 +3522,7 @@ async def get_schedules_live_endpoint(db: Session = Depends(get_db)):
     No authentication required - for student dashboard display.
     """
     try:
-        return get_schedules_live_enriched(db)
+        return crud.get_schedules_live_enriched(db)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2865,7 +3545,7 @@ async def get_schedule_endpoint(
             detail="Not authorized to view schedules"
         )
     
-    schedule = get_schedule(db, schedule_id)
+    schedule = crud.get_schedule(db, schedule_id)
     if not schedule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -2891,7 +3571,7 @@ async def update_schedule_endpoint(
         )
     
     try:
-        updated_schedule = update_schedule(db, schedule_id, schedule)
+        updated_schedule = crud.update_schedule(db, schedule_id, schedule)
         if not updated_schedule:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -2923,7 +3603,7 @@ async def delete_schedule_endpoint(
             detail="Not authorized to delete schedules"
         )
     
-    if not delete_schedule(db, schedule_id):
+    if not crud.delete_schedule(db, schedule_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Schedule not found"
@@ -3018,7 +3698,7 @@ async def create_announcement_endpoint(
         )
     
     try:
-        return create_announcement(db, announcement)
+        return crud.create_announcement(db, announcement)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -3043,7 +3723,7 @@ async def get_announcements_endpoint(
         )
     
     try:
-        return get_announcements(db, skip=skip, limit=limit)
+        return crud.get_announcements(db, skip=skip, limit=limit)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -3057,7 +3737,7 @@ async def get_announcements_live_endpoint(db: Session = Depends(get_db)):
     No authentication required - for student dashboard display.
     """
     try:
-        return get_announcements_live(db)
+        return crud.get_announcements_live(db)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -3080,7 +3760,7 @@ async def get_announcement_endpoint(
             detail="Not authorized to view announcements"
         )
     
-    announcement = get_announcement(db, announcement_id)
+    announcement = crud.get_announcement(db, announcement_id)
     if not announcement:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -3105,7 +3785,7 @@ async def update_announcement_endpoint(
             detail="Not authorized to update announcements"
         )
     
-    updated_announcement = update_announcement(db, announcement_id, announcement)
+    updated_announcement = crud.update_announcement(db, announcement_id, announcement)
     if not updated_announcement:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -3129,7 +3809,7 @@ async def delete_announcement_endpoint(
             detail="Not authorized to delete announcements"
         )
     
-    if not delete_announcement(db, announcement_id):
+    if not crud.delete_announcement(db, announcement_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Announcement not found"
@@ -3215,7 +3895,7 @@ async def create_classroom_report_endpoint(
     )
     
     try:
-        new_report = create_classroom_report(db, report_in=report_data, reporter_id=current_user.id)
+        new_report = crud.create_classroom_report(db, report_in=report_data, reporter_id=current_user.id)
         
         # AFTER CREATING THE REPORT, UPDATE ALL RELATED SCHEDULES
         try:
@@ -3273,7 +3953,7 @@ async def get_classroom_reports_endpoint(
         )
     
     try:
-        reports = get_classroom_reports(db, skip=skip, limit=limit)
+        reports = crud.get_classroom_reports(db, skip=skip, limit=limit)
         return reports
     except Exception as e:
         raise HTTPException(
@@ -3303,7 +3983,7 @@ async def get_my_classroom_reports_endpoint(
         )
     
     try:
-        reports = get_classroom_reports_by_reporter(db, reporter_id=current_user.id, skip=skip, limit=limit)
+        reports = crud.get_classroom_reports_by_reporter(db, reporter_id=current_user.id, skip=skip, limit=limit)
         return reports
     except Exception as e:
         raise HTTPException(
@@ -3335,7 +4015,7 @@ async def get_classroom_reports_by_class_endpoint(
         )
     
     try:
-        reports = get_classroom_reports_by_class(db, class_id=class_id, skip=skip, limit=limit)
+        reports = crud.get_classroom_reports_by_class(db, class_id=class_id, skip=skip, limit=limit)
         return reports
     except Exception as e:
         raise HTTPException(
@@ -3542,7 +4222,7 @@ async def get_teacher_classes_with_metrics(
     
     try:
         # Get classes assigned to the teacher
-        teacher_classes = get_classes_by_teacher(db, teacher_id=current_user.id)
+        teacher_classes = crud.get_classes_by_teacher(db, teacher_id=current_user.id)
         
         # Calculate metrics
         total_classes = len(teacher_classes)
@@ -4014,7 +4694,7 @@ async def get_teacher_assignments(
     
     try:
         # Get assignments created by the teacher
-        assignments = get_assignments_by_teacher(db, teacher_id=current_user.id)
+        assignments = crud.get_assignments_by_teacher(db, teacher_id=current_user.id)
         
         # Convert to response format
         assignment_responses = []
@@ -4065,7 +4745,7 @@ async def get_teacher_reports(
     
     try:
         # Get classes assigned to the teacher
-        teacher_classes = get_classes_by_teacher(db, teacher_id=current_user.id)
+        teacher_classes = crud.get_classes_by_teacher(db, teacher_id=current_user.id)
         
         class_performance = []
         student_performance = []

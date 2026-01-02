@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session
-from models import Class, ClassCreate, User, Assignment, AssignmentCreate, Submission, Enrollment, Schedule, ScheduleCreate, Announcement, AnnouncementCreate, ClassroomReport, ClassroomReportCreate
+from models import Class, ClassCreate, User, Assignment, AssignmentCreate, Submission, Enrollment, Schedule, ScheduleCreate, Announcement, AnnouncementCreate, ClassroomReport, ClassroomReportCreate, Violation, ViolationCreate
 from schemas import SubmissionCreate
 from typing import Optional, List
+from datetime import datetime
 
 
 def create_class(db: Session, class_in: ClassCreate) -> Class:
@@ -1052,6 +1053,452 @@ def delete_classroom_report(db: Session, report_id: int) -> bool:
         db.commit()
         return True
     return False
+
+
+# ====================================
+# VIOLATION CRUD OPERATIONS
+# ====================================
+
+def create_violation(db: Session, violation_in: ViolationCreate) -> Violation:
+    """
+    Create a new violation record.
+    
+    Args:
+        db: Database session
+        violation_in: Violation creation data
+        
+    Returns:
+        Violation: Created violation object
+        
+    Raises:
+        ValueError: If student or assignment doesn't exist
+    """
+    # Verify student exists
+    student = db.query(User).filter(User.id == violation_in.student_id).first()
+    if not student:
+        raise ValueError(f"Student with ID {violation_in.student_id} not found")
+    
+    # Verify assignment exists
+    assignment = db.query(Assignment).filter(Assignment.id == violation_in.assignment_id).first()
+    if not assignment:
+        raise ValueError(f"Assignment with ID {violation_in.assignment_id} not found")
+    
+    # Create violation
+    db_violation = Violation(
+        student_id=violation_in.student_id,
+        assignment_id=violation_in.assignment_id,
+        violation_type=violation_in.violation_type,
+        description=violation_in.description,
+        time_away_seconds=violation_in.time_away_seconds,
+        severity=violation_in.severity,
+        content_added_during_absence=violation_in.content_added_during_absence,
+        ai_similarity_score=violation_in.ai_similarity_score,
+        paste_content_length=violation_in.paste_content_length,
+        detected_at=datetime.utcnow()
+    )
+    
+    db.add(db_violation)
+    db.commit()
+    db.refresh(db_violation)
+    return db_violation
+
+
+def get_violations(db: Session, skip: int = 0, limit: int = 100) -> List[Violation]:
+    """
+    Get all violations with pagination.
+    
+    Args:
+        db: Database session
+        skip: Number of violations to skip (for pagination)
+        limit: Maximum number of violations to return
+        
+    Returns:
+        List[Violation]: List of violation objects
+    """
+    return db.query(Violation).order_by(Violation.detected_at.desc()).offset(skip).limit(limit).all()
+
+
+def get_violation(db: Session, violation_id: int) -> Optional[Violation]:
+    """
+    Get a specific violation by ID.
+    
+    Args:
+        db: Database session
+        violation_id: ID of the violation
+        
+    Returns:
+        Optional[Violation]: Violation object if found, None otherwise
+    """
+    return db.query(Violation).filter(Violation.id == violation_id).first()
+
+
+def get_violations_by_assignment(db: Session, assignment_id: int, skip: int = 0, limit: int = 100) -> List[Violation]:
+    """
+    Get violations for a specific assignment.
+    
+    Args:
+        db: Database session
+        assignment_id: ID of the assignment
+        skip: Number of violations to skip (for pagination)
+        limit: Maximum number of violations to return
+        
+    Returns:
+        List[Violation]: List of violation objects for the assignment
+    """
+    return db.query(Violation).filter(
+        Violation.assignment_id == assignment_id
+    ).order_by(Violation.detected_at.desc()).offset(skip).limit(limit).all()
+
+
+def get_violations_by_student(db: Session, student_id: int, skip: int = 0, limit: int = 100) -> List[Violation]:
+    """
+    Get violations for a specific student.
+    
+    Args:
+        db: Database session
+        student_id: ID of the student
+        skip: Number of violations to skip (for pagination)
+        limit: Maximum number of violations to return
+        
+    Returns:
+        List[Violation]: List of violation objects for the student
+    """
+    return db.query(Violation).filter(
+        Violation.student_id == student_id
+    ).order_by(Violation.detected_at.desc()).offset(skip).limit(limit).all()
+
+
+def get_violations_by_student_and_assignment(db: Session, student_id: int, assignment_id: int) -> List[Violation]:
+    """
+    Get violations for a specific student in a specific assignment.
+    
+    Args:
+        db: Database session
+        student_id: ID of the student
+        assignment_id: ID of the assignment
+        
+    Returns:
+        List[Violation]: List of violation objects for the student in the assignment
+    """
+    return db.query(Violation).filter(
+        Violation.student_id == student_id,
+        Violation.assignment_id == assignment_id
+    ).order_by(Violation.detected_at.desc()).all()
+
+
+def get_violations_by_type(db: Session, violation_type: str, skip: int = 0, limit: int = 100) -> List[Violation]:
+    """
+    Get violations by type.
+    
+    Args:
+        db: Database session
+        violation_type: Type of violation
+        skip: Number of violations to skip (for pagination)
+        limit: Maximum number of violations to return
+        
+    Returns:
+        List[Violation]: List of violation objects of the specified type
+    """
+    return db.query(Violation).filter(
+        Violation.violation_type == violation_type
+    ).order_by(Violation.detected_at.desc()).offset(skip).limit(limit).all()
+
+
+def get_violations_by_severity(db: Session, severity: str, skip: int = 0, limit: int = 100) -> List[Violation]:
+    """
+    Get violations by severity level.
+    
+    Args:
+        db: Database session
+        severity: Severity level ('low', 'medium', 'high')
+        skip: Number of violations to skip (for pagination)
+        limit: Maximum number of violations to return
+        
+    Returns:
+        List[Violation]: List of violation objects with the specified severity
+    """
+    return db.query(Violation).filter(
+        Violation.severity == severity
+    ).order_by(Violation.detected_at.desc()).offset(skip).limit(limit).all()
+
+
+def count_violations_by_assignment(db: Session, assignment_id: int) -> dict:
+    """
+    Count violations for a specific assignment by severity.
+    
+    Args:
+        db: Database session
+        assignment_id: ID of the assignment
+        
+    Returns:
+        dict: Count of violations by severity level
+    """
+    violations = db.query(Violation).filter(
+        Violation.assignment_id == assignment_id
+    ).all()
+    
+    counts = {
+        'total': len(violations),
+        'low': len([v for v in violations if v.severity == 'low']),
+        'medium': len([v for v in violations if v.severity == 'medium']),
+        'high': len([v for v in violations if v.severity == 'high'])
+    }
+    
+    return counts
+
+
+def count_violations_by_student(db: Session, student_id: int) -> dict:
+    """
+    Count violations for a specific student by severity.
+    
+    Args:
+        db: Database session
+        student_id: ID of the student
+        
+    Returns:
+        dict: Count of violations by severity level
+    """
+    violations = db.query(Violation).filter(
+        Violation.student_id == student_id
+    ).all()
+    
+    counts = {
+        'total': len(violations),
+        'low': len([v for v in violations if v.severity == 'low']),
+        'medium': len([v for v in violations if v.severity == 'medium']),
+        'high': len([v for v in violations if v.severity == 'high'])
+    }
+    
+    return counts
+
+
+def get_violation_summary_for_assignment(db: Session, assignment_id: int) -> dict:
+    """
+    Get comprehensive violation summary for an assignment.
+    
+    Args:
+        db: Database session
+        assignment_id: ID of the assignment
+        
+    Returns:
+        dict: Violation summary including counts, types, and student data
+    """
+    # Get assignment
+    assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+    if not assignment:
+        raise ValueError(f"Assignment with ID {assignment_id} not found")
+    
+    # Get all violations for this assignment
+    violations = get_violations_by_assignment(db, assignment_id, skip=0, limit=1000)
+    
+    # Get all submissions for this assignment
+    submissions = db.query(Submission).filter(Submission.assignment_id == assignment_id).all()
+    
+    # Count violations by type
+    violation_types = {}
+    for violation in violations:
+        if violation.violation_type not in violation_types:
+            violation_types[violation.violation_type] = 0
+        violation_types[violation.violation_type] += 1
+    
+    # Count violations by severity
+    severity_counts = {
+        'low': 0,
+        'medium': 0,
+        'high': 0
+    }
+    for violation in violations:
+        severity_counts[violation.severity] += 1
+    
+    # Get unique students with violations
+    student_ids_with_violations = list(set([v.student_id for v in violations]))
+    
+    # Get student details
+    students_with_violations = []
+    for student_id in student_ids_with_violations:
+        student = db.query(User).filter(User.id == student_id).first()
+        if student:
+            student_violations = get_violations_by_student_and_assignment(db, student_id, assignment_id)
+            students_with_violations.append({
+                'student_id': student_id,
+                'student_name': f"{student.first_name or ''} {student.last_name or ''}".strip() or student.username,
+                'violation_count': len(student_violations),
+                'severity_breakdown': {
+                    'low': len([v for v in student_violations if v.severity == 'low']),
+                    'medium': len([v for v in student_violations if v.severity == 'medium']),
+                    'high': len([v for v in student_violations if v.severity == 'high'])
+                }
+            })
+    
+    # Calculate average time away
+    total_time_away = sum(v.time_away_seconds for v in violations)
+    avg_time_away = total_time_away / len(violations) if violations else 0
+    
+    return {
+        'assignment_id': assignment_id,
+        'assignment_name': assignment.name,
+        'class_id': assignment.class_id,
+        'class_name': assignment.class_.name if assignment.class_ else 'Unknown',
+        'total_violations': len(violations),
+        'violations_by_type': violation_types,
+        'violations_by_severity': severity_counts,
+        'students_with_violations': len(student_ids_with_violations),
+        'total_students': len(submissions),
+        'average_time_away_seconds': round(avg_time_away, 2),
+        'student_details': students_with_violations,
+        'violations': violations
+    }
+
+
+def update_violation(db: Session, violation_id: int, violation_in: ViolationCreate) -> Optional[Violation]:
+    """
+    Update an existing violation.
+    
+    Args:
+        db: Database session
+        violation_id: ID of the violation to update
+        violation_in: Updated violation data
+        
+    Returns:
+        Optional[Violation]: Updated violation object if found, None otherwise
+    """
+    violation = db.query(Violation).filter(Violation.id == violation_id).first()
+    if not violation:
+        return None
+    
+    # Update fields
+    for key, value in violation_in.dict().items():
+        setattr(violation, key, value)
+    
+    db.commit()
+    db.refresh(violation)
+    return violation
+
+
+def delete_violation(db: Session, violation_id: int) -> bool:
+    """
+    Delete a violation.
+    
+    Args:
+        db: Database session
+        violation_id: ID of the violation to delete
+        
+    Returns:
+        bool: True if deleted, False if not found
+    """
+    violation = db.query(Violation).filter(Violation.id == violation_id).first()
+    if not violation:
+        return False
+    
+    db.delete(violation)
+    db.commit()
+    return True
+
+
+def get_violations_with_student_info(db: Session, skip: int = 0, limit: int = 100) -> List[dict]:
+    """
+    Get violations with student information.
+    
+    Args:
+        db: Database session
+        skip: Number of violations to skip (for pagination)
+        limit: Maximum number of violations to return
+        
+    Returns:
+        List[dict]: List of violation objects with enriched student information
+    """
+    from sqlalchemy.orm import joinedload
+    
+    violations = db.query(Violation).options(
+        joinedload(Violation.student)
+    ).order_by(Violation.detected_at.desc()).offset(skip).limit(limit).all()
+    
+    enriched_violations = []
+    for violation in violations:
+        student = violation.student
+        student_name = student.username
+        if student.first_name and student.last_name:
+            student_name = f"{student.first_name} {student.last_name}"
+        elif student.first_name:
+            student_name = student.first_name
+        elif student.last_name:
+            student_name = student.last_name
+        
+        enriched_violations.append({
+            'id': violation.id,
+            'student_id': violation.student_id,
+            'student_name': student_name,
+            'assignment_id': violation.assignment_id,
+            'violation_type': violation.violation_type,
+            'description': violation.description,
+            'detected_at': violation.detected_at,
+            'time_away_seconds': violation.time_away_seconds,
+            'severity': violation.severity,
+            'content_added_during_absence': violation.content_added_during_absence,
+            'ai_similarity_score': violation.ai_similarity_score,
+            'paste_content_length': violation.paste_content_length
+        })
+    
+    return enriched_violations
+
+
+def get_assignment_violations_with_student_info(db: Session, assignment_id: int) -> List[dict]:
+    """
+    Get violations for an assignment with student information.
+    
+    Args:
+        db: Database session
+        assignment_id: ID of the assignment
+        
+    Returns:
+        List[dict]: List of violation objects with enriched student information
+    """
+    from sqlalchemy.orm import joinedload
+    
+    violations = db.query(Violation).options(
+        joinedload(Violation.student)
+    ).filter(
+        Violation.assignment_id == assignment_id
+    ).order_by(Violation.detected_at.desc()).all()
+    
+    # Get assignment info
+    assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+    assignment_name = assignment.name if assignment else f"Assignment {assignment_id}"
+    
+    # Get class info
+    class_name = "Unknown Class"
+    if assignment and assignment.class_:
+        class_name = assignment.class_.name
+    
+    enriched_violations = []
+    for violation in violations:
+        student = violation.student
+        student_name = student.username
+        if student.first_name and student.last_name:
+            student_name = f"{student.first_name} {student.last_name}"
+        elif student.first_name:
+            student_name = student.first_name
+        elif student.last_name:
+            student_name = student.last_name
+        
+        enriched_violations.append({
+            'id': violation.id,
+            'student_id': violation.student_id,
+            'student_name': student_name,
+            'assignment_id': violation.assignment_id,
+            'assignment_name': assignment_name,
+            'class_name': class_name,
+            'violation_type': violation.violation_type,
+            'description': violation.description,
+            'detected_at': violation.detected_at,
+            'time_away_seconds': violation.time_away_seconds,
+            'severity': violation.severity,
+            'content_added_during_absence': violation.content_added_during_absence,
+            'ai_similarity_score': violation.ai_similarity_score,
+            'paste_content_length': violation.paste_content_length
+        })
+    
+    return enriched_violations
 
 
 # Password change CRUD operations

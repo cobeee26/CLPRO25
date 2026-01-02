@@ -61,6 +61,8 @@ interface Violation {
   content_added_during_absence?: number;
   ai_similarity_score?: number;
   paste_content_length?: number;
+  student_name?: string;
+  student_email?: string;
 }
 
 interface ViolationResponse {
@@ -75,6 +77,8 @@ interface ViolationResponse {
   content_added_during_absence?: number;
   ai_similarity_score?: number;
   paste_content_length?: number;
+  student_name?: string;
+  student_email?: string;
 }
 
 const StudentAssignmentPage: React.FC = () => {
@@ -144,7 +148,6 @@ const StudentAssignmentPage: React.FC = () => {
   const initialLoadRef = useRef<boolean>(true);
 
   const handleLogout = () => {
-  
     Swal.fire({
       title: 'Are you sure?',
       text: "You will be logged out of your account.",
@@ -275,16 +278,20 @@ const StudentAssignmentPage: React.FC = () => {
       severity: severity,
       content_added_during_absence: violationResponse.content_added_during_absence,
       ai_similarity_score: violationResponse.ai_similarity_score,
-      paste_content_length: violationResponse.paste_content_length
+      paste_content_length: violationResponse.paste_content_length,
+      student_name: violationResponse.student_name,
+      student_email: violationResponse.student_email
     };
   };
 
   const reportViolation = async (violationData: Omit<Violation, 'id' | 'detected_at'>) => {
-    if (!user || !assignmentId || shouldStopTrackingRef.current || !isTextareaFocusedRef.current) return;
+    if (!user || !assignmentId || !isTextareaFocusedRef.current) return;
     
     try {
       const violation: Violation = {
         ...violationData,
+        student_name: user?.username || `Student ${user?.id}`,
+        student_email: user?.email || '',
         detected_at: new Date().toISOString()
       };
       
@@ -306,10 +313,24 @@ const StudentAssignmentPage: React.FC = () => {
       }
       
       try {
-        await authService.createViolation(violation);
+        const violationDataForServer = {
+          student_id: violation.student_id,
+          assignment_id: violation.assignment_id,
+          violation_type: violation.violation_type,
+          description: violation.description,
+          time_away_seconds: violation.time_away_seconds,
+          severity: violation.severity,
+          content_added_during_absence: violation.content_added_during_absence,
+          ai_similarity_score: violation.ai_similarity_score,
+          paste_content_length: violation.paste_content_length
+        };
+        
+        console.log('📤 Sending violation to server:', violationDataForServer);
+        await authService.createViolation(violationDataForServer);
         console.log('✅ Violation reported to server');
+        
       } catch (apiError) {
-        console.warn('⚠️ Could not send violation to server, stored locally');
+        console.warn('⚠️ Could not send violation to server, stored locally', apiError);
       }
       
     } catch (error) {
@@ -317,8 +338,69 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  const syncAllViolationsToServer = async () => {
+    if (!assignmentId || !user) return;
+    
+    try {
+      const savedViolations = JSON.parse(localStorage.getItem(`assignment_${assignmentId}_violations`) || '[]');
+      
+      if (savedViolations.length === 0) {
+        console.log('📊 No violations to sync');
+        return;
+      }
+      
+      console.log(`📊 Syncing ${savedViolations.length} violations to server...`);
+    
+      const unsyncedViolations = savedViolations.filter((v: Violation) => !v.id);
+      
+      if (unsyncedViolations.length === 0) {
+        console.log('📊 All violations already synced');
+        return;
+      }
+    
+      for (const violation of unsyncedViolations) {
+        try {
+          const violationDataForServer = {
+            student_id: violation.student_id,
+            assignment_id: violation.assignment_id,
+            violation_type: violation.violation_type,
+            description: violation.description,
+            time_away_seconds: violation.time_away_seconds,
+            severity: violation.severity,
+            content_added_during_absence: violation.content_added_during_absence,
+            ai_similarity_score: violation.ai_similarity_score,
+            paste_content_length: violation.paste_content_length
+          };
+          
+          console.log('📤 Syncing violation:', violationDataForServer);
+          const response = await authService.createViolation(violationDataForServer);
+          
+          const index = savedViolations.findIndex((v: Violation) => 
+            v.detected_at === violation.detected_at && 
+            v.description === violation.description
+          );
+          
+          if (index !== -1) {
+            savedViolations[index].id = response.id;
+            localStorage.setItem(`assignment_${assignmentId}_violations`, JSON.stringify(savedViolations));
+          }
+          
+          console.log('✅ Violation synced successfully');
+          
+        } catch (error) {
+          console.error('Error syncing violation:', error);
+        }
+      }
+      
+      console.log('✅ All violations synced to server');
+      
+    } catch (error) {
+      console.error('Error syncing violations:', error);
+    }
+  };
+
   const checkTextModeViolations = () => {
-    if (!strictModeRef.current || !assignmentId || !user || shouldStopTrackingRef.current || !isTextareaFocusedRef.current) return;
+    if (!assignmentId || !user || !isTextareaFocusedRef.current) return;
     
     const now = Date.now();
     const content = contentRef.current?.value || '';
@@ -416,7 +498,7 @@ const StudentAssignmentPage: React.FC = () => {
         clearTimeout(excessiveInactivityTimerRef.current);
       }
       excessiveInactivityTimerRef.current = setTimeout(() => {
-        if (strictModeRef.current && hasTypedRef.current && !document.hidden && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
+        if (hasTypedRef.current && !document.hidden && isTextareaFocusedRef.current) {
           reportViolation({
             student_id: user.id,
             assignment_id: parseInt(assignmentId),
@@ -435,7 +517,7 @@ const StudentAssignmentPage: React.FC = () => {
   };
 
   const handleTabSwitchDetection = () => {
-    if (!strictModeRef.current || !hasTypedRef.current || shouldStopTrackingRef.current || !isTextareaFocusedRef.current) return;
+    if (!hasTypedRef.current || !isTextareaFocusedRef.current) return;
     
     const now = Date.now();
     const timeSinceLastSwitch = now - lastTabSwitchTimeRef.current;
@@ -529,11 +611,6 @@ const StudentAssignmentPage: React.FC = () => {
       localStorage.removeItem(`content_length_${assignmentId}`);
     }
     
-    hasTypedRef.current = false;
-    strictModeRef.current = false;
-    isCurrentlyTypingRef.current = false;
-    isTextareaFocusedRef.current = false;
-    
     setShowViolationWarning(true);
     setViolationMessage('⚠️ TIME RESET TO 0! Text was added while you were away from the page. This is considered cheating.');
     
@@ -579,7 +656,7 @@ const StudentAssignmentPage: React.FC = () => {
         timeSpentRef.current.value = activeTimeRef.current.toFixed(2);
       }
       
-      if (strictModeRef.current && hasTypedRef.current && isTextareaFocusedRef.current) {
+      if (hasTypedRef.current && isTextareaFocusedRef.current) {
         checkTextModeViolations();
       }
     }
@@ -720,7 +797,7 @@ const StudentAssignmentPage: React.FC = () => {
       console.log('👋 Page hidden (switched to another app/tab)');
       setIsActive(false);
       
-      if (hasTypedRef.current && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
+      if (hasTypedRef.current && isTextareaFocusedRef.current) {
         const currentLength = contentRef.current?.value?.length || 0;
         contentBeforeLeavingRef.current = currentLength;
         
@@ -824,14 +901,14 @@ const StudentAssignmentPage: React.FC = () => {
     timerIntervalRef.current = setInterval(calculateTimeSpent, 10000);
     secondTimerRef.current = setInterval(updateSecondsCounter, 1000);
     
-    if (strictModeRef.current && hasTypedRef.current && isTextareaFocusedRef.current) {
+    if (hasTypedRef.current && isTextareaFocusedRef.current) {
       if (violationCheckIntervalRef.current) {
         clearInterval(violationCheckIntervalRef.current);
       }
       violationCheckIntervalRef.current = setInterval(checkTextModeViolations, 30000);
       
       excessiveInactivityTimerRef.current = setTimeout(() => {
-        if (strictModeRef.current && hasTypedRef.current && !document.hidden && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
+        if (hasTypedRef.current && !document.hidden && isTextareaFocusedRef.current) {
           reportViolation({
             student_id: user.id,
             assignment_id: parseInt(assignmentId),
@@ -853,7 +930,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
     
     inactivityTimerRef.current = setTimeout(() => {
-      if (strictModeRef.current && hasTypedRef.current && !document.hidden && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
+      if (hasTypedRef.current && !document.hidden && isTextareaFocusedRef.current) {
         console.log('⏰ Inactivity detected while in strict mode');
         lastTypingTimeRef.current = Date.now();
       }
@@ -864,7 +941,7 @@ const StudentAssignmentPage: React.FC = () => {
     console.log('📤 Page unloading...');
     pageUnloadRef.current = true;
     
-    if (strictModeRef.current && hasTypedRef.current && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
+    if (hasTypedRef.current && isTextareaFocusedRef.current) {
       checkTextModeViolations();
     }
     
@@ -874,7 +951,7 @@ const StudentAssignmentPage: React.FC = () => {
   const handleBeforeUnload = (e: BeforeUnloadEvent) => {
     console.log('⚠️ Page about to unload...');
     
-    if (strictModeRef.current && hasTypedRef.current && !shouldStopTrackingRef.current && isTextareaFocusedRef.current) {
+    if (hasTypedRef.current && isTextareaFocusedRef.current) {
       checkTextModeViolations();
     }
     
@@ -951,7 +1028,7 @@ const StudentAssignmentPage: React.FC = () => {
       console.log('📝 Content detected - Enabling STRICT MODE');
     }
     
-    if (strictModeRef.current && hasTypedRef.current && isTextareaFocusedRef.current) {
+    if (hasTypedRef.current && isTextareaFocusedRef.current) {
       const now = Date.now();
       const timeSinceLastAction = now - lastTypingTimeRef.current;
       
@@ -1356,27 +1433,42 @@ const StudentAssignmentPage: React.FC = () => {
     
     try {
       console.log('🚨 Loading violations...');
-      const violationsData = await authService.getViolations(parseInt(assignmentId));
+      
+      let violationsData = [];
+      
+      try {
+        const studentViolations = await authService.getViolationsForStudent(user.id);
+        violationsData = studentViolations.filter((v: any) => 
+          v.assignment_id === parseInt(assignmentId)
+        );
+        console.log('✅ Student-specific violations loaded:', violationsData.length);
+      } catch (studentError) {
+        console.log('❌ Could not load student-specific violations:', studentError);
+        
+        try {
+          violationsData = await authService.getAssignmentViolations(parseInt(assignmentId));
+          console.log('✅ Assignment violations loaded:', violationsData.length);
+        } catch (assignmentError) {
+          console.log('❌ Could not load assignment violations:', assignmentError);
+          const savedViolations = localStorage.getItem(`assignment_${assignmentId}_violations`);
+          if (savedViolations) {
+            violationsData = JSON.parse(savedViolations);
+            console.log('📦 Loaded violations from localStorage:', violationsData.length);
+          }
+        }
+      }
       
       if (Array.isArray(violationsData)) {
-        const convertedViolations: Violation[] = violationsData.map(violation => 
+        const convertedViolations: Violation[] = violationsData.map((violation: any) => 
           convertToViolation(violation)
         );
         
         setViolations(convertedViolations);
-        console.log('✅ Violations loaded:', convertedViolations.length);
+        console.log('✅ Total violations loaded:', convertedViolations.length);
       }
     } catch (error) {
-      console.warn('⚠️ Could not load violations from API:', error);
-      try {
-        const savedViolations = localStorage.getItem(`assignment_${assignmentId}_violations`);
-        if (savedViolations) {
-          const parsedViolations = JSON.parse(savedViolations);
-          setViolations(parsedViolations);
-        }
-      } catch (localError) {
-        console.error('Error loading violations from localStorage:', localError);
-      }
+      console.error('Error loading violations:', error);
+      setViolations([]);
     }
   };
 
@@ -1756,6 +1848,8 @@ const StudentAssignmentPage: React.FC = () => {
         }
       });
 
+      await syncAllViolationsToServer();
+
       let newSubmission;
       
       if (file) {
@@ -1833,7 +1927,6 @@ const StudentAssignmentPage: React.FC = () => {
       
       if (assignmentId) {
         localStorage.removeItem(`assignment_${assignmentId}_time`);
-        localStorage.removeItem(`assignment_${assignmentId}_violations`);
         localStorage.removeItem(`content_length_${assignmentId}`);
         localStorage.removeItem(`content_before_leaving_${assignmentId}`);
       }
@@ -1887,7 +1980,6 @@ const StudentAssignmentPage: React.FC = () => {
         timerProgressBar: true, 
         showConfirmButton: false 
       });
-
 
     } catch (error: any) {
       console.error('Error submitting assignment:', error);
@@ -1978,8 +2070,15 @@ const StudentAssignmentPage: React.FC = () => {
       setIsActive(true);
       startTimers();
       
-      hasTypedRef.current = false;
-      strictModeRef.current = false;
+      if (contentRef.current && contentRef.current.value.length > 0) {
+        hasTypedRef.current = true;
+        strictModeRef.current = true;
+        console.log('📝 Content found after unsubmit - KEEPING STRICT MODE');
+      } else {
+        hasTypedRef.current = false;
+        strictModeRef.current = false;
+      }
+      
       isCurrentlyTypingRef.current = false;
       isTextareaFocusedRef.current = false;
       contentBeforeLeavingRef.current = 0;
@@ -2209,7 +2308,7 @@ const StudentAssignmentPage: React.FC = () => {
               aria-label="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 013-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
             
