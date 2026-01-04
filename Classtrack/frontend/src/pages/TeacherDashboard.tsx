@@ -7,7 +7,6 @@ import Sidebar from "../components/Sidebar";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
 import Swal from 'sweetalert2';
 
-// API configuration
 const API_BASE_URL = "http://localhost:8000";
 
 const apiClient = axios.create({
@@ -19,7 +18,6 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
-// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -98,7 +96,6 @@ interface Announcement {
   author_role: string;
 }
 
-// AnnouncementModal Component
 interface AnnouncementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -121,7 +118,6 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   const handleAnnouncementSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
     if (!announcementForm.title.trim()) {
       Swal.fire({
         title: 'Title Required',
@@ -153,7 +149,6 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
         is_urgent: announcementForm.is_urgent,
       });
 
-      // Show success SweetAlert
       Swal.fire({
         title: 'Success!',
         text: 'Announcement has been created successfully.',
@@ -165,17 +160,14 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
           Swal.showLoading();
         },
         willClose: () => {
-          // Reset form
           setAnnouncementForm({
             title: "",
             content: "",
             is_urgent: false,
           });
 
-          // Notify parent component
           onAnnouncementCreated();
 
-          // Close modal
           onClose();
         }
       });
@@ -204,7 +196,6 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   };
 
   const closeModal = () => {
-    // Check if there's unsaved content
     if (announcementForm.title.trim() || announcementForm.content.trim()) {
       Swal.fire({
         title: 'Discard Changes?',
@@ -234,7 +225,6 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white backdrop-blur-xl border border-gray-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        {/* Modal Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 flex items-center">
             <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg mr-3">
@@ -275,7 +265,6 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Content */}
         <div className="p-6 max-h-[60vh] overflow-y-auto">
           <form onSubmit={handleAnnouncementSubmit} className="space-y-6">
             <div>
@@ -400,20 +389,14 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
 const TeacherDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
-  
-  // State declarations
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [classes, setClasses] = useState<Class[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [engagementInsights, setEngagementInsights] = useState<EngagementInsight[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  
-  // Loading states
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  
-  // Loading states for individual components
   const [loadingStates, setLoadingStates] = useState({
     classes: true,
     assignments: true,
@@ -422,24 +405,17 @@ const TeacherDashboard: React.FC = () => {
   });
   
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  
-  // Scroll indicators state
   const [showClassesScrollIndicator, setShowClassesScrollIndicator] = useState(true);
   const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] = useState(true);
   const [showAnnouncementsScrollIndicator, setShowAnnouncementsScrollIndicator] = useState(true);
   const [showInsightsScrollIndicator, setShowInsightsScrollIndicator] = useState(true);
-
-  // Scroll refs
   const classesScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
   const insightsScrollRef = useRef<HTMLDivElement>(null);
-
-  // Ref for tracking assignment count to trigger auto-refresh
   const previousAssignmentsCountRef = useRef<number>(0);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Scroll handlers
   const handleClassesScroll = () => {
     if (classesScrollRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = classesScrollRef.current;
@@ -484,7 +460,6 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Helper function to construct full image URL
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -512,7 +487,6 @@ const TeacherDashboard: React.FC = () => {
     return constructedUrl;
   };
 
-  // Helper function to get role icon
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -594,7 +568,6 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Handle logout
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: 'Confirm Logout',
@@ -631,17 +604,14 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Handle view profile
   const handleViewProfile = () => {
     navigate("/profile");
   };
 
-  // Handle view reports
   const handleViewReports = () => {
     navigate("/teacher/reports");
   };
 
-  // Authentication check
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     const userRole = localStorage.getItem("userRole");
@@ -655,13 +625,11 @@ const TeacherDashboard: React.FC = () => {
     console.log("✅ Authentication verified for teacher");
   }, [navigate]);
 
-  // Update loading progress
   const updateLoadingProgress = (progress: number) => {
     const cappedProgress = Math.min(progress, 100);
     setLoadingProgress(cappedProgress);
   };
 
-  // Main data loading function
   const loadTeacherData = async () => {
     try {
       console.log("🔄 Loading teacher data...");
@@ -669,23 +637,18 @@ const TeacherDashboard: React.FC = () => {
       setHasInitialLoadError(false);
       setLoadingProgress(10);
 
-      // Step 1: Load classes
       updateLoadingProgress(25);
       await loadClasses();
 
-      // Step 2: Load assignments
       updateLoadingProgress(50);
       await loadAssignments();
 
-      // Step 3: Load announcements
       updateLoadingProgress(75);
       await loadAnnouncements();
 
-      // Step 4: Load engagement insights
       updateLoadingProgress(100);
       await loadEngagementInsights();
 
-      // Complete loading
       setTimeout(() => {
         setIsInitialLoading(false);
         console.log("✅ Teacher data loaded successfully");
@@ -709,14 +672,12 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Function to load teacher classes - FIXED TO DISPLAY ALL CLASSES
   const loadClasses = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, classes: true }));
 
       console.log("📚 Loading teacher classes from API...");
       
-      // First try direct API
       try {
         const response = await apiClient.get("/teachers/me/classes");
         console.log("✅ Teacher classes API response:", response.data);
@@ -725,7 +686,6 @@ const TeacherDashboard: React.FC = () => {
           setClasses(response.data);
           console.log("✅ Teacher classes loaded successfully via API:", response.data);
         } else {
-          // Try alternative method
           const { getTeacherClasses } = await import("../services/authService");
           const teacherData = await getTeacherClasses();
           
@@ -740,7 +700,6 @@ const TeacherDashboard: React.FC = () => {
       } catch (apiError: any) {
         console.warn("⚠️ /teachers/me/classes API failed, trying alternative...");
         
-        // Try alternative method
         try {
           const { getTeacherClasses } = await import("../services/authService");
           const teacherData = await getTeacherClasses();
@@ -774,7 +733,6 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Function to load teacher assignments - FIXED TO DISPLAY ALL ASSIGNMENTS
   const loadAssignments = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
@@ -788,7 +746,6 @@ const TeacherDashboard: React.FC = () => {
         let assignmentsData: Assignment[] = [];
         
         if (Array.isArray(response.data)) {
-          // If response is direct array
           assignmentsData = response.data.map((assignment: any) => ({
             id: assignment.id,
             name: assignment.name || `Assignment ${assignment.id}`,
@@ -803,7 +760,6 @@ const TeacherDashboard: React.FC = () => {
             assignment_type: assignment.assignment_type
           }));
         } else if (response.data && response.data.assignments && Array.isArray(response.data.assignments)) {
-          // If response has assignments property
           assignmentsData = response.data.assignments.map((assignment: any) => ({
             id: assignment.id,
             name: assignment.name || `Assignment ${assignment.id}`,
@@ -818,7 +774,6 @@ const TeacherDashboard: React.FC = () => {
             assignment_type: assignment.assignment_type
           }));
         } else if (response.data && Array.isArray(response.data.data)) {
-          // If response has data property
           assignmentsData = response.data.data.map((assignment: any) => ({
             id: assignment.id,
             name: assignment.name || `Assignment ${assignment.id}`,
@@ -841,8 +796,7 @@ const TeacherDashboard: React.FC = () => {
       } catch (apiError: any) {
         console.warn("⚠️ /teachers/me/assignments API failed:", apiError.message);
         console.log("🔄 Trying alternative endpoint...");
-        
-        // Try alternative endpoint
+      
         try {
           const response = await apiClient.get("/assignments/teacher");
           console.log("✅ Alternative assignments API response:", response.data);
@@ -866,7 +820,6 @@ const TeacherDashboard: React.FC = () => {
           }
           
           if (assignmentsData.length === 0) {
-            // Try one more alternative
             try {
               const { getTeacherAssignments } = await import("../services/authService");
               const assignmentsData2 = await getTeacherAssignments();
@@ -887,7 +840,6 @@ const TeacherDashboard: React.FC = () => {
         } catch (secondError: any) {
           console.error("❌ Alternative endpoint failed:", secondError.message);
           
-          // Final fallback
           try {
             const { getTeacherAssignments } = await import("../services/authService");
             const assignmentsData = await getTeacherAssignments();
@@ -925,7 +877,6 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Function to load engagement insights - WITH REAL TIME SPENT DATA
   const loadEngagementInsights = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, insights: true }));
@@ -940,11 +891,9 @@ const TeacherDashboard: React.FC = () => {
 
       const insightsPromises = assignments.map(async (assignment) => {
         try {
-          // Get submissions for this assignment to calculate real average time
           const submissionsResponse = await apiClient.get(`/assignments/${assignment.id}/submissions`);
           const submissions = submissionsResponse.data || [];
           
-          // Calculate average time spent from real submissions
           let averageTimeSpent = 0;
           let totalSubmissions = submissions.length;
           
@@ -955,7 +904,6 @@ const TeacherDashboard: React.FC = () => {
             averageTimeSpent = validSubmissions.length > 0 ? Math.round(totalTime / validSubmissions.length) : 0;
           }
 
-          // Calculate average grade from graded submissions
           let averageGrade = 0;
           const gradedSubmissions = submissions.filter((sub: any) => sub.grade !== null && sub.grade !== undefined);
           if (gradedSubmissions.length > 0) {
@@ -963,19 +911,16 @@ const TeacherDashboard: React.FC = () => {
             averageGrade = totalGrade / gradedSubmissions.length;
           }
 
-          // Calculate engagement score based on various factors
-          let engagementScore = 7.5; // Base score
+          let engagementScore = 7.5; 
           
-          // Adjust score based on time spent (ideal: 30-90 minutes)
           if (averageTimeSpent >= 30 && averageTimeSpent <= 90) {
             engagementScore += 1.5;
           } else if (averageTimeSpent > 90) {
-            engagementScore += 2.0; // More time indicates good engagement
+            engagementScore += 2.0; 
           } else if (averageTimeSpent > 0 && averageTimeSpent < 10) {
-            engagementScore -= 1.0; // Very short time might indicate rushing
+            engagementScore -= 1.0; 
           }
 
-          // Adjust based on submission rate (assume class has 30 students for now)
           const submissionRate = (totalSubmissions / 30) * 100;
           if (submissionRate > 80) {
             engagementScore += 0.5;
@@ -983,7 +928,6 @@ const TeacherDashboard: React.FC = () => {
             engagementScore -= 0.5;
           }
 
-          // Adjust based on average grade
           if (averageGrade >= 80) {
             engagementScore += 0.5;
           } else if (averageGrade < 60) {
@@ -1002,7 +946,6 @@ const TeacherDashboard: React.FC = () => {
         } catch (error) {
           console.error(`Error loading insights for assignment ${assignment.id}:`, error);
           
-          // Return fallback data if API fails
           return {
             id: assignment.id,
             class_name: assignment.class_name || `Class ${assignment.class_id}`,
@@ -1021,7 +964,6 @@ const TeacherDashboard: React.FC = () => {
     } catch (error) {
       console.error("Error loading engagement insights:", error);
       
-      // Fallback to mock data
       const mockInsights: EngagementInsight[] = assignments.map(
         (assignment) => ({
           id: assignment.id,
@@ -1041,7 +983,6 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Function to load announcements
   const loadAnnouncements = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, announcements: true }));
@@ -1049,7 +990,6 @@ const TeacherDashboard: React.FC = () => {
       console.log("📢 Loading announcements for teacher...");
 
       try {
-        // Use the same API endpoint as StudentDashboard
         const response = await axios.get(`${API_BASE_URL}/announcements/live`);
         
         if (response.data && Array.isArray(response.data)) {
@@ -1079,7 +1019,6 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-  // Fallback announcements
   const getFallbackAnnouncements = (): Announcement[] => {
     return [
       {
@@ -1113,11 +1052,9 @@ const TeacherDashboard: React.FC = () => {
   };
 
   const handleAnnouncementCreated = () => {
-    // Refresh announcements list
     loadAnnouncements();
   };
 
-  // Time formatting functions
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -1156,34 +1093,28 @@ const TeacherDashboard: React.FC = () => {
     return `${Math.floor(diffInHours / 168)} weeks ago`;
   };
 
-  // Add this function for View Reports navigation
   const handleViewReportsNav = () => {
     navigate("/teacher/reports");
   };
 
-  // Load assignments when classes are loaded
   useEffect(() => {
     if (classes.length > 0 && assignments.length === 0 && !loadingStates.assignments) {
       loadAssignments();
     }
   }, [classes]);
 
-  // Load engagement insights when assignments are loaded OR when assignments count changes
   useEffect(() => {
     if (assignments.length > 0) {
-      // Check if assignments have actually changed
       if (previousAssignmentsCountRef.current !== assignments.length) {
         console.log("🔄 Assignments changed, refreshing engagement insights...");
         loadEngagementInsights();
         previousAssignmentsCountRef.current = assignments.length;
       } else if (!loadingStates.insights && engagementInsights.length === 0) {
-        // If no insights yet, load them
         loadEngagementInsights();
       }
     }
   }, [assignments]);
 
-  // Load data when user is available
   useEffect(() => {
     if (user && user.role === "teacher") {
       console.log("👤 User data loaded, starting data fetch...");
@@ -1194,24 +1125,20 @@ const TeacherDashboard: React.FC = () => {
     }
   }, [user, navigate]);
 
-  // AUTO-REFRESH FOR STUDENT ENGAGEMENT INSIGHTS - EVERY 15 SECONDS
   useEffect(() => {
     if (isInitialLoading || assignments.length === 0) return;
 
     console.log("🔄 Setting up auto-refresh for engagement insights...");
 
-    // Clear any existing interval
     if (autoRefreshIntervalRef.current) {
       clearInterval(autoRefreshIntervalRef.current);
     }
 
-    // Set up new interval for auto-refresh
     autoRefreshIntervalRef.current = setInterval(() => {
       console.log("🔄 Auto-refreshing engagement insights...");
       loadEngagementInsights();
-    }, 15000); // Refresh every 15 seconds (mas mabilis!)
+    }, 15000); 
 
-    // Clean up interval on component unmount
     return () => {
       if (autoRefreshIntervalRef.current) {
         clearInterval(autoRefreshIntervalRef.current);
@@ -1219,25 +1146,22 @@ const TeacherDashboard: React.FC = () => {
     };
   }, [isInitialLoading, assignments.length]);
 
-  // Real-time sync for announcements
   useEffect(() => {
     if (isInitialLoading) return;
 
     const refreshInterval = setInterval(() => {
       console.log("🔄 Teacher: Refreshing announcements...");
       loadAnnouncements();
-    }, 30000); // Refresh every 30 seconds
+    }, 30000); 
 
     return () => {
       clearInterval(refreshInterval);
     };
   }, [isInitialLoading]);
 
-  // Loading Screen
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 to-orange-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -1266,7 +1190,6 @@ const TeacherDashboard: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Loading Your Teacher Dashboard
@@ -1276,7 +1199,6 @@ const TeacherDashboard: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -1290,7 +1212,6 @@ const TeacherDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
           {[
             { text: "Classes", color: "bg-red-100 text-red-600", progress: 25 },
@@ -1311,7 +1232,6 @@ const TeacherDashboard: React.FC = () => {
           ))}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -1319,7 +1239,6 @@ const TeacherDashboard: React.FC = () => {
           <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             This might take a moment. Please wait...
@@ -1329,7 +1248,6 @@ const TeacherDashboard: React.FC = () => {
     );
   }
 
-  // Error Screen
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1404,7 +1322,6 @@ const TeacherDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex relative">
-      {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center space-x-3">
@@ -1484,7 +1401,6 @@ const TeacherDashboard: React.FC = () => {
         </div>
       </header>
 
-      {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-40 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -1493,9 +1409,7 @@ const TeacherDashboard: React.FC = () => {
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
-        {/* Fixed Desktop Header */}
         <div className="hidden lg:block fixed top-0 right-0 left-64 z-30 bg-white border-b border-gray-200">
           <DynamicHeader
             title="Teacher Portal"
@@ -1503,9 +1417,7 @@ const TeacherDashboard: React.FC = () => {
           />
         </div>
 
-        {/* Main Content Container */}
         <div className="flex-1 flex flex-col mt-16 lg:mt-20">
-          {/* Status Bar */}
           <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-4 lg:mt-6">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-4">
@@ -1531,10 +1443,8 @@ const TeacherDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Main Content */}
           <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-              {/* Welcome Section */}
               <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-xl">
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
@@ -1584,7 +1494,6 @@ const TeacherDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* User Profile Card */}
               <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-xl">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
@@ -1664,12 +1573,9 @@ const TeacherDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Dashboard Grid */}
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                {/* Left Column - My Classes & Recent Assignments */}
                 <div className="xl:col-span-2 space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* My Classes Card */}
                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
@@ -1701,7 +1607,6 @@ const TeacherDashboard: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Classes List with Scroll Container */}
                       <div className="relative">
                         <div 
                           className="space-y-3 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
@@ -1790,7 +1695,6 @@ const TeacherDashboard: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Scroll Indicator */}
                         {classes.length > 4 && showClassesScrollIndicator && (
                           <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
                             <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
@@ -1815,7 +1719,7 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    {/* Recent Assignments Card */}
+            
                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
@@ -1847,7 +1751,6 @@ const TeacherDashboard: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Assignments List */}
                       <div className="relative">
                         <div 
                           className="space-y-3 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
@@ -2060,10 +1963,7 @@ const TeacherDashboard: React.FC = () => {
                                 <div className="flex-1 min-w-0">
                                   <h4 className="font-semibold text-gray-900 text-sm mb-1 truncate">
                                     {insight.assignment_name}
-                                  </h4>
-                                  <p className="text-xs text-gray-500 truncate">
-                                    {insight.class_name}
-                                  </p>
+                                  </h4>                              
                                 </div>
                                 <div
                                   className={`px-3 py-1 rounded-full border text-xs font-medium ml-2 flex-shrink-0 ${getEngagementBadge(

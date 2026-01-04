@@ -10,6 +10,7 @@ import { authService } from '../services/authService';
 
 const API_BASE_URL = 'http://localhost:8000';
 
+// Create axios instance with interceptor
 const createApiClient = () => {
   const instance = axios.create({
     baseURL: API_BASE_URL,

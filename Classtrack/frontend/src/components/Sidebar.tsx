@@ -473,28 +473,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               "bg-indigo-50 border-indigo-200 hover:bg-indigo-100",
             iconColors: "from-indigo-500 to-indigo-600",
           },
-          {
-            path: "/student/grades",
-            label: "Grades",
-            icon: (
-              <svg
-                className="w-4 h-4 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            ),
-            activeColors:
-              "bg-yellow-50 border-yellow-200 hover:bg-yellow-100",
-            iconColors: "from-yellow-500 to-yellow-600",
-          },
+          
         ];
 
       default:

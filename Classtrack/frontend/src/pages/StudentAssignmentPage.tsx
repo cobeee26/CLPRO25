@@ -146,6 +146,7 @@ const StudentAssignmentPage: React.FC = () => {
   const shouldStopTrackingRef = useRef<boolean>(false);
   const isTextareaFocusedRef = useRef<boolean>(false);
   const initialLoadRef = useRef<boolean>(true);
+  const sessionViolationsRef = useRef<Violation[]>([]);
 
   const handleLogout = () => {
     Swal.fire({
@@ -301,7 +302,8 @@ const StudentAssignmentPage: React.FC = () => {
       savedViolations.push(violation);
       localStorage.setItem(`assignment_${assignmentId}_violations`, JSON.stringify(savedViolations));
       
-      setViolations(prev => [...prev, violation]);
+      sessionViolationsRef.current.push(violation);
+      setViolations(sessionViolationsRef.current);
       
       if (violation.severity === 'high' || violation.severity === 'medium') {
         setShowViolationWarning(true);
@@ -396,6 +398,38 @@ const StudentAssignmentPage: React.FC = () => {
       
     } catch (error) {
       console.error('Error syncing violations:', error);
+    }
+  };
+
+  // NEW FUNCTION: Delete violations from server when unsubmitting
+  const deleteAssignmentViolations = async () => {
+    if (!assignmentId || !user) return;
+    
+    try {
+      console.log(`🗑️ Deleting violations for assignment ${assignmentId}...`);
+      
+      // Get all violations for this assignment from server
+      const assignmentIdNum = parseInt(assignmentId);
+      const violationsData = await authService.getAssignmentViolations(assignmentIdNum);
+      
+      console.log(`📊 Found ${violationsData.length} violations to delete`);
+      
+      // Delete each violation
+      for (const violation of violationsData) {
+        try {
+          if (violation.id && violation.student_id === user.id) {
+            await authService.deleteViolation(violation.id);
+            console.log(`✅ Deleted violation ${violation.id}`);
+          }
+        } catch (error) {
+          console.error(`Error deleting violation ${violation.id}:`, error);
+        }
+      }
+      
+      console.log('✅ All violations deleted from server');
+      
+    } catch (error) {
+      console.error('Error deleting violations:', error);
     }
   };
 
@@ -863,6 +897,13 @@ const StudentAssignmentPage: React.FC = () => {
       if (lastPagePathRef.current.includes('/student/assignments/') && 
           !currentPath.includes('/student/assignments/')) {
         console.log('🚪 Leaving assignment page');
+        
+        if (assignmentId) {
+          console.log('🗑️ Clearing violations for assignment:', assignmentId);
+          localStorage.removeItem(`assignment_${assignmentId}_violations`);
+          sessionViolationsRef.current = [];
+          setViolations([]);
+        }
         
         if (hasTypedRef.current && contentRef.current?.value?.length > 50 && isTextareaFocusedRef.current) {
           console.log('⚠️ Leaving text assignment page with unsaved work');
@@ -1436,35 +1477,28 @@ const StudentAssignmentPage: React.FC = () => {
       
       let violationsData = [];
       
-      try {
-        const studentViolations = await authService.getViolationsForStudent(user.id);
-        violationsData = studentViolations.filter((v: any) => 
-          v.assignment_id === parseInt(assignmentId)
-        );
-        console.log('✅ Student-specific violations loaded:', violationsData.length);
-      } catch (studentError) {
-        console.log('❌ Could not load student-specific violations:', studentError);
-        
-        try {
-          violationsData = await authService.getAssignmentViolations(parseInt(assignmentId));
-          console.log('✅ Assignment violations loaded:', violationsData.length);
-        } catch (assignmentError) {
-          console.log('❌ Could not load assignment violations:', assignmentError);
-          const savedViolations = localStorage.getItem(`assignment_${assignmentId}_violations`);
-          if (savedViolations) {
-            violationsData = JSON.parse(savedViolations);
-            console.log('📦 Loaded violations from localStorage:', violationsData.length);
-          }
-        }
+      // Only load violations from localStorage for current session
+      const savedViolations = localStorage.getItem(`assignment_${assignmentId}_violations`);
+      if (savedViolations) {
+        violationsData = JSON.parse(savedViolations);
+        console.log('📦 Loaded current session violations from localStorage:', violationsData.length);
       }
       
-      if (Array.isArray(violationsData)) {
-        const convertedViolations: Violation[] = violationsData.map((violation: any) => 
+      // Filter to only show violations from the current session
+      const sessionStartTime = Date.now() - (60 * 60 * 1000); // Last hour
+      const sessionViolations = violationsData.filter((violation: any) => {
+        const violationTime = new Date(violation.detected_at).getTime();
+        return violationTime > sessionStartTime;
+      });
+      
+      if (Array.isArray(sessionViolations)) {
+        const convertedViolations: Violation[] = sessionViolations.map((violation: any) => 
           convertToViolation(violation)
         );
         
+        sessionViolationsRef.current = convertedViolations;
         setViolations(convertedViolations);
-        console.log('✅ Total violations loaded:', convertedViolations.length);
+        console.log('✅ Session violations loaded:', convertedViolations.length);
       }
     } catch (error) {
       console.error('Error loading violations:', error);
@@ -1967,6 +2001,8 @@ const StudentAssignmentPage: React.FC = () => {
       aiContentDetectionRef.current = false;
       largePasteCountRef.current = 0;
       tabSwitchHistoryRef.current = [];
+      sessionViolationsRef.current = [];
+      setViolations([]);
 
       Swal.close();
 
@@ -2048,6 +2084,10 @@ const StudentAssignmentPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
 
+      // DELETE VIOLATIONS FROM SERVER BEFORE DELETING SUBMISSION
+      await deleteAssignmentViolations();
+      
+      // DELETE SUBMISSION FROM SERVER
       const response = await fetch(`http://localhost:8000/submissions/${submission.id}`, {
         method: 'DELETE',
         headers: {
@@ -2061,6 +2101,15 @@ const StudentAssignmentPage: React.FC = () => {
         throw new Error(errorData.detail || `Failed to delete submission: ${response.status}`);
       }
 
+      // CLEAR LOCAL STORAGE
+      if (assignmentId) {
+        localStorage.removeItem(`assignment_${assignmentId}_violations`);
+        localStorage.removeItem(`assignment_${assignmentId}_time`);
+        localStorage.removeItem(`content_length_${assignmentId}`);
+        localStorage.removeItem(`content_before_leaving_${assignmentId}`);
+      }
+
+      // RESET STATE
       setSubmission(null);
       setSelectedFileName('');
       setLinkUrl('');
@@ -2086,6 +2135,8 @@ const StudentAssignmentPage: React.FC = () => {
       aiContentDetectionRef.current = false;
       largePasteCountRef.current = 0;
       tabSwitchHistoryRef.current = [];
+      sessionViolationsRef.current = [];
+      setViolations([]);
       
       setSuccess('Assignment unsubmitted successfully! You can now edit and resubmit.');
       

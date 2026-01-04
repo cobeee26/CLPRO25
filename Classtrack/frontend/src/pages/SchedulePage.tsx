@@ -491,13 +491,80 @@ const SchedulePage: React.FC = () => {
     }
   }, [isModalOpen]);
 
+  // ==================== FIXED FUNCTION ====================
   const convertToEnrichedSchedule = (schedule: any): ScheduleEnrichedResponse => {
-    console.log('🔄 Converting schedule:', schedule);
+    console.log('🔄 Converting schedule with full data:', schedule);
     
-    const class_name = schedule.class_name || schedule.className || schedule.name || schedule.title || 'Class Name';
-    const class_code = schedule.class_code || schedule.code || schedule.course_code || 'N/A';
-    const teacher_name = schedule.teacher_name || schedule.teacher || schedule.instructor || 'Teacher Name';
+    // Extract teacher info from different possible field names
+    let teacher_name = '';
     
+    // Try multiple possible field names for teacher information
+    if (schedule.teacher_full_name && schedule.teacher_full_name !== 'Unknown Teacher') {
+      teacher_name = schedule.teacher_full_name;
+    } else if (schedule.teacher_name && schedule.teacher_name !== 'Unknown Teacher') {
+      teacher_name = schedule.teacher_name;
+    } else if (schedule.teacherName) {
+      teacher_name = schedule.teacherName;
+    } else if (schedule.instructor_name) {
+      teacher_name = schedule.instructor_name;
+    } else if (schedule.teacher) {
+      teacher_name = schedule.teacher;
+    } else if (schedule.instructor) {
+      teacher_name = schedule.instructor;
+    } else if (schedule.teacher_info) {
+      const teacherInfo = schedule.teacher_info;
+      if (typeof teacherInfo === 'string') {
+        teacher_name = teacherInfo;
+      } else if (teacherInfo.first_name || teacherInfo.last_name) {
+        teacher_name = `${teacherInfo.first_name || ''} ${teacherInfo.last_name || ''}`.trim();
+      } else if (teacherInfo.name) {
+        teacher_name = teacherInfo.name;
+      } else if (teacherInfo.username) {
+        teacher_name = teacherInfo.username;
+      }
+    }
+    
+    // If still empty, try to extract from class info
+    if (!teacher_name && schedule.class_info && schedule.class_info.teacher) {
+      teacher_name = schedule.class_info.teacher;
+    }
+    
+    // Default if still empty
+    if (!teacher_name) {
+      teacher_name = 'Unknown Teacher';
+      console.log('⚠️ Could not find teacher name in schedule:', schedule);
+    }
+    
+    // Extract class info
+    let class_name = '';
+    let class_code = '';
+    
+    if (schedule.class_name && schedule.class_name !== 'Class Name') {
+      class_name = schedule.class_name;
+    } else if (schedule.className) {
+      class_name = schedule.className;
+    } else if (schedule.name) {
+      class_name = schedule.name;
+    } else if (schedule.title) {
+      class_name = schedule.title;
+    } else if (schedule.class_info && schedule.class_info.name) {
+      class_name = schedule.class_info.name;
+    } else {
+      class_name = `Class ${schedule.class_id || schedule.id || ''}`;
+    }
+    
+    if (schedule.class_code && schedule.class_code !== 'N/A') {
+      class_code = schedule.class_code;
+    } else if (schedule.code) {
+      class_code = schedule.code;
+    } else if (schedule.course_code) {
+      class_code = schedule.course_code;
+    } else if (schedule.class_info && schedule.class_info.code) {
+      class_code = schedule.class_info.code;
+    } else {
+      class_code = 'N/A';
+    }
+
     return {
       ...schedule,
       id: schedule.id || schedule.schedule_id || Math.random().toString(36).substr(2, 9),
@@ -506,9 +573,9 @@ const SchedulePage: React.FC = () => {
       class_code,
       teacher_name,
       teacher_full_name: teacher_name,
-      room_number: schedule.room_number || schedule.room || 'Room 101',
-      start_time: schedule.start_time || schedule.startTime || new Date().toISOString(),
-      end_time: schedule.end_time || schedule.endTime || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      room_number: schedule.room_number || schedule.room || schedule.room_name || 'Room 101',
+      start_time: schedule.start_time || schedule.startTime || schedule.start_date || new Date().toISOString(),
+      end_time: schedule.end_time || schedule.endTime || schedule.end_date || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
       status: schedule.status || 'Occupied',
       cleanliness_before: schedule.cleanliness_before || schedule.is_clean_before || 'Unknown',
       cleanliness_after: schedule.cleanliness_after || schedule.is_clean_after || 'Unknown',
@@ -516,47 +583,71 @@ const SchedulePage: React.FC = () => {
     };
   };
 
+  // ==================== FIXED FUNCTION ====================
   const loadStudentData = async (): Promise<{ schedulesData: any[] }> => {
     let schedulesData: any[] = [];
-
-    try {
-      console.log('📅 Student: Loading unified schedules...');
-      schedulesData = await authService.getSchedulesLive();
-      console.log('✅ Student unified schedules:', schedulesData);
-      
-      if (schedulesData.length > 0) {
-        console.log('🎯 Student: Using unified schedules data');
-        return { schedulesData };
-      }
-    } catch (error) {
-      console.warn('⚠️ Student: Unified schedules failed, trying student-specific endpoint');
-    }
 
     try {
       console.log('📅 Student: Loading student-specific schedule...');
       const response = await authService.getStudentSchedule();
       console.log('📊 Student schedule response:', response);
+      console.log('📊 Student schedule response TYPE:', typeof response);
+      console.log('📊 Student schedule response IS ARRAY:', Array.isArray(response));
       
       if (Array.isArray(response)) {
         schedulesData = response;
+        console.log('✅ Student schedule is array with', schedulesData.length, 'items');
+        
+        // Debug each schedule item
+        schedulesData.forEach((schedule, index) => {
+          console.log(`📊 Schedule ${index}:`, {
+            id: schedule.id,
+            class_id: schedule.class_id,
+            class_name: schedule.class_name,
+            teacher_name: schedule.teacher_name,
+            teacher_full_name: schedule.teacher_full_name,
+            class_info: schedule.class_info,
+            teacher_info: schedule.teacher_info,
+            raw_keys: Object.keys(schedule)
+          });
+        });
       } else if (response && typeof response === 'object') {
         const responseObj = response as any;
+        console.log('📊 Response object keys:', Object.keys(responseObj));
+        
         if (Array.isArray(responseObj.schedules)) {
           schedulesData = responseObj.schedules;
+          console.log('✅ Found schedules in responseObj.schedules:', schedulesData.length);
         } else if (Array.isArray(responseObj.data)) {
           schedulesData = responseObj.data;
+          console.log('✅ Found schedules in responseObj.data:', schedulesData.length);
         } else if (Array.isArray(responseObj.student_schedules)) {
           schedulesData = responseObj.student_schedules;
+          console.log('✅ Found schedules in responseObj.student_schedules:', schedulesData.length);
         } else if (responseObj.data && typeof responseObj.data === 'object') {
           schedulesData = [responseObj.data];
+          console.log('✅ Found single schedule in responseObj.data');
         } else if (responseObj.schedule && typeof responseObj.schedule === 'object') {
           schedulesData = [responseObj.schedule];
+          console.log('✅ Found single schedule in responseObj.schedule');
         } else {
-          schedulesData = [responseObj];
+          // Try to extract schedules from any array property
+          for (const key in responseObj) {
+            if (Array.isArray(responseObj[key])) {
+              schedulesData = responseObj[key];
+              console.log(`✅ Found schedules in responseObj.${key}:`, schedulesData.length);
+              break;
+            }
+          }
+          
+          if (schedulesData.length === 0) {
+            schedulesData = [responseObj];
+            console.log('✅ Using entire response object as schedule');
+          }
         }
       }
       
-      console.log('✅ Student-specific schedules:', schedulesData);
+      console.log('✅ Final student-specific schedules:', schedulesData);
       
     } catch (error) {
       console.warn('⚠️ All student endpoints failed, using empty data');
