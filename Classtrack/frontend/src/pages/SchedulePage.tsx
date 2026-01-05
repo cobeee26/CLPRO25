@@ -129,6 +129,22 @@ const SchedulePage: React.FC = () => {
   const [showEditStartTimePicker, setShowEditStartTimePicker] = useState(false);
   const [showEditEndTimePicker, setShowEditEndTimePicker] = useState(false);
 
+  // Color palette for schedule cards (Google Classroom style)
+  const scheduleColors = [
+    { bg: 'bg-gradient-to-br from-blue-500 to-blue-600', text: 'text-white', icon: 'text-blue-100' },
+    { bg: 'bg-gradient-to-br from-purple-500 to-purple-600', text: 'text-white', icon: 'text-purple-100' },
+    { bg: 'bg-gradient-to-br from-green-500 to-green-600', text: 'text-white', icon: 'text-green-100' },
+    { bg: 'bg-gradient-to-br from-pink-500 to-pink-600', text: 'text-white', icon: 'text-pink-100' },
+    { bg: 'bg-gradient-to-br from-orange-500 to-orange-600', text: 'text-white', icon: 'text-orange-100' },
+    { bg: 'bg-gradient-to-br from-teal-500 to-teal-600', text: 'text-white', icon: 'text-teal-100' },
+    { bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', text: 'text-white', icon: 'text-indigo-100' },
+    { bg: 'bg-gradient-to-br from-red-500 to-red-600', text: 'text-white', icon: 'text-red-100' },
+  ];
+
+  const getScheduleColor = (index: number) => {
+    return scheduleColors[index % scheduleColors.length];
+  };
+
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -491,14 +507,11 @@ const SchedulePage: React.FC = () => {
     }
   }, [isModalOpen]);
 
-  // ==================== FIXED FUNCTION ====================
   const convertToEnrichedSchedule = (schedule: any): ScheduleEnrichedResponse => {
     console.log('🔄 Converting schedule with full data:', schedule);
     
-    // Extract teacher info from different possible field names
     let teacher_name = '';
     
-    // Try multiple possible field names for teacher information
     if (schedule.teacher_full_name && schedule.teacher_full_name !== 'Unknown Teacher') {
       teacher_name = schedule.teacher_full_name;
     } else if (schedule.teacher_name && schedule.teacher_name !== 'Unknown Teacher') {
@@ -524,18 +537,15 @@ const SchedulePage: React.FC = () => {
       }
     }
     
-    // If still empty, try to extract from class info
     if (!teacher_name && schedule.class_info && schedule.class_info.teacher) {
       teacher_name = schedule.class_info.teacher;
     }
     
-    // Default if still empty
     if (!teacher_name) {
       teacher_name = 'Unknown Teacher';
       console.log('⚠️ Could not find teacher name in schedule:', schedule);
     }
     
-    // Extract class info
     let class_name = '';
     let class_code = '';
     
@@ -579,11 +589,14 @@ const SchedulePage: React.FC = () => {
       status: schedule.status || 'Occupied',
       cleanliness_before: schedule.cleanliness_before || schedule.is_clean_before || 'Unknown',
       cleanliness_after: schedule.cleanliness_after || schedule.is_clean_after || 'Unknown',
-      last_report_time: schedule.last_report_time || schedule.report_time || null
+      last_report_time: schedule.last_report_time || schedule.report_time || null,
+      // Extract semester/term information
+      semester: schedule.semester || schedule.term || schedule.academic_term || '2025-2026_4th',
+      day_of_week: schedule.day_of_week || formatDayOfWeek(schedule.start_time || schedule.start_date),
+      time_slot: schedule.time_slot || formatTimeRange(schedule.start_time || schedule.start_date, schedule.end_time || schedule.end_date)
     };
   };
 
-  // ==================== FIXED FUNCTION ====================
   const loadStudentData = async (): Promise<{ schedulesData: any[] }> => {
     let schedulesData: any[] = [];
 
@@ -598,7 +611,6 @@ const SchedulePage: React.FC = () => {
         schedulesData = response;
         console.log('✅ Student schedule is array with', schedulesData.length, 'items');
         
-        // Debug each schedule item
         schedulesData.forEach((schedule, index) => {
           console.log(`📊 Schedule ${index}:`, {
             id: schedule.id,
@@ -631,7 +643,6 @@ const SchedulePage: React.FC = () => {
           schedulesData = [responseObj.schedule];
           console.log('✅ Found single schedule in responseObj.schedule');
         } else {
-          // Try to extract schedules from any array property
           for (const key in responseObj) {
             if (Array.isArray(responseObj[key])) {
               schedulesData = responseObj[key];
@@ -881,19 +892,63 @@ const SchedulePage: React.FC = () => {
     }
   };
 
-  const formatDateTime = (dateTimeString: string) => {
+  const formatTime = (dateTimeString: string) => {
     try {
-      return new Date(dateTimeString).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return new Date(dateTimeString).toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
       });
     } catch (error) {
+      console.error('Error formatting time:', error);
+      return 'Invalid Time';
+    }
+  };
+
+  const formatTimeRange = (startDateTime: string, endDateTime: string) => {
+    try {
+      const startTime = formatTime(startDateTime);
+      const endTime = formatTime(endDateTime);
+      return `${startTime} - ${endTime}`;
+    } catch (error) {
+      console.error('Error formatting time range:', error);
+      return 'Invalid Time Range';
+    }
+  };
+
+  const formatDateOnly = (dateTimeString: string) => {
+    try {
+      return new Date(dateTimeString).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
       console.error('Error formatting date:', error);
       return 'Invalid Date';
+    }
+  };
+
+  const formatDayOfWeek = (dateTimeString: string) => {
+    try {
+      return new Date(dateTimeString).toLocaleDateString('en-US', {
+        weekday: 'long'
+      });
+    } catch (error) {
+      console.error('Error formatting day of week:', error);
+      return 'Invalid Day';
+    }
+  };
+
+  const formatDayOfWeekShort = (dateTimeString: string) => {
+    try {
+      return new Date(dateTimeString).toLocaleDateString('en-US', {
+        weekday: 'short'
+      }).toUpperCase();
+    } catch (error) {
+      console.error('Error formatting day of week short:', error);
+      return 'Invalid Day';
     }
   };
 
@@ -910,11 +965,30 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  const getDayOfWeekNumber = (day: string) => {
+    const dayMap: { [key: string]: number } = {
+      'Monday': 1,
+      'Tuesday': 2,
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5,
+      'Saturday': 6,
+      'Sunday': 7
+    };
+    return dayMap[day] || 8;
+  };
+
+  // Filter schedules based on search term
   const filteredSchedules = schedules.filter(schedule =>
     schedule.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     schedule.room_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     schedule.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Sort schedules by start time
+  const sortedSchedules = [...filteredSchedules].sort((a, b) => {
+    return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+  });
 
   if (isInitialLoading) {
     return (
@@ -1141,24 +1215,73 @@ const SchedulePage: React.FC = () => {
           />
         </div>
 
-        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-600 font-medium">
-                  {loading ? 'Loading...' : 'Schedule Active'}
-                </span>
-              </div>
-              <div className="text-gray-500">
-                Last updated: {new Date().toLocaleTimeString()}
+        {/* Stats Dashboard */}
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-4 mx-4 mb-4 mt-3 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-700">Total Schedules</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{schedules.length}</p>
+                </div>
+                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <span className="text-purple-600 font-medium">
-                {user?.role === 'admin' ? 'Administrator' : user?.role === 'teacher' ? 'Teacher' : 'Student'}
-              </span>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-700">Active Classes</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    {Array.from(new Set(schedules.map(s => s.class_id))).length}
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-700">Different Rooms</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    {Array.from(new Set(schedules.map(s => s.room_number))).length}
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-700">Today's Schedules</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    {schedules.filter(s => {
+                      const scheduleDate = new Date(s.start_time);
+                      const today = new Date();
+                      return scheduleDate.toDateString() === today.toDateString();
+                    }).length}
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1193,49 +1316,92 @@ const SchedulePage: React.FC = () => {
               </div>
             )}
 
+            {/* Schedule Cards Section */}
             <div className="bg-white backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
-              <div className="flex-shrink-0 bg-white backdrop-blur-sm rounded-t-xl border-b border-gray-200 p-3">
-                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
+              <div className="flex-shrink-0 bg-white backdrop-blur-sm rounded-t-xl border-b border-gray-200 p-4">
+                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
                   <div className="flex items-center space-x-3">
                     <h2 className="text-lg font-semibold text-gray-900">
                       {user?.role === 'student' ? "My Class Schedule" : "Class Schedules"}
                     </h2>
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
                       {filteredSchedules.length} {filteredSchedules.length === 1 ? 'schedule' : 'schedules'}
                     </span>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-green-600 font-medium">
-                        Real-time Cleanliness Status
-                      </span>
-                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={refreshAllCleanliness}
-                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 cursor-pointer"
-                      title="Refresh cleanliness status"
-                    >
-                      <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                      </svg>
-                      Refresh Cleanliness
-                    </button>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder={user?.role === 'student' ? "Search classes, teachers, or rooms..." : "Search schedules..."}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 text-gray-900 focus:outline-none focus:placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 sm:text-sm transition-all duration-200 cursor-text"
+                      />
+                    </div>
                     <button
                       onClick={loadScheduleData}
                       disabled={loading}
-                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                      className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
                       title="Refresh schedules"
                     >
-                      <svg className={`-ml-1 mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      Refresh All
                     </button>
                     {user?.role !== 'student' && (
                       <button
                         onClick={() => setIsModalOpen(true)}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm cursor-pointer"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm cursor-pointer"
+                        title="Create new schedule"
+                      >
+                        <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        New Schedule
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-auto p-4 lg:p-6">
+                {user?.role === 'student' && filteredSchedules.length > 0 && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-blue-700 text-sm">
+                        {filteredSchedules.length > 2 
+                          ? `Showing ${filteredSchedules.length} of your class schedules` 
+                          : 'Showing your class schedule for the current semester'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {filteredSchedules.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No schedules found</h3>
+                    <p className="text-gray-500 text-center max-w-md mb-4">
+                      {searchTerm ? 'No schedules match your search criteria.' : 
+                       user?.role === 'student' ? 'No schedules assigned to you yet. Please check back later.' : 
+                       'Get started by creating your first schedule.'}
+                    </p>
+                    {!searchTerm && user?.role !== 'student' && (
+                      <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm cursor-pointer"
                         title="Create new schedule"
                       >
                         <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1245,147 +1411,163 @@ const SchedulePage: React.FC = () => {
                       </button>
                     )}
                   </div>
-                </div>
-                <div className="mt-3">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder={user?.role === 'student' ? "Search classes, teachers, or rooms..." : "Search schedules..."}
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 text-gray-900 focus:outline-none focus:placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 sm:text-sm transition-all duration-200 cursor-text"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-hidden">
-                <div className="h-full overflow-auto">
-                  {user?.role === 'student' && filteredSchedules.length > 0 && (
-                    <div className="p-4 bg-blue-50 border-b border-blue-200">
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p className="text-blue-700 text-sm">
-                          {filteredSchedules.length > 2 
-                            ? `Showing ${filteredSchedules.length} of your class schedules` 
-                            : 'Showing your class schedule for the current semester'}
-                        </p>
+                ) : (
+                  <div className="space-y-4">
+                    {/* All Schedules - Responsive Grid 4 cards per row */}
+                    <div className="flex flex-col">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <h3 className="text-xl font-bold text-gray-900">All Schedules</h3>
+                        <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                          {sortedSchedules.length} total
+                        </span>
                       </div>
-                    </div>
-                  )}
-                  
-                  <div className="min-w-full overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0 z-10">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[120px]">Class</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[120px]">Teacher</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[80px]">Room</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[150px]">Start Time</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[150px]">End Time</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[100px]">Status</th>
-                          {user?.role !== 'student' && (
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-default whitespace-nowrap min-w-[120px]">Actions</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredSchedules.length > 0 ? (
-                          filteredSchedules.map((schedule) => (
-                            <tr key={schedule.id} className="hover:bg-gray-50 transition-colors duration-200">
-                              <td className="px-3 py-2 whitespace-nowrap cursor-default">
-                                <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]" title={schedule.class_name}>
-                                  {schedule.class_name}
+                      
+                      {/* Responsive Grid - 4 cards per row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {sortedSchedules.map((schedule, index) => {
+                          const scheduleColor = getScheduleColor(index);
+                          const dayShort = formatDayOfWeekShort(schedule.start_time);
+                          const timeRange = formatTimeRange(schedule.start_time, schedule.end_time);
+                          const semester = schedule.semester || '2025-2026_4th';
+                          
+                          return (
+                            <div 
+                              key={schedule.id} 
+                              className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-default flex flex-col h-full"
+                            >
+                              {/* Schedule Header with Color - Similar to Google Classroom */}
+                              <div className={`${scheduleColor.bg} h-40 relative overflow-hidden`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                                
+                                {/* Course Title Section - Top Left */}
+                                <div className="absolute top-4 left-4 right-4">
+                                  <h3 className={`${scheduleColor.text} font-bold text-xl leading-tight line-clamp-2`}>
+                                    {schedule.class_code || schedule.class_name}
+                                  </h3>
+                                  <p className={`${scheduleColor.icon} text-sm opacity-90 mt-1 line-clamp-2`}>
+                                    {schedule.class_name}
+                                  </p>
                                 </div>
-                                <div className="text-xs text-gray-500 truncate max-w-[150px]" title={schedule.class_code}>
-                                  {schedule.class_code}
+                                
+                                {/* Time Slot - Middle */}
+                                <div className="absolute top-20 left-4 right-4">
+                                  <div className="flex items-center space-x-2">
+                                    <div className={`w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center ${scheduleColor.icon}`}>
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <p className={`${scheduleColor.text} font-medium text-sm`}>
+                                        {dayShort} {timeRange}
+                                      </p>
+                                    </div>
+                                  </div>
                                 </div>
-                              </td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 cursor-default truncate max-w-[120px]" title={schedule.teacher_name}>
-                                {schedule.teacher_name}
-                              </td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 cursor-default">
-                                {schedule.room_number}
-                              </td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 cursor-default">
-                                {formatDateTime(schedule.start_time)}
-                              </td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 cursor-default">
-                                {formatDateTime(schedule.end_time)}
-                              </td>
-                              <td className="px-3 py-2 whitespace-nowrap cursor-default">
-                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(schedule.status)}`}>
+                                
+                                {/* Semester/Term - Bottom */}
+                                <div className="absolute bottom-4 left-4 right-4">
+                                  <p className={`${scheduleColor.icon} text-xs opacity-80 truncate`}>
+                                    {semester}
+                                  </p>
+                                </div>
+                                
+                                {/* Status Badge - Top Right */}
+                                <span className={`absolute top-4 right-4 inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(schedule.status)}`}>
                                   {schedule.status}
                                 </span>
-                              </td>
-                              {user?.role !== 'student' && (
-                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={() => handleEditSchedule(schedule)}
-                                      className="inline-flex items-center px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 rounded-lg border border-blue-200 hover:border-blue-300 transition-all duration-200 cursor-pointer text-xs font-medium"
-                                      title="Edit schedule"
-                                    >
-                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                      </svg>
-                                      Edit
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteSchedule(schedule)}
-                                      className="inline-flex items-center px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-lg border border-red-200 hover:border-red-300 transition-all duration-200 cursor-pointer text-xs font-medium"
-                                      title="Delete schedule"
-                                    >
-                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 011.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                      </svg>
-                                      Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              )}
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={user?.role !== 'student' ? 7 : 6} className="px-6 py-10 text-center cursor-default">
-                              <div className="flex flex-col items-center">
-                                <svg className="w-10 h-10 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <h3 className="text-base font-medium text-gray-900 mb-1">No schedules found</h3>
-                                <p className="text-gray-500 mb-3 text-sm">
-                                  {searchTerm ? 'No schedules match your search criteria.' : 
-                                   user?.role === 'student' ? 'No schedules assigned to you yet. Please check back later.' : 
-                                   'Get started by creating your first schedule.'}
-                                </p>
-                                {!searchTerm && user?.role !== 'student' && (
-                                  <button
-                                    onClick={() => setIsModalOpen(true)}
-                                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm cursor-pointer"
-                                    title="Create new schedule"
-                                  >
-                                    <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                    Create Schedule
-                                  </button>
-                                )}
                               </div>
-                            </td>
-                          </tr>
+                              
+                              {/* Schedule Content - Flexible Height */}
+                              <div className="flex-1 p-4 flex flex-col">
+                                <div className="space-y-3 flex-1">
+                                  {/* Teacher Info */}
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs text-gray-500 font-medium">Teacher</p>
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {schedule.teacher_name}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Room Info */}
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                      </svg>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs text-gray-500 font-medium">Room</p>
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {schedule.room_number}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Action Buttons */}
+                                  {user?.role !== 'student' && (
+                                    <div className="pt-3 border-t border-gray-100 mt-auto">
+                                      <div className="flex items-center space-x-2">
+                                        <button
+                                          onClick={() => handleEditSchedule(schedule)}
+                                          className="flex-1 inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 rounded-lg transition-all duration-300 text-xs border border-blue-200 font-medium cursor-pointer"
+                                          title="Edit schedule"
+                                        >
+                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                          </svg>
+                                          <span>Edit</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteSchedule(schedule)}
+                                          className="flex-1 inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-lg transition-all duration-300 text-xs border border-red-200 font-medium cursor-pointer"
+                                          title="Delete schedule"
+                                        >
+                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                          </svg>
+                                          <span>Delete</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        
+                        {/* Add New Schedule Card (Admin/Teacher only) */}
+                        {user?.role !== 'student' && (
+                          <div 
+                            className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 group cursor-pointer flex flex-col items-center justify-center p-6 min-h-[380px]"
+                            onClick={() => setIsModalOpen(true)}
+                          >
+                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2 text-center">Add New Schedule</h3>
+                            <p className="text-sm text-gray-600 text-center mb-4">
+                              Create a new class schedule
+                            </p>
+                            <div className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              Click to create
+                            </div>
+                          </div>
                         )}
-                      </tbody>
-                    </table>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

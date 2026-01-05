@@ -1818,11 +1818,7 @@ const TeacherDashboard: React.FC = () => {
                                     Active
                                   </span>
                                 </div>
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-gray-600">
-                                    {formatDate(assignment.created_at)}
-                                  </span>                   
-                                </div>
+                                
                               </div>
                             ))
                           )}

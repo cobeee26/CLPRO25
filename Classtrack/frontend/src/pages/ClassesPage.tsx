@@ -61,6 +61,22 @@ const ClassesPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [editFormError, setEditFormError] = useState<string | null>(null);
 
+  // Color palette for classroom cards (Google Classroom inspired)
+  const classColors = [
+    { bg: 'bg-gradient-to-br from-blue-500 to-blue-600', text: 'text-white', icon: 'text-blue-100' },
+    { bg: 'bg-gradient-to-br from-green-500 to-green-600', text: 'text-white', icon: 'text-green-100' },
+    { bg: 'bg-gradient-to-br from-purple-500 to-purple-600', text: 'text-white', icon: 'text-purple-100' },
+    { bg: 'bg-gradient-to-br from-pink-500 to-pink-600', text: 'text-white', icon: 'text-pink-100' },
+    { bg: 'bg-gradient-to-br from-orange-500 to-orange-600', text: 'text-white', icon: 'text-orange-100' },
+    { bg: 'bg-gradient-to-br from-teal-500 to-teal-600', text: 'text-white', icon: 'text-teal-100' },
+    { bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', text: 'text-white', icon: 'text-indigo-100' },
+    { bg: 'bg-gradient-to-br from-red-500 to-red-600', text: 'text-white', icon: 'text-red-100' },
+  ];
+
+  const getClassColor = (index: number) => {
+    return classColors[index % classColors.length];
+  };
+
   const swalConfig = {
     customClass: {
       title: 'text-lg font-bold text-gray-900',
@@ -931,11 +947,24 @@ const ClassesPage: React.FC = () => {
               <div className="px-4 lg:px-8 py-4 bg-gray-50 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
                   <h3 className="text-base lg:text-lg font-semibold text-gray-900">Classes Overview</h3>
-                  <div className="flex items-center space-x-2 text-xs lg:text-sm text-gray-600">
+                  <div className="flex items-center gap-2 text-xs lg:text-sm text-gray-600">
                     <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
                     <span className="font-medium text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-200">
                       {filteredClasses.length} classes
                     </span>
+                    {currentUser?.role === 'admin' && (
+                      <button
+                        onClick={refreshClassList}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all duration-300 text-xs border border-gray-300 font-medium cursor-pointer"
+                        title="Refresh class list"
+                        aria-label="Refresh class list"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -977,199 +1006,143 @@ const ClassesPage: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <div className="block lg:hidden">
-                    <div className="space-y-3 p-4">
-                      {filteredClasses.map((classItem) => (
-                        <div key={classItem.id} className="bg-white rounded-xl p-4 border-2 border-gray-200 hover:bg-gray-50 transition-all duration-300">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-4 lg:p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+                    {filteredClasses.map((classItem, index) => {
+                      const color = getClassColor(index);
+                      return (
+                        <div 
+                          key={classItem.id} 
+                          className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-default"
+                        >
+                          {/* Class Header with Color */}
+                          <div className={`${color.bg} h-24 relative overflow-hidden`}>
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                            <div className="absolute top-4 left-4">
+                              <div className={`w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center ${color.icon}`}>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                 </svg>
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <h4 className="text-sm font-bold text-gray-900 truncate">{classItem.name}</h4>
-                              </div>
                             </div>
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 via-green-100 to-teal-100 text-emerald-700 border border-emerald-200">
-                              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5"></div>
-                              Active
-                            </span>
-                          </div>
-                          
-                          <div className="space-y-2 mb-4">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-600 font-medium">Class Code:</span>
-                              <span className="text-gray-900 font-bold">{classItem.code}</span>
+                            <div className="absolute bottom-4 left-4 right-4">
+                              <h3 className={`${color.text} font-bold text-lg truncate`}>{classItem.name}</h3>
+                              <p className={`${color.icon} text-sm opacity-90 truncate`}>{classItem.code}</p>
                             </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-600 font-medium">Teacher:</span>
-                              <span className="text-gray-900 font-medium truncate ml-2">
-                                {classItem.teacher_name || classItem.assignedTeacher || 'Unassigned'}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                            <div className="flex items-center space-x-2">
-                              {currentUser?.role === 'admin' && (
-                                <>
+                            {currentUser?.role === 'admin' && (
+                              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <div className="flex items-center gap-1">
                                   <button
                                     onClick={() => openEditModal(classItem)}
-                                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-100 to-indigo-100 hover:from-blue-200 hover:to-indigo-200 text-blue-700 hover:text-blue-800 rounded-lg transition-all duration-300 text-xs border border-blue-200 font-medium cursor-pointer"
+                                    className="w-8 h-8 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
                                     title={`Edit ${classItem.name}`}
                                     aria-label={`Edit class ${classItem.name}`}
                                   >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                     </svg>
-                                    <span>Edit</span>
                                   </button>
                                   <button
                                     onClick={() => handleDeleteClass(classItem)}
-                                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-br from-red-100 to-pink-100 hover:from-red-200 hover:to-pink-200 text-red-700 hover:text-red-800 rounded-lg transition-all duration-300 text-xs border border-red-200 font-medium cursor-pointer"
+                                    className="w-8 h-8 bg-white/20 backdrop-blur-sm hover:bg-red-500/30 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
                                     title={`Delete ${classItem.name}`}
                                     aria-label={`Delete class ${classItem.name}`}
                                   >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                     </svg>
-                                    <span>Delete</span>
                                   </button>
-                                </>
-                              )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Class Details */}
+                          <div className="p-4">
+                            <div className="space-y-3">
+                              {/* Teacher Info */}
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs text-gray-500 font-medium">Teacher</p>
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {classItem.teacher_name || classItem.assignedTeacher || 'Unassigned'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div className="flex items-center justify-between">
+                                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                  <span className="text-xs font-medium">{classItem.status}</span>
+                                </div>          
+                              </div>
+                              
+                              {/* Action Buttons */}
+                              <div className="pt-3 border-t border-gray-100">
+                                <div className="flex items-center justify-between">
+                                  <button
+                                    onClick={() => openEditModal(classItem)}
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-all duration-300 text-xs border border-blue-200 font-medium cursor-pointer"
+                                    title={`View ${classItem.name}`}
+                                    aria-label={`View class ${classItem.name}`}
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    View Details
+                                  </button>
+                                  
+                                  {currentUser?.role === 'admin' && (
+                                    <button
+                                      onClick={() => handleDeleteClass(classItem)}
+                                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-all duration-300 text-xs border border-red-200 font-medium cursor-pointer"
+                                      title={`Delete ${classItem.name}`}
+                                      aria-label={`Delete class ${classItem.name}`}
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
+                    
+                    {/* Add New Class Card (Admin only) */}
+                    {currentUser?.role === 'admin' && (
+                      <div 
+                        className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-300 group cursor-pointer"
+                        onClick={openCreateModal}
+                      >
+                        <div className="h-full min-h-[240px] flex flex-col items-center justify-center p-6">
+                          <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Create Class</h3>
+                          <p className="text-sm text-gray-600 text-center">
+                            Add a new class to the system
+                          </p>
+                          <div className="mt-4 px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            Click to create
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-
-                  <table className="hidden lg:table min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-gray-50 to-blue-50">
-                      <tr>
-                        <th className="px-6 lg:px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center space-x-2">
-                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
-                            <span>Class Name</span>
-                          </div>
-                        </th>
-                        <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center justify-center space-x-2">
-                            <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                            </svg>
-                            <span>Class Code</span>
-                          </div>
-                        </th>
-                        <th className="px-6 lg:px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center space-x-2">
-                            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            <span>Teacher</span>
-                          </div>
-                        </th>
-                        <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center justify-center space-x-2">
-                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
-                            </svg>
-                            <span>Status</span>
-                          </div>
-                        </th>
-                        {currentUser?.role === 'admin' && (
-                          <th className="px-6 lg:px-8 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                            <div className="flex items-center justify-center space-x-2">
-                              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                              </svg>
-                              <span>Actions</span>
-                            </div>
-                          </th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredClasses.map((classItem) => (
-                        <tr key={classItem.id} className="hover:bg-gray-50 transition-all duration-300 group border-b border-gray-100">
-                          <td className="px-6 lg:px-8 py-5 whitespace-nowrap">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
-                                <svg className="w-5 h-5 lg:w-6 lg:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-200">{classItem.name}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 lg:px-8 py-5 whitespace-nowrap text-center">
-                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-blue-100 via-purple-100 to-indigo-100 text-blue-700 border border-blue-200 shadow-sm hover:shadow-blue-500/20 transition-all duration-200">
-                              <svg className="w-3 h-3 mr-1.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                              </svg>
-                              {classItem.code}
-                            </span>
-                          </td>
-                          <td className="px-6 lg:px-8 py-5 whitespace-nowrap">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300">
-                                <svg className="w-4 h-4 lg:w-5 lg:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                              </div>
-                              <span className="text-sm font-medium text-gray-700 truncate group-hover:text-emerald-700 transition-colors duration-200">
-                                {classItem.teacher_name || classItem.assignedTeacher || 'Unassigned'}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 lg:px-8 py-5 whitespace-nowrap text-center">
-                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 via-green-100 to-teal-100 text-emerald-700 border border-emerald-200 shadow-sm hover:shadow-emerald-500/20 transition-all duration-200">
-                              <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse shadow-sm"></div>
-                              <svg className="w-3 h-3 mr-1.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
-                              </svg>
-                              {classItem.status}
-                            </span>
-                          </td>
-                          {currentUser?.role === 'admin' && (
-                            <td className="px-6 lg:px-8 py-5 whitespace-nowrap text-center">
-                              <div className="flex items-center justify-center space-x-2">
-                                <button
-                                  onClick={() => openEditModal(classItem)}
-                                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-100 to-indigo-100 hover:from-blue-200 hover:to-indigo-200 text-blue-700 hover:text-blue-800 rounded-lg transition-all duration-300 text-xs border border-blue-200 font-medium cursor-pointer"
-                                  title={`Edit ${classItem.name}`}
-                                  aria-label={`Edit class ${classItem.name}`}
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteClass(classItem)}
-                                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-br from-red-100 to-pink-100 hover:from-red-200 hover:to-pink-200 text-red-700 hover:text-red-800 rounded-lg transition-all duration-300 text-xs border border-red-200 font-medium cursor-pointer"
-                                  title={`Delete ${classItem.name}`}
-                                  aria-label={`Delete class ${classItem.name}`}
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
               )}
             </div>
