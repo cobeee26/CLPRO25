@@ -1262,27 +1262,7 @@ const SchedulePage: React.FC = () => {
                   </svg>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-orange-700">Today's Schedules</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">
-                    {schedules.filter(s => {
-                      const scheduleDate = new Date(s.start_time);
-                      const today = new Date();
-                      return scheduleDate.toDateString() === today.toDateString();
-                    }).length}
-                  </p>
-                </div>
-                <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
+            </div>        
           </div>
         </div>
 
