@@ -2593,196 +2593,6 @@ const StudentAssignmentPage: React.FC = () => {
                         </div>
                       ) : null}
                     </div>
-                    
-                    <div>
-                      <label htmlFor="assignment-link" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                        Submit Link (Optional)
-                      </label>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="text"
-                            id="assignment-link"
-                            ref={linkRef}
-                            value={linkUrl}
-                            onChange={(e) => setLinkUrl(e.target.value)}
-                            placeholder="https://drive.google.com/... or https://docs.google.com/... or any valid URL"
-                            className="flex-1 px-4 py-3 bg-purple-50 border-2 border-purple-300 rounded-xl text-gray-900 placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                            disabled={shouldStopTrackingRef.current}
-                          />
-                          {linkUrl && (
-                            <button
-                              onClick={handleRemoveLink}
-                              className="p-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl border border-red-200 hover:border-red-300 transition-all duration-200 cursor-pointer"
-                              title="Remove link"
-                              disabled={shouldStopTrackingRef.current}
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                        
-                        {linkUrl && (
-                          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
-                            <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
-                              </svg>
-                              <span className="text-green-700 text-sm font-medium truncate">{linkUrl}</span>
-                            </div>
-                            <a
-                              href={linkUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 text-sm"
-                              title="Open link in new tab"
-                              aria-label="Open link in new tab"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
-                              Open
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="assignment-file" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        Upload File (Optional)
-                      </label>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <label className={`flex-1 cursor-pointer ${shouldStopTrackingRef.current ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                            <input
-                              type="file"
-                              id="assignment-file"
-                              ref={fileRef}
-                              onChange={handleFileChange}
-                              className="hidden"
-                              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
-                              disabled={shouldStopTrackingRef.current}
-                            />
-                            <div className={`w-full px-4 py-4 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all duration-200 flex items-center justify-center gap-2 ${
-                              shouldStopTrackingRef.current
-                                ? 'bg-gray-100 border-2 border-gray-300'
-                                : 'bg-yellow-50 border-2 border-yellow-300 hover:bg-yellow-100 hover:border-yellow-400'
-                            }`}>
-                              <svg className={`w-5 h-5 ${
-                                shouldStopTrackingRef.current ? 'text-gray-500' : 'text-yellow-600'
-                              }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                              </svg>
-                              <span className={`font-medium ${
-                                shouldStopTrackingRef.current ? 'text-gray-600' : 'text-yellow-700'
-                              }`}>
-                                {shouldStopTrackingRef.current ? 'File Upload Disabled' : 'Browse Files'}
-                              </span>
-                            </div>
-                          </label>
-                        </div>
-                        
-                        {selectedFileName && (
-                          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
-                            <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
-                              </svg>
-                              <span className="text-green-700 text-sm font-medium truncate">{selectedFileName}</span>
-                            </div>
-                            <button
-                              onClick={handleRemoveFile}
-                              className="text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-                              title="Remove selected file"
-                              disabled={shouldStopTrackingRef.current}
-                              aria-label="Remove selected file"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        )}
-                        
-                        <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-                          Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (Max: 10MB)
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-6 border-t border-gray-200">
-                      <button
-                        onClick={() => navigate('/student/assignments')}
-                        className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer"
-                        title="Go back to assignments list"
-                        aria-label="Go back to assignments list"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                        Back to Assignments
-                      </button>
-                      
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                        {submission && (
-                          <button
-                            onClick={handleUnsubmit}
-                            className="px-6 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-medium transition-all duration-200 border border-red-200 hover:border-red-300 shadow-sm cursor-pointer"
-                            disabled={isSubmitting}
-                            title="Unsubmit this assignment"
-                            aria-label="Unsubmit this assignment"
-                          >
-                            Unsubmit
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={handleSubmitAssignment}
-                          disabled={isSubmitting || shouldStopTrackingRef.current}
-                          className={`px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer ${
-                            shouldStopTrackingRef.current
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
-                          }`}
-                          title={shouldStopTrackingRef.current 
-                            ? "Already submitted" 
-                            : submission 
-                            ? "Update your submission" 
-                            : "Submit your assignment"
-                          }
-                          aria-label={shouldStopTrackingRef.current 
-                            ? "Already submitted" 
-                            : submission 
-                            ? "Update your submission" 
-                            : "Submit your assignment"
-                          }
-                        >
-                          {isSubmitting && (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          )}
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span>
-                            {shouldStopTrackingRef.current 
-                              ? 'Already Submitted' 
-                              : isSubmitting 
-                                ? (submission ? 'Updating...' : 'Submitting...') 
-                                : (submission ? 'Update Submission' : 'Submit Assignment')
-                            }
-                          </span>
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -2951,6 +2761,131 @@ const StudentAssignmentPage: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    Submit Link (Optional)
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="text"
+                        id="assignment-link"
+                        ref={linkRef}
+                        value={linkUrl}
+                        onChange={(e) => setLinkUrl(e.target.value)}
+                        placeholder="https://drive.google.com/... or https://docs.google.com/... or any valid URL"
+                        className="flex-1 px-4 py-3 bg-purple-50 border-2 border-purple-300 rounded-xl text-gray-900 placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                        disabled={shouldStopTrackingRef.current}
+                      />
+                      {linkUrl && (
+                        <button
+                          onClick={handleRemoveLink}
+                          className="p-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl border border-red-200 hover:border-red-300 transition-all duration-200 cursor-pointer"
+                          title="Remove link"
+                          disabled={shouldStopTrackingRef.current}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    
+                    {linkUrl && (
+                      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-green-700 text-sm font-medium truncate">{linkUrl}</span>
+                        </div>
+                        <a
+                          href={linkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 text-sm"
+                          title="Open link in new tab"
+                          aria-label="Open link in new tab"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Open
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Upload File (Optional)
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <label className={`flex-1 cursor-pointer ${shouldStopTrackingRef.current ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <input
+                          type="file"
+                          id="assignment-file"
+                          ref={fileRef}
+                          onChange={handleFileChange}
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+                          disabled={shouldStopTrackingRef.current}
+                        />
+                        <div className={`w-full px-4 py-4 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all duration-200 flex items-center justify-center gap-2 ${
+                          shouldStopTrackingRef.current
+                            ? 'bg-gray-100 border-2 border-gray-300'
+                            : 'bg-yellow-50 border-2 border-yellow-300 hover:bg-yellow-100 hover:border-yellow-400'
+                        }`}>
+                          <svg className={`w-5 h-5 ${
+                            shouldStopTrackingRef.current ? 'text-gray-500' : 'text-yellow-600'
+                          }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <span className={`font-medium ${
+                            shouldStopTrackingRef.current ? 'text-gray-600' : 'text-yellow-700'
+                          }`}>
+                            {shouldStopTrackingRef.current ? 'File Upload Disabled' : 'Browse Files'}
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                    
+                    {selectedFileName && (
+                      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-green-700 text-sm font-medium truncate">{selectedFileName}</span>
+                        </div>
+                        <button
+                          onClick={handleRemoveFile}
+                          className="text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                          title="Remove selected file"
+                          disabled={shouldStopTrackingRef.current}
+                          aria-label="Remove selected file"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    
+                    <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                      Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (Max: 10MB)
+                    </p>
+                  </div>
+                </div>
+
                 {submission && (
                   <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -3037,6 +2972,71 @@ const StudentAssignmentPage: React.FC = () => {
                         <span className="text-sm text-gray-600"><strong>Note:</strong> Time tracking stops after submission</span>
                       </div>
                     )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-6 border-t border-gray-200">
+                  <button
+                    onClick={() => navigate('/student/assignments')}
+                    className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm"
+                    title="Go back to assignments list"
+                    aria-label="Go back to assignments list"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Assignments
+                  </button>
+                  
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                    {submission && (
+                      <button
+                        onClick={handleUnsubmit}
+                        className="px-5 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-medium transition-all duration-200 border border-red-200 hover:border-red-300 shadow-sm cursor-pointer text-sm"
+                        disabled={isSubmitting}
+                        title="Unsubmit this assignment"
+                        aria-label="Unsubmit this assignment"
+                      >
+                        Unsubmit
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={handleSubmitAssignment}
+                      disabled={isSubmitting || shouldStopTrackingRef.current}
+                      className={`px-6 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm ${
+                        shouldStopTrackingRef.current
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
+                      }`}
+                      title={shouldStopTrackingRef.current 
+                        ? "Already submitted" 
+                        : submission 
+                        ? "Update your submission" 
+                        : "Submit your assignment"
+                      }
+                      aria-label={shouldStopTrackingRef.current 
+                        ? "Already submitted" 
+                        : submission 
+                        ? "Update your submission" 
+                        : "Submit your assignment"
+                      }
+                    >
+                      {isSubmitting && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      )}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>
+                        {shouldStopTrackingRef.current 
+                          ? 'Already Submitted' 
+                          : isSubmitting 
+                            ? (submission ? 'Updating...' : 'Submitting...') 
+                            : (submission ? 'Update Submission' : 'Submit Assignment')
+                        }
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
