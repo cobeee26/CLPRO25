@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useUser } from "../contexts/UserContext";
@@ -105,15 +105,22 @@ const ProfilePage: React.FC = () => {
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
+  // QR Code related states
+  const [qrCodeData, setQrCodeData] = useState<string>("");
+  const [showQrCodeModal, setShowQrCodeModal] = useState(false);
+  const [qrCodeDownloading, setQrCodeDownloading] = useState(false);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
-    type: 'profile' | 'password' | 'photo' | 'logout' = 'profile',
+    type: 'profile' | 'password' | 'photo' | 'logout' | 'qr' = 'profile',
     autoDismiss: boolean = true,
     dismissTime: number = 3000
   ) => {
-    const iconColor = type === 'logout' ? 'warning' : 'success';
-    const confirmButtonColor = type === 'logout' ? '#F59E0B' : '#10B981';
+    const iconColor = type === 'logout' ? 'warning' : type === 'qr' ? 'info' : 'success';
+    const confirmButtonColor = type === 'logout' ? '#F59E0B' : type === 'qr' ? '#3B82F6' : '#10B981';
     
     const alertConfig: any = {
       title,
@@ -127,11 +134,13 @@ const ProfilePage: React.FC = () => {
         title: `text-lg font-bold ${
           type === 'logout' ? 'text-yellow-900' : 
           type === 'password' ? 'text-blue-900' : 
+          type === 'qr' ? 'text-blue-900' :
           'text-green-900'
         }`,
         confirmButton: `px-4 py-2 rounded-lg font-medium ${
           type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
           type === 'password' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+          type === 'qr' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
           'bg-green-500 hover:bg-green-600 text-white'
         }`
       }
@@ -307,6 +316,238 @@ const ProfilePage: React.FC = () => {
     });
   };
 
+  // Generate unique QR code data based on user information
+  const generateQrCodeData = (userData: any) => {
+    const qrData = {
+      id: userData.id,
+      username: userData.username,
+      firstName: userData.first_name || "",
+      lastName: userData.last_name || "",
+      role: userData.role,
+      timestamp: new Date().toISOString(),
+      institution: "PLMun",
+      department: getDepartmentByRole(userData.role),
+      studentId: generateStudentId(userData.id, userData.username),
+      purpose: "attendance"
+    };
+    return JSON.stringify(qrData);
+  };
+
+  // Generate student ID based on user ID and username
+  const generateStudentId = (id: number, username: string): string => {
+    const year = new Date().getFullYear().toString().slice(-2);
+    const paddedId = id.toString().padStart(6, '0');
+    const usernamePart = username.slice(0, 3).toUpperCase();
+    return `ClasstrackPro-${year}-${paddedId}-${usernamePart}`;
+  };
+
+  // Get department based on role (for display purposes)
+  const getDepartmentByRole = (role: string): string => {
+    switch(role) {
+      case 'student':
+        return 'Student Affairs';
+      case 'teacher':
+        return 'Faculty Department';
+      case 'admin':
+        return 'Administration';
+      default:
+        return 'General';
+    }
+  };
+
+  // Function to create realistic QR code pattern
+  const generateQrCodePattern = (size: number = 80): string => {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return '';
+    
+    // Background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, size, size);
+    
+    // QR code dots
+    ctx.fillStyle = '#000000';
+    
+    // Create grid pattern (simulating QR code)
+    const cellSize = size / 21;
+    
+    // Position detection patterns (corners)
+    const positions = [
+      {x: 0, y: 0},
+      {x: size - cellSize * 7, y: 0},
+      {x: 0, y: size - cellSize * 7}
+    ];
+    
+    positions.forEach(pos => {
+      // Outer black square
+      ctx.fillRect(pos.x, pos.y, cellSize * 7, cellSize * 7);
+      
+      // Inner white square
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(pos.x + cellSize, pos.y + cellSize, cellSize * 5, cellSize * 5);
+      
+      // Inner black dot
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(pos.x + cellSize * 2, pos.y + cellSize * 2, cellSize * 3, cellSize * 3);
+    });
+    
+    // Timing patterns
+    ctx.fillStyle = '#000000';
+    for (let i = 8; i < 13; i++) {
+      // Horizontal timing
+      ctx.fillRect(cellSize * i, cellSize * 6, cellSize, cellSize);
+      // Vertical timing
+      ctx.fillRect(cellSize * 6, cellSize * i, cellSize, cellSize);
+    }
+    
+    // Data dots pattern (randomized for realism)
+    ctx.fillStyle = '#000000';
+    for (let y = 0; y < 21; y++) {
+      for (let x = 0; x < 21; x++) {
+        // Skip position patterns
+        if ((x < 8 && y < 8) || 
+            (x > 13 && y < 8) || 
+            (x < 8 && y > 13)) {
+          continue;
+        }
+        
+        // Skip timing patterns
+        if ((x === 6 && y >= 8 && y <= 12) || (y === 6 && x >= 8 && x <= 12)) {
+          continue;
+        }
+        
+        // Random dots to simulate QR code data
+        if (Math.random() > 0.5) {
+          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+    
+    return canvas.toDataURL('image/png');
+  };
+
+  // Function to download QR code as PNG
+  const downloadQrCode = () => {
+    setQrCodeDownloading(true);
+    
+    setTimeout(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 300;
+      canvas.height = 350;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        setQrCodeDownloading(false);
+        showErrorAlert('Download Error', 'Failed to generate QR code image.', true, 3000);
+        return;
+      }
+      
+      // White background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, 300, 350);
+      
+      // Generate QR code pattern
+      const qrSize = 200;
+      const qrX = 50;
+      const qrY = 30;
+      
+      // Draw QR code background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(qrX, qrY, qrSize, qrSize);
+      
+      // Draw QR code pattern
+      const qrPattern = generateQrCodePattern(qrSize);
+      if (qrPattern) {
+        const qrImage = new Image();
+        qrImage.onload = () => {
+          ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+          
+          // Add PLMun text
+          ctx.fillStyle = '#000000';
+          ctx.font = 'bold 16px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('PLMUN STUDENT ID', 150, 260);
+          
+          // Add student name
+          ctx.font = '14px Arial';
+          ctx.fillText(`${user?.first_name} ${user?.last_name}`, 150, 280);
+          
+          // Add student ID
+          ctx.font = '12px Arial';
+          ctx.fillText(`ID: ${generateStudentId(user?.id || 0, user?.username || '')}`, 150, 300);
+          
+          // Add scan text
+          ctx.font = '11px Arial';
+          ctx.fillStyle = '#666666';
+          ctx.fillText('Scan for attendance', 150, 320);
+          
+          // Create download link
+          const downloadLink = document.createElement('a');
+          downloadLink.href = canvas.toDataURL('image/png');
+          downloadLink.download = `PLMUN-${user?.username}-StudentID.png`;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          
+          showSuccessAlert('QR Code Downloaded!', 'Your student QR code has been downloaded successfully.', 'qr', true, 3000);
+          setQrCodeDownloading(false);
+        };
+        qrImage.src = qrPattern;
+      } else {
+        setQrCodeDownloading(false);
+        showErrorAlert('Download Error', 'Failed to generate QR code image.', true, 3000);
+      }
+    }, 500);
+  };
+
+  // Function to show QR code modal
+  const handleShowQrCode = () => {
+    if (!user) {
+      showErrorAlert('Error', 'User data not available', true, 3000);
+      return;
+    }
+    
+    const qrData = generateQrCodeData(user);
+    setQrCodeData(qrData);
+    setShowQrCodeModal(true);
+  };
+
+  // Function to close QR code modal
+  const handleCloseQrCodeModal = () => {
+    setShowQrCodeModal(false);
+  };
+
+  // Custom QR Code component
+  const QRCodeDisplay = ({ size = 80 }: { size?: number }) => {
+    const [qrImage, setQrImage] = useState<string>('');
+    
+    useEffect(() => {
+      const pattern = generateQrCodePattern(size);
+      setQrImage(pattern);
+    }, [size]);
+    
+    return (
+      <div className={`w-${size/4} h-${size/4} bg-white rounded-lg p-1 flex items-center justify-center`}>
+        {qrImage ? (
+          <img 
+            src={qrImage} 
+            alt="QR Code" 
+            className="w-full h-full"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-100 rounded flex items-center justify-center">
+            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+            </svg>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const loadProfileData = async () => {
     try {
       console.log('🔄 Loading profile data...');
@@ -332,6 +573,10 @@ const ProfilePage: React.FC = () => {
           first_name: user.first_name || "",
           last_name: user.last_name || "",
         });
+        
+        // Generate QR code data when user data is loaded
+        const qrData = generateQrCodeData(user);
+        setQrCodeData(qrData);
       }
 
       updateLoadingProgress(3, 3);
@@ -812,6 +1057,11 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Function to share QR code (simulated)
+  const handleShareQrCode = () => {
+    showInfoAlert('Share QR Code', 'You can share this QR code by downloading it and sending it to others.', true, 3000);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1123,7 +1373,7 @@ const ProfilePage: React.FC = () => {
                           e.currentTarget.style.display = "none";
                         }}
                       />
-                    ) : null}
+                    ) : null }    
 
                     <div
                       className={`w-full h-full flex items-center justify-center text-5xl ${
@@ -1207,6 +1457,29 @@ const ProfilePage: React.FC = () => {
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                       Active
                     </span>
+                    
+                    {/* Show QR Code button for students */}
+                    {user.role === 'student' && (
+                      <button
+                        onClick={handleShowQrCode}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-2xl border border-blue-300 backdrop-blur-sm transition-all duration-200 shadow-sm hover:shadow flex items-center gap-2 cursor-pointer"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                          />
+                        </svg>
+                        View QR Code
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1970,6 +2243,76 @@ const ProfilePage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* QR Code Section - Only for students */}
+                {user.role === 'student' && (
+                  <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-3xl p-8 shadow-2xl">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg
+                          className="w-5 h-5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                          />
+                        </svg>
+                      </div>
+                      Student QR Code
+                    </h3>
+
+                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-2xl p-6 border border-indigo-200 backdrop-blur-sm mb-6">
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-24 h-24 bg-white rounded-xl p-2 shadow-lg mb-4 flex items-center justify-center">
+                          <QRCodeDisplay size={80} />
+                        </div>
+                        <p className="text-indigo-900 font-semibold text-lg mb-2">
+                          {user.first_name} {user.last_name}
+                        </p>
+                        <p className="text-gray-600 text-sm mb-4">
+                          Student ID: {generateStudentId(user.id, user.username)}
+                        </p>
+                        <p className="text-gray-700 text-sm">
+                          Scan this QR code for attendance
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <button
+                        onClick={downloadQrCode}
+                        disabled={qrCodeDownloading}
+                        className="w-full flex items-center justify-center p-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl border border-indigo-300 transition-all duration-200 cursor-pointer group shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {qrCodeDownloading ? (
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        ) : (
+                          <>
+                            <svg
+                              className="w-5 h-5 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                              />
+                            </svg>
+                            Download QR Code
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-3xl p-8 shadow-2xl">
                   <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -2173,6 +2516,122 @@ const ProfilePage: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* QR Code Modal */}
+      {showQrCodeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                    <svg
+                      className="w-5 h-5 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                      />
+                    </svg>
+                  </div>
+                  Student QR Code
+                </h3>
+                <button
+                  onClick={handleCloseQrCodeModal}
+                  className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-2xl p-8 border border-indigo-200 mb-6">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-48 h-48 bg-white rounded-2xl p-4 shadow-lg mb-6 flex items-center justify-center">
+                    <QRCodeDisplay size={180} />
+                  </div>
+                  <p className="text-indigo-900 font-bold text-2xl mb-2">
+                    {user.first_name} {user.last_name}
+                  </p>
+                  <p className="text-gray-700 font-medium mb-2">
+                    Student ID: {generateStudentId(user.id, user.username)}
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Generated: {new Date().toLocaleDateString()}
+                  </div>
+                  <p className="text-gray-700 text-sm mb-4">
+                    Scan this QR code for attendance
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCloseQrCodeModal}
+                  className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={downloadQrCode}
+                  disabled={qrCodeDownloading}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow border border-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {qrCodeDownloading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        />
+                      </svg>
+                      Download
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
