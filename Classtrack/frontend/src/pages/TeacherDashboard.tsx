@@ -5,7 +5,7 @@ import { useUser } from "../contexts/UserContext";
 import DynamicHeader from "../components/DynamicHeader";
 import Sidebar from "../components/Sidebar";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -128,25 +128,25 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
 
   const handleAnnouncementSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!announcementForm.title.trim()) {
       Swal.fire({
-        title: 'Title Required',
-        text: 'Please enter a title for your announcement.',
-        icon: 'warning',
+        title: "Title Required",
+        text: "Please enter a title for your announcement.",
+        icon: "warning",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       return;
     }
-    
+
     if (!announcementForm.content.trim()) {
       Swal.fire({
-        title: 'Content Required',
-        text: 'Please enter content for your announcement.',
-        icon: 'warning',
+        title: "Content Required",
+        text: "Please enter content for your announcement.",
+        icon: "warning",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       return;
     }
@@ -161,9 +161,9 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
       });
 
       Swal.fire({
-        title: 'Success!',
-        text: 'Announcement has been created successfully.',
-        icon: 'success',
+        title: "Success!",
+        text: "Announcement has been created successfully.",
+        icon: "success",
         timer: 2000,
         showConfirmButton: false,
         timerProgressBar: true,
@@ -180,14 +180,13 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
           onAnnouncementCreated();
 
           onClose();
-        }
+        },
       });
-
     } catch (error: any) {
       console.error("Error creating announcement:", error);
-      
+
       let errorMessage = "Failed to create announcement. Please try again.";
-      
+
       if (error.response?.status === 422) {
         errorMessage = "Validation error. Please check your input.";
       } else if (error.response?.data?.detail) {
@@ -195,11 +194,11 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
       }
 
       Swal.fire({
-        title: 'Error!',
+        title: "Error!",
         text: errorMessage,
-        icon: 'error',
+        icon: "error",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     } finally {
       setIsSubmitting(false);
@@ -209,12 +208,12 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   const closeModal = () => {
     if (announcementForm.title.trim() || announcementForm.content.trim()) {
       Swal.fire({
-        title: 'Discard Changes?',
-        text: 'You have unsaved changes. Are you sure you want to close?',
-        icon: 'question',
+        title: "Discard Changes?",
+        text: "You have unsaved changes. Are you sure you want to close?",
+        icon: "question",
         showCancelButton: true,
-        confirmButtonText: 'Yes, discard',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: "Yes, discard",
+        cancelButtonText: "Cancel",
         reverseButtons: true,
       }).then((result) => {
         if (result.isConfirmed) {
@@ -369,21 +368,51 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !announcementForm.title.trim() || !announcementForm.content.trim()}
+                disabled={
+                  isSubmitting ||
+                  !announcementForm.title.trim() ||
+                  !announcementForm.content.trim()
+                }
                 className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     Creating...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                      />
                     </svg>
                     Create Announcement
                   </>
@@ -403,7 +432,9 @@ const TeacherDashboard: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [classes, setClasses] = useState<Class[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [engagementInsights, setEngagementInsights] = useState<EngagementInsight[]>([]);
+  const [engagementInsights, setEngagementInsights] = useState<
+    EngagementInsight[]
+  >([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
@@ -414,12 +445,18 @@ const TeacherDashboard: React.FC = () => {
     insights: true,
     announcements: true,
   });
-  
+
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  const [showClassesScrollIndicator, setShowClassesScrollIndicator] = useState(true);
-  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] = useState(true);
-  const [showAnnouncementsScrollIndicator, setShowAnnouncementsScrollIndicator] = useState(true);
-  const [showInsightsScrollIndicator, setShowInsightsScrollIndicator] = useState(true);
+  const [showClassesScrollIndicator, setShowClassesScrollIndicator] =
+    useState(true);
+  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] =
+    useState(true);
+  const [
+    showAnnouncementsScrollIndicator,
+    setShowAnnouncementsScrollIndicator,
+  ] = useState(true);
+  const [showInsightsScrollIndicator, setShowInsightsScrollIndicator] =
+    useState(true);
   const classesScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
@@ -432,13 +469,16 @@ const TeacherDashboard: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scannedData, setScannedData] = useState<string>("");
-  const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
+  const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>(
+    []
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const handleClassesScroll = () => {
     if (classesScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = classesScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } =
+        classesScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowClassesScrollIndicator(false);
       } else {
@@ -449,7 +489,8 @@ const TeacherDashboard: React.FC = () => {
 
   const handleAssignmentsScroll = () => {
     if (assignmentsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = assignmentsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } =
+        assignmentsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowAssignmentsScrollIndicator(false);
       } else {
@@ -460,7 +501,8 @@ const TeacherDashboard: React.FC = () => {
 
   const handleAnnouncementsScroll = () => {
     if (announcementsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = announcementsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } =
+        announcementsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowAnnouncementsScrollIndicator(false);
       } else {
@@ -471,7 +513,8 @@ const TeacherDashboard: React.FC = () => {
 
   const handleInsightsScroll = () => {
     if (insightsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = insightsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } =
+        insightsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowInsightsScrollIndicator(false);
       } else {
@@ -590,35 +633,35 @@ const TeacherDashboard: React.FC = () => {
 
   const handleLogout = async () => {
     const result = await Swal.fire({
-      title: 'Confirm Logout',
-      text: 'Are you sure you want to logout? You will need to log in again to access your dashboard.',
-      icon: 'question',
+      title: "Confirm Logout",
+      text: "Are you sure you want to logout? You will need to log in again to access your dashboard.",
+      icon: "question",
       showCancelButton: true,
-      confirmButtonText: 'Yes, logout',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: "Yes, logout",
+      cancelButtonText: "Cancel",
       reverseButtons: true,
     });
-    
+
     if (result.isConfirmed) {
       try {
         localStorage.clear();
         Swal.fire({
-          title: 'Logged Out',
-          text: 'You have been successfully logged out.',
-          icon: 'success',
+          title: "Logged Out",
+          text: "You have been successfully logged out.",
+          icon: "success",
           timer: 1500,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
         setTimeout(() => {
           window.location.href = "/login";
         }, 1500);
       } catch (error) {
         Swal.fire({
-          title: 'Logout Error',
-          text: 'There was an issue logging out. Please try again.',
-          icon: 'error',
+          title: "Logout Error",
+          text: "There was an issue logging out. Please try again.",
+          icon: "error",
           timer: 3000,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
       }
     }
@@ -673,7 +716,6 @@ const TeacherDashboard: React.FC = () => {
         setIsInitialLoading(false);
         console.log("✅ Teacher data loaded successfully");
       }, 500);
-
     } catch (error) {
       console.error("❌ Error loading teacher data:", error);
       setHasInitialLoadError(true);
@@ -681,13 +723,13 @@ const TeacherDashboard: React.FC = () => {
       setTimeout(() => {
         setIsInitialLoading(false);
       }, 500);
-      
+
       Swal.fire({
-        title: 'Load Error',
-        text: 'Failed to load dashboard data. Please refresh the page.',
-        icon: 'error',
+        title: "Load Error",
+        text: "Failed to load dashboard data. Please refresh the page.",
+        icon: "error",
         timer: 4000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     }
   };
@@ -697,36 +739,47 @@ const TeacherDashboard: React.FC = () => {
       setLoadingStates((prev) => ({ ...prev, classes: true }));
 
       console.log("📚 Loading teacher classes from API...");
-      
+
       try {
         const response = await apiClient.get("/teachers/me/classes");
         console.log("✅ Teacher classes API response:", response.data);
-        
+
         if (response.data && Array.isArray(response.data)) {
           setClasses(response.data);
-          console.log("✅ Teacher classes loaded successfully via API:", response.data);
+          console.log(
+            "✅ Teacher classes loaded successfully via API:",
+            response.data
+          );
         } else {
           const { getTeacherClasses } = await import("../services/authService");
           const teacherData = await getTeacherClasses();
-          
+
           if (teacherData && teacherData.classes) {
             setClasses(teacherData.classes);
-            console.log("✅ Teacher classes loaded via authService:", teacherData.classes);
+            console.log(
+              "✅ Teacher classes loaded via authService:",
+              teacherData.classes
+            );
           } else {
             setClasses([]);
             console.log("⚠️ No classes found or invalid response format");
           }
         }
       } catch (apiError: any) {
-        console.warn("⚠️ /teachers/me/classes API failed, trying alternative...");
-        
+        console.warn(
+          "⚠️ /teachers/me/classes API failed, trying alternative..."
+        );
+
         try {
           const { getTeacherClasses } = await import("../services/authService");
           const teacherData = await getTeacherClasses();
-          
+
           if (teacherData && teacherData.classes) {
             setClasses(teacherData.classes);
-            console.log("✅ Teacher classes loaded via authService fallback:", teacherData.classes);
+            console.log(
+              "✅ Teacher classes loaded via authService fallback:",
+              teacherData.classes
+            );
           } else {
             setClasses([]);
             console.log("⚠️ No classes found via fallback");
@@ -741,11 +794,11 @@ const TeacherDashboard: React.FC = () => {
       console.error("Error loading teacher classes:", error);
       setClasses([]);
       Swal.fire({
-        title: 'Load Error',
-        text: 'Failed to load classes. Please try again.',
-        icon: 'error',
+        title: "Load Error",
+        text: "Failed to load classes. Please try again.",
+        icon: "error",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       throw error;
     } finally {
@@ -757,14 +810,16 @@ const TeacherDashboard: React.FC = () => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
 
-      console.log("📝 Loading teacher assignments from /teachers/me/assignments...");
-      
+      console.log(
+        "📝 Loading teacher assignments from /teachers/me/assignments..."
+      );
+
       try {
         const response = await apiClient.get("/teachers/me/assignments");
         console.log("✅ Teacher assignments API response:", response.data);
-        
+
         let assignmentsData: Assignment[] = [];
-        
+
         if (Array.isArray(response.data)) {
           assignmentsData = response.data.map((assignment: any) => ({
             id: assignment.id,
@@ -777,22 +832,30 @@ const TeacherDashboard: React.FC = () => {
             class_code: assignment.class_code || `CLASS-${assignment.class_id}`,
             due_date: assignment.due_date,
             points: assignment.points,
-            assignment_type: assignment.assignment_type
+            assignment_type: assignment.assignment_type,
           }));
-        } else if (response.data && response.data.assignments && Array.isArray(response.data.assignments)) {
-          assignmentsData = response.data.assignments.map((assignment: any) => ({
-            id: assignment.id,
-            name: assignment.name || `Assignment ${assignment.id}`,
-            description: assignment.description,
-            class_id: assignment.class_id,
-            creator_id: assignment.creator_id,
-            created_at: assignment.created_at || new Date().toISOString(),
-            class_name: assignment.class_name || `Class ${assignment.class_id}`,
-            class_code: assignment.class_code || `CLASS-${assignment.class_id}`,
-            due_date: assignment.due_date,
-            points: assignment.points,
-            assignment_type: assignment.assignment_type
-          }));
+        } else if (
+          response.data &&
+          response.data.assignments &&
+          Array.isArray(response.data.assignments)
+        ) {
+          assignmentsData = response.data.assignments.map(
+            (assignment: any) => ({
+              id: assignment.id,
+              name: assignment.name || `Assignment ${assignment.id}`,
+              description: assignment.description,
+              class_id: assignment.class_id,
+              creator_id: assignment.creator_id,
+              created_at: assignment.created_at || new Date().toISOString(),
+              class_name:
+                assignment.class_name || `Class ${assignment.class_id}`,
+              class_code:
+                assignment.class_code || `CLASS-${assignment.class_id}`,
+              due_date: assignment.due_date,
+              points: assignment.points,
+              assignment_type: assignment.assignment_type,
+            })
+          );
         } else if (response.data && Array.isArray(response.data.data)) {
           assignmentsData = response.data.data.map((assignment: any) => ({
             id: assignment.id,
@@ -805,24 +868,32 @@ const TeacherDashboard: React.FC = () => {
             class_code: assignment.class_code || `CLASS-${assignment.class_id}`,
             due_date: assignment.due_date,
             points: assignment.points,
-            assignment_type: assignment.assignment_type
+            assignment_type: assignment.assignment_type,
           }));
         }
-        
+
         console.log("✅ Processed assignments data:", assignmentsData);
         setAssignments(assignmentsData);
-        console.log("✅ Teacher assignments loaded successfully:", assignmentsData);
-        
+        console.log(
+          "✅ Teacher assignments loaded successfully:",
+          assignmentsData
+        );
       } catch (apiError: any) {
-        console.warn("⚠️ /teachers/me/assignments API failed:", apiError.message);
+        console.warn(
+          "⚠️ /teachers/me/assignments API failed:",
+          apiError.message
+        );
         console.log("🔄 Trying alternative endpoint...");
-      
+
         try {
           const response = await apiClient.get("/assignments/teacher");
-          console.log("✅ Alternative assignments API response:", response.data);
-          
+          console.log(
+            "✅ Alternative assignments API response:",
+            response.data
+          );
+
           let assignmentsData: Assignment[] = [];
-          
+
           if (Array.isArray(response.data)) {
             assignmentsData = response.data.map((assignment: any) => ({
               id: assignment.id,
@@ -831,22 +902,28 @@ const TeacherDashboard: React.FC = () => {
               class_id: assignment.class_id,
               creator_id: assignment.creator_id,
               created_at: assignment.created_at || new Date().toISOString(),
-              class_name: assignment.class_name || `Class ${assignment.class_id}`,
-              class_code: assignment.class_code || `CLASS-${assignment.class_id}`,
+              class_name:
+                assignment.class_name || `Class ${assignment.class_id}`,
+              class_code:
+                assignment.class_code || `CLASS-${assignment.class_id}`,
               due_date: assignment.due_date,
               points: assignment.points,
-              assignment_type: assignment.assignment_type
+              assignment_type: assignment.assignment_type,
             }));
           }
-          
+
           if (assignmentsData.length === 0) {
             try {
-              const { getTeacherAssignments } = await import("../services/authService");
+              const { getTeacherAssignments } = await import(
+                "../services/authService"
+              );
               const assignmentsData2 = await getTeacherAssignments();
-              
+
               setAssignments(assignmentsData2);
-              console.log("✅ Teacher assignments loaded via authService:", assignmentsData2);
-              
+              console.log(
+                "✅ Teacher assignments loaded via authService:",
+                assignmentsData2
+              );
             } catch (thirdError) {
               console.error("❌ All assignment endpoints failed:", thirdError);
               setAssignments([]);
@@ -854,28 +931,34 @@ const TeacherDashboard: React.FC = () => {
             }
           } else {
             setAssignments(assignmentsData);
-            console.log("✅ Teacher assignments loaded via alternative:", assignmentsData);
+            console.log(
+              "✅ Teacher assignments loaded via alternative:",
+              assignmentsData
+            );
           }
-          
         } catch (secondError: any) {
           console.error("❌ Alternative endpoint failed:", secondError.message);
-          
+
           try {
-            const { getTeacherAssignments } = await import("../services/authService");
+            const { getTeacherAssignments } = await import(
+              "../services/authService"
+            );
             const assignmentsData = await getTeacherAssignments();
-            
+
             setAssignments(assignmentsData);
-            console.log("✅ Teacher assignments loaded via authService fallback:", assignmentsData);
-            
+            console.log(
+              "✅ Teacher assignments loaded via authService fallback:",
+              assignmentsData
+            );
           } catch (thirdError) {
             console.error("❌ All assignment endpoints failed:", thirdError);
             setAssignments([]);
             Swal.fire({
-              title: 'Load Error',
-              text: 'Failed to load assignments. Please try again.',
-              icon: 'error',
+              title: "Load Error",
+              text: "Failed to load assignments. Please try again.",
+              icon: "error",
               timer: 3000,
-              showConfirmButton: false
+              showConfirmButton: false,
             });
             throw thirdError;
           }
@@ -885,11 +968,11 @@ const TeacherDashboard: React.FC = () => {
       console.error("Error loading teacher assignments:", error);
       setAssignments([]);
       Swal.fire({
-        title: 'Load Error',
-        text: 'Failed to load assignments. Please try again.',
-        icon: 'error',
+        title: "Load Error",
+        text: "Failed to load assignments. Please try again.",
+        icon: "error",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       throw error;
     } finally {
@@ -902,7 +985,7 @@ const TeacherDashboard: React.FC = () => {
       setLoadingStates((prev) => ({ ...prev, insights: true }));
 
       console.log("📊 Loading engagement insights with real data...");
-      
+
       if (assignments.length === 0) {
         console.log("⚠️ No assignments available for insights");
         setEngagementInsights([]);
@@ -911,34 +994,48 @@ const TeacherDashboard: React.FC = () => {
 
       const insightsPromises = assignments.map(async (assignment) => {
         try {
-          const submissionsResponse = await apiClient.get(`/assignments/${assignment.id}/submissions`);
+          const submissionsResponse = await apiClient.get(
+            `/assignments/${assignment.id}/submissions`
+          );
           const submissions = submissionsResponse.data || [];
-          
+
           let averageTimeSpent = 0;
           let totalSubmissions = submissions.length;
-          
+
           if (totalSubmissions > 0) {
-            const validSubmissions = submissions.filter((sub: any) => sub.time_spent_minutes && sub.time_spent_minutes > 0);
-            const totalTime = validSubmissions.reduce((sum: number, sub: any) => 
-              sum + (sub.time_spent_minutes || 0), 0);
-            averageTimeSpent = validSubmissions.length > 0 ? Math.round(totalTime / validSubmissions.length) : 0;
+            const validSubmissions = submissions.filter(
+              (sub: any) => sub.time_spent_minutes && sub.time_spent_minutes > 0
+            );
+            const totalTime = validSubmissions.reduce(
+              (sum: number, sub: any) => sum + (sub.time_spent_minutes || 0),
+              0
+            );
+            averageTimeSpent =
+              validSubmissions.length > 0
+                ? Math.round(totalTime / validSubmissions.length)
+                : 0;
           }
 
           let averageGrade = 0;
-          const gradedSubmissions = submissions.filter((sub: any) => sub.grade !== null && sub.grade !== undefined);
+          const gradedSubmissions = submissions.filter(
+            (sub: any) => sub.grade !== null && sub.grade !== undefined
+          );
           if (gradedSubmissions.length > 0) {
-            const totalGrade = gradedSubmissions.reduce((sum: number, sub: any) => sum + (sub.grade || 0), 0);
+            const totalGrade = gradedSubmissions.reduce(
+              (sum: number, sub: any) => sum + (sub.grade || 0),
+              0
+            );
             averageGrade = totalGrade / gradedSubmissions.length;
           }
 
-          let engagementScore = 7.5; 
-          
+          let engagementScore = 7.5;
+
           if (averageTimeSpent >= 30 && averageTimeSpent <= 90) {
             engagementScore += 1.5;
           } else if (averageTimeSpent > 90) {
-            engagementScore += 2.0; 
+            engagementScore += 2.0;
           } else if (averageTimeSpent > 0 && averageTimeSpent < 10) {
-            engagementScore -= 1.0; 
+            engagementScore -= 1.0;
           }
 
           const submissionRate = (totalSubmissions / 30) * 100;
@@ -960,19 +1057,26 @@ const TeacherDashboard: React.FC = () => {
             assignment_name: assignment.name,
             total_submissions: totalSubmissions,
             average_time_spent: averageTimeSpent,
-            engagement_score: parseFloat(Math.min(Math.max(engagementScore, 6.0), 10.0).toFixed(1)), // Clamp between 6.0-10.0
+            engagement_score: parseFloat(
+              Math.min(Math.max(engagementScore, 6.0), 10.0).toFixed(1)
+            ), // Clamp between 6.0-10.0
             last_updated: new Date().toISOString(),
           };
         } catch (error) {
-          console.error(`Error loading insights for assignment ${assignment.id}:`, error);
-          
+          console.error(
+            `Error loading insights for assignment ${assignment.id}:`,
+            error
+          );
+
           return {
             id: assignment.id,
             class_name: assignment.class_name || `Class ${assignment.class_id}`,
             assignment_name: assignment.name,
             total_submissions: Math.floor(Math.random() * 30) + 1,
             average_time_spent: Math.floor(Math.random() * 120) + 10,
-            engagement_score: parseFloat((Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)),
+            engagement_score: parseFloat(
+              (Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)
+            ),
             last_updated: new Date().toISOString(),
           };
         }
@@ -983,7 +1087,7 @@ const TeacherDashboard: React.FC = () => {
       console.log("✅ Engagement insights loaded with real data:", insights);
     } catch (error) {
       console.error("Error loading engagement insights:", error);
-      
+
       const mockInsights: EngagementInsight[] = assignments.map(
         (assignment) => ({
           id: assignment.id,
@@ -991,7 +1095,9 @@ const TeacherDashboard: React.FC = () => {
           assignment_name: assignment.name,
           total_submissions: Math.floor(Math.random() * 30) + 1,
           average_time_spent: Math.floor(Math.random() * 120) + 10,
-          engagement_score: parseFloat((Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)),
+          engagement_score: parseFloat(
+            (Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)
+          ),
           last_updated: new Date().toISOString(),
         })
       );
@@ -1006,32 +1112,37 @@ const TeacherDashboard: React.FC = () => {
   const loadAnnouncements = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, announcements: true }));
-      
+
       console.log("📢 Loading announcements for teacher...");
 
       try {
         const response = await axios.get(`${API_BASE_URL}/announcements/live`);
-        
+
         if (response.data && Array.isArray(response.data)) {
           setAnnouncements(response.data);
           console.log("✅ Announcements loaded from API:", response.data);
         } else {
-          console.warn("⚠️ Announcements API returned invalid data, using mock data");
+          console.warn(
+            "⚠️ Announcements API returned invalid data, using mock data"
+          );
           setAnnouncements(getFallbackAnnouncements());
         }
       } catch (error: any) {
-        console.warn("⚠️ Announcements API failed, using mock data:", error.message);
+        console.warn(
+          "⚠️ Announcements API failed, using mock data:",
+          error.message
+        );
         setAnnouncements(getFallbackAnnouncements());
       }
     } catch (error) {
       console.error("Error loading announcements:", error);
       setAnnouncements(getFallbackAnnouncements());
       Swal.fire({
-        title: 'Load Error',
-        text: 'Failed to load announcements. Please try again.',
-        icon: 'error',
+        title: "Load Error",
+        text: "Failed to load announcements. Please try again.",
+        icon: "error",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       throw error;
     } finally {
@@ -1048,7 +1159,7 @@ const TeacherDashboard: React.FC = () => {
         date_posted: new Date("2025-11-05T07:44:00").toISOString(),
         is_urgent: true,
         author_name: "System Admin",
-        author_role: "admin"
+        author_role: "admin",
       },
       {
         id: 2,
@@ -1057,7 +1168,7 @@ const TeacherDashboard: React.FC = () => {
         date_posted: new Date("2025-11-03T15:18:00").toISOString(),
         is_urgent: false,
         author_name: "Teacher",
-        author_role: "teacher"
+        author_role: "teacher",
       },
       {
         id: 3,
@@ -1066,7 +1177,7 @@ const TeacherDashboard: React.FC = () => {
         date_posted: new Date("2025-11-02T10:30:00").toISOString(),
         is_urgent: false,
         author_name: "System Admin",
-        author_role: "admin"
+        author_role: "admin",
       },
     ];
   };
@@ -1078,14 +1189,16 @@ const TeacherDashboard: React.FC = () => {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      const localDate = new Date(
+        date.getTime() - date.getTimezoneOffset() * 60000
+      );
       return localDate.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-        hour12: true
+        hour12: true,
       });
     } catch (error) {
       return "Recent";
@@ -1093,10 +1206,8 @@ const TeacherDashboard: React.FC = () => {
   };
 
   const getEngagementBadge = (score: number) => {
-    if (score >= 8.5)
-      return "bg-green-100 text-green-800 border-green-200";
-    if (score >= 7.0)
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    if (score >= 8.5) return "bg-green-100 text-green-800 border-green-200";
+    if (score >= 7.0) return "bg-yellow-100 text-yellow-800 border-yellow-200";
     return "bg-red-100 text-red-800 border-red-200";
   };
 
@@ -1121,11 +1232,11 @@ const TeacherDashboard: React.FC = () => {
   const handleOpenQrReader = () => {
     if (classes.length === 0) {
       Swal.fire({
-        title: 'No Classes Available',
-        text: 'You need to have at least one class to use QR code attendance.',
-        icon: 'warning',
+        title: "No Classes Available",
+        text: "You need to have at least one class to use QR code attendance.",
+        icon: "warning",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       return;
     }
@@ -1148,21 +1259,21 @@ const TeacherDashboard: React.FC = () => {
   const startCamera = async () => {
     try {
       setIsScanning(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
       });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (error) {
-      console.error('Error accessing camera:', error);
+      console.error("Error accessing camera:", error);
       Swal.fire({
-        title: 'Camera Access Denied',
-        text: 'Please allow camera access to use QR code scanner.',
-        icon: 'error',
+        title: "Camera Access Denied",
+        text: "Please allow camera access to use QR code scanner.",
+        icon: "error",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       setIsScanning(false);
     }
@@ -1170,7 +1281,7 @@ const TeacherDashboard: React.FC = () => {
 
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
     if (videoRef.current) {
@@ -1185,19 +1296,20 @@ const TeacherDashboard: React.FC = () => {
         firstName: "Boss Allen",
         lastName: "Orcino",
         studentId: "ClasstrackPro-26-000005-ALL",
-        username: "bossallen"
+        username: "bossallen",
       },
       {
-        firstName: "Allen Jefferson", 
+        firstName: "Allen Jefferson",
         lastName: "Orcino",
         studentId: "ClasstrackPro-26-000002-STU",
-        username: "allenjefferson"
-      }
+        username: "allenjefferson",
+      },
     ];
 
     // Kunin kung ilang beses na nag-scan
-    const scanCount = recentAttendance.filter(record => 
-      record.attendance_date === new Date().toISOString().split('T')[0]
+    const scanCount = recentAttendance.filter(
+      (record) =>
+        record.attendance_date === new Date().toISOString().split("T")[0]
     ).length;
 
     // Piliin ang student base sa scan count
@@ -1210,12 +1322,12 @@ const TeacherDashboard: React.FC = () => {
       username: currentStudent.username,
       firstName: currentStudent.firstName,
       lastName: currentStudent.lastName,
-      role: 'student',
+      role: "student",
       timestamp: new Date().toISOString(),
       institution: "PLMun",
       department: "Student",
       studentId: currentStudent.studentId,
-      purpose: "attendance"
+      purpose: "attendance",
     };
 
     setScannedData(JSON.stringify(mockStudentData));
@@ -1225,11 +1337,11 @@ const TeacherDashboard: React.FC = () => {
   const handleAttendanceSubmit = async (studentData: any) => {
     if (!selectedClass) {
       Swal.fire({
-        title: 'No Class Selected',
-        text: 'Please select a class first.',
-        icon: 'warning',
+        title: "No Class Selected",
+        text: "Please select a class first.",
+        icon: "warning",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       return;
     }
@@ -1239,70 +1351,75 @@ const TeacherDashboard: React.FC = () => {
       const attendanceData = {
         student_id: studentData.id,
         class_id: selectedClass.id,
-        attendance_date: new Date().toISOString().split('T')[0],
-        status: 'present',
-        scanned_at: new Date().toISOString()
+        attendance_date: new Date().toISOString().split("T")[0],
+        status: "present",
+        scanned_at: new Date().toISOString(),
       };
 
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Add to recent attendance
       const newAttendance: AttendanceRecord = {
         id: Math.floor(Math.random() * 1000) + 1,
         student_id: studentData.id,
         class_id: selectedClass.id,
-        attendance_date: new Date().toISOString().split('T')[0],
-        status: 'present',
+        attendance_date: new Date().toISOString().split("T")[0],
+        status: "present",
         scanned_at: new Date().toISOString(),
         student_name: `${studentData.firstName} ${studentData.lastName}`,
-        student_username: studentData.username
+        student_username: studentData.username,
       };
 
-      setRecentAttendance(prev => [newAttendance, ...prev.slice(0, 4)]);
+      setRecentAttendance((prev) => [newAttendance, ...prev.slice(0, 4)]);
 
       Swal.fire({
-        title: 'Attendance Recorded!',
+        title: "Attendance Recorded!",
         html: `
           <div class="text-center">
             <div class="text-4xl mb-2">✅</div>
-            <p class="font-bold text-lg">${studentData.firstName} ${studentData.lastName}</p>
+            <p class="font-bold text-lg">${studentData.firstName} ${
+          studentData.lastName
+        }</p>
             <p class="text-gray-600">${studentData.studentId}</p>
             <p class="text-gray-600 mt-2">Marked present for:</p>
             <p class="font-bold">${selectedClass.name}</p>
             <p class="text-sm text-gray-500 mt-2">${new Date().toLocaleTimeString()}</p>
           </div>
         `,
-        icon: 'success',
+        icon: "success",
         timer: 3000,
         showConfirmButton: false,
-        timerProgressBar: true
+        timerProgressBar: true,
       });
 
       // Reset for next scan
       setTimeout(() => {
         setScannedData("");
       }, 3000);
-
     } catch (error) {
-      console.error('Error recording attendance:', error);
+      console.error("Error recording attendance:", error);
       Swal.fire({
-        title: 'Error',
-        text: 'Failed to record attendance. Please try again.',
-        icon: 'error',
+        title: "Error",
+        text: "Failed to record attendance. Please try again.",
+        icon: "error",
         timer: 3000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     }
   };
 
   const formatAttendanceTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   useEffect(() => {
-    if (classes.length > 0 && assignments.length === 0 && !loadingStates.assignments) {
+    if (
+      classes.length > 0 &&
+      assignments.length === 0 &&
+      !loadingStates.assignments
+    ) {
       loadAssignments();
     }
   }, [classes]);
@@ -1310,7 +1427,9 @@ const TeacherDashboard: React.FC = () => {
   useEffect(() => {
     if (assignments.length > 0) {
       if (previousAssignmentsCountRef.current !== assignments.length) {
-        console.log("🔄 Assignments changed, refreshing engagement insights...");
+        console.log(
+          "🔄 Assignments changed, refreshing engagement insights..."
+        );
         loadEngagementInsights();
         previousAssignmentsCountRef.current = assignments.length;
       } else if (!loadingStates.insights && engagementInsights.length === 0) {
@@ -1341,7 +1460,7 @@ const TeacherDashboard: React.FC = () => {
     autoRefreshIntervalRef.current = setInterval(() => {
       console.log("🔄 Auto-refreshing engagement insights...");
       loadEngagementInsights();
-    }, 15000); 
+    }, 15000);
 
     return () => {
       if (autoRefreshIntervalRef.current) {
@@ -1356,7 +1475,7 @@ const TeacherDashboard: React.FC = () => {
     const refreshInterval = setInterval(() => {
       console.log("🔄 Teacher: Refreshing announcements...");
       loadAnnouncements();
-    }, 30000); 
+    }, 30000);
 
     return () => {
       clearInterval(refreshInterval);
@@ -1415,7 +1534,7 @@ const TeacherDashboard: React.FC = () => {
             <span>{loadingProgress}%</span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-red-500 to-orange-600 transition-all duration-300 ease-out"
               style={{ width: `${loadingProgress}%` }}
             ></div>
@@ -1425,9 +1544,21 @@ const TeacherDashboard: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
           {[
             { text: "Classes", color: "bg-red-100 text-red-600", progress: 25 },
-            { text: "Assignments", color: "bg-green-100 text-green-600", progress: 50 },
-            { text: "Announcements", color: "bg-orange-100 text-orange-600", progress: 75 },
-            { text: "Insights", color: "bg-purple-100 text-purple-600", progress: 100 },
+            {
+              text: "Assignments",
+              color: "bg-green-100 text-green-600",
+              progress: 50,
+            },
+            {
+              text: "Announcements",
+              color: "bg-orange-100 text-orange-600",
+              progress: 75,
+            },
+            {
+              text: "Insights",
+              color: "bg-purple-100 text-purple-600",
+              progress: 100,
+            },
           ].map((step, index) => (
             <div
               key={index}
@@ -1443,10 +1574,22 @@ const TeacherDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3">
-          <div className="w-3 h-3 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-          <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
+          <div
+            className="w-3 h-3 bg-red-500 rounded-full animate-bounce"
+            style={{ animationDelay: "0ms" }}
+          ></div>
+          <div
+            className="w-3 h-3 bg-green-500 rounded-full animate-bounce"
+            style={{ animationDelay: "150ms" }}
+          ></div>
+          <div
+            className="w-3 h-3 bg-orange-500 rounded-full animate-bounce"
+            style={{ animationDelay: "300ms" }}
+          ></div>
+          <div
+            className="w-3 h-3 bg-purple-500 rounded-full animate-bounce"
+            style={{ animationDelay: "450ms" }}
+          ></div>
         </div>
 
         <div className="mt-6 text-center">
@@ -1477,15 +1620,15 @@ const TeacherDashboard: React.FC = () => {
               />
             </svg>
           </div>
-          
+
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
             Unable to Load Dashboard
           </h2>
-          
+
           <p className="text-gray-600 mb-6">
             We encountered an issue while loading your dashboard data.
           </p>
-          
+
           <div className="space-y-3">
             <button
               onClick={loadTeacherData}
@@ -1506,7 +1649,7 @@ const TeacherDashboard: React.FC = () => {
               </svg>
               Retry Loading Dashboard
             </button>
-            
+
             <button
               onClick={() => navigate("/login")}
               className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
@@ -1544,7 +1687,9 @@ const TeacherDashboard: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Teacher Portal</h1>
+              <h1 className="text-lg font-bold text-gray-900">
+                Teacher Portal
+              </h1>
               <p className="text-xs text-gray-600">ClassTrack Dashboard</p>
             </div>
           </div>
@@ -1698,7 +1843,8 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </h2>
                     <p className="text-gray-700 leading-relaxed text-sm md:text-base">
-                      Manage your classes, create assignments, and gain insights into student engagement.
+                      Manage your classes, create assignments, and gain insights
+                      into student engagement.
                     </p>
                   </div>
                 </div>
@@ -1818,7 +1964,7 @@ const TeacherDashboard: React.FC = () => {
                       </div>
 
                       <div className="relative">
-                        <div 
+                        <div
                           className="space-y-3 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
                           ref={classesScrollRef}
                           onScroll={handleClassesScroll}
@@ -1877,7 +2023,9 @@ const TeacherDashboard: React.FC = () => {
                                 key={classItem.id}
                                 className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                                 style={{ cursor: "pointer" }}
-                                onClick={() => navigate(`/teacher/classes/${classItem.id}`)}
+                                onClick={() =>
+                                  navigate(`/teacher/classes/${classItem.id}`)
+                                }
                               >
                                 <div className="flex items-center justify-between mb-3">
                                   <h4 className="font-semibold text-gray-900 text-sm">
@@ -1929,7 +2077,7 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
                     </div>
-            
+
                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
@@ -1962,7 +2110,7 @@ const TeacherDashboard: React.FC = () => {
                       </div>
 
                       <div className="relative">
-                        <div 
+                        <div
                           className="space-y-3 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
                           ref={assignmentsScrollRef}
                           onScroll={handleAssignmentsScroll}
@@ -2018,7 +2166,11 @@ const TeacherDashboard: React.FC = () => {
                                 key={assignment.id}
                                 className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                                 style={{ cursor: "pointer" }}
-                                onClick={() => navigate(`/teacher/assignments/${assignment.id}`)}
+                                onClick={() =>
+                                  navigate(
+                                    `/teacher/assignments/${assignment.id}`
+                                  )
+                                }
                               >
                                 <div className="flex items-center justify-between mb-3">
                                   <h4 className="font-semibold text-gray-900 text-sm">
@@ -2028,34 +2180,34 @@ const TeacherDashboard: React.FC = () => {
                                     Active
                                   </span>
                                 </div>
-                                
                               </div>
                             ))
                           )}
                         </div>
 
-                        {assignments.length > 4 && showAssignmentsScrollIndicator && (
-                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                              <svg
-                                className="w-3 h-3 text-green-500 animate-bounce"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                                />
-                              </svg>
-                              <span className="text-xs text-gray-600">
-                                Scroll for more ({assignments.length} total)
-                              </span>
+                        {assignments.length > 4 &&
+                          showAssignmentsScrollIndicator && (
+                            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                              <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                                <svg
+                                  className="w-3 h-3 text-green-500 animate-bounce"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                                  />
+                                </svg>
+                                <span className="text-xs text-gray-600">
+                                  Scroll for more ({assignments.length} total)
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     </div>
                   </div>
@@ -2101,8 +2253,18 @@ const TeacherDashboard: React.FC = () => {
                           style={{ cursor: "pointer" }}
                           title="Refresh insights now"
                         >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
                           </svg>
                           Refresh Now
                         </button>
@@ -2110,14 +2272,17 @@ const TeacherDashboard: React.FC = () => {
                     </div>
 
                     <div className="relative">
-                      <div 
+                      <div
                         className="grid grid-cols-1 md:grid-cols-2 gap-4 h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
                         ref={insightsScrollRef}
                         onScroll={handleInsightsScroll}
                       >
                         {loadingStates.insights ? (
                           [1, 2, 3, 4, 5, 6].map((i) => (
-                            <div key={i} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                            <div
+                              key={i}
+                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
+                            >
                               <div className="flex items-center justify-between mb-3">
                                 <div className="h-4 bg-gray-300 rounded w-2/3 animate-pulse"></div>
                                 <div className="w-16 h-6 bg-gray-300 rounded-full animate-pulse"></div>
@@ -2150,7 +2315,8 @@ const TeacherDashboard: React.FC = () => {
                               No Engagement Data Yet
                             </h4>
                             <p className="text-gray-600 mb-4">
-                              Create assignments to start tracking student engagement.
+                              Create assignments to start tracking student
+                              engagement.
                               <br />
                               <span className="text-sm text-blue-600">
                                 Data will auto-refresh every 15 seconds.
@@ -2163,13 +2329,15 @@ const TeacherDashboard: React.FC = () => {
                               key={insight.id}
                               className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                               style={{ cursor: "pointer" }}
-                              onClick={() => navigate(`/teacher/assignments/${insight.id}`)}
+                              onClick={() =>
+                                navigate(`/teacher/assignments/${insight.id}`)
+                              }
                             >
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex-1 min-w-0">
                                   <h4 className="font-semibold text-gray-900 text-sm mb-1 truncate">
                                     {insight.assignment_name}
-                                  </h4>                              
+                                  </h4>
                                 </div>
                                 <div
                                   className={`px-3 py-1 rounded-full border text-xs font-medium ml-2 flex-shrink-0 ${getEngagementBadge(
@@ -2200,7 +2368,9 @@ const TeacherDashboard: React.FC = () => {
                               </div>
 
                               <div className="text-xs text-gray-500 flex items-center justify-between">
-                                <span>Updated: {getTimeAgo(insight.last_updated)}</span>
+                                <span>
+                                  Updated: {getTimeAgo(insight.last_updated)}
+                                </span>
                                 <span className="text-green-500 text-xs flex items-center gap-1">
                                   <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
                                   Live
@@ -2211,30 +2381,32 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {engagementInsights.length > 4 && showInsightsScrollIndicator && (
-                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                          <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                            <svg
-                              className="w-3 h-3 text-purple-500 animate-bounce"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                              />
-                            </svg>
-                            <span className="text-xs text-gray-600">
-                              Scroll for more ({engagementInsights.length} total)
-                            </span>
+                      {engagementInsights.length > 4 &&
+                        showInsightsScrollIndicator && (
+                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                              <svg
+                                className="w-3 h-3 text-purple-500 animate-bounce"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                                />
+                              </svg>
+                              <span className="text-xs text-gray-600">
+                                Scroll for more ({engagementInsights.length}{" "}
+                                total)
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
-                    
+
                     {engagementInsights.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <div className="flex items-center justify-center gap-2">
@@ -2247,7 +2419,7 @@ const TeacherDashboard: React.FC = () => {
                     )}
                   </div>
                 </div>
-    
+
                 <div className="xl:col-span-1 space-y-6">
                   {/* QR Code Reader Section */}
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
@@ -2316,7 +2488,10 @@ const TeacherDashboard: React.FC = () => {
                           onClick={handleOpenQrReader}
                           disabled={classes.length === 0}
                           className="w-full flex items-center justify-center p-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl border border-indigo-300 transition-all duration-200 cursor-pointer group shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{ cursor: classes.length === 0 ? "not-allowed" : "pointer" }}
+                          style={{
+                            cursor:
+                              classes.length === 0 ? "not-allowed" : "pointer",
+                          }}
                         >
                           <svg
                             className="w-5 h-5 mr-2"
@@ -2380,7 +2555,9 @@ const TeacherDashboard: React.FC = () => {
                               value={selectedClass?.id || ""}
                               onChange={(e) => {
                                 const classId = parseInt(e.target.value);
-                                const selected = classes.find(c => c.id === classId);
+                                const selected = classes.find(
+                                  (c) => c.id === classId
+                                );
                                 if (selected) {
                                   handleClassSelect(selected);
                                 }
@@ -2394,8 +2571,18 @@ const TeacherDashboard: React.FC = () => {
                               ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              <svg
+                                className="w-4 h-4 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
                               </svg>
                             </div>
                           </div>
@@ -2525,7 +2712,7 @@ const TeacherDashboard: React.FC = () => {
                     </div>
 
                     <div className="relative">
-                      <div 
+                      <div
                         className="space-y-3 h-[220px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
                         ref={announcementsScrollRef}
                         onScroll={handleAnnouncementsScroll}
@@ -2612,28 +2799,29 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {announcements.length > 2 && showAnnouncementsScrollIndicator && (
-                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                          <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                            <svg
-                              className="w-3 h-3 text-orange-500 animate-bounce"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
+                      {announcements.length > 2 &&
+                        showAnnouncementsScrollIndicator && (
+                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                              <svg
+                                className="w-3 h-3 text-orange-500 animate-bounce"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
                               >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                              />
-                            </svg>
-                            <span className="text-xs text-gray-600">
-                              Scroll for more ({announcements.length} total)
-                            </span>
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                                />
+                              </svg>
+                              <span className="text-xs text-gray-600">
+                                Scroll for more ({announcements.length} total)
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
                   </div>
                 </div>
@@ -2718,35 +2906,6 @@ const TeacherDashboard: React.FC = () => {
                     </div>
                   </button>
                   <button
-                    onClick={handleOpenQrReader}
-                    className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
-                    style={{ cursor: "pointer" }}
-                  >
-                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
-                      <svg
-                        className="w-6 h-6 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-                        />
-                      </svg>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-gray-900 font-semibold text-sm">
-                        QR Code Attendance
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        Scan student QR codes
-                      </p>
-                    </div>
-                  </button>
-                  <button
                     onClick={handleViewReportsNav}
                     className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
                     style={{ cursor: "pointer" }}
@@ -2775,6 +2934,66 @@ const TeacherDashboard: React.FC = () => {
                       </p>
                     </div>
                   </button>
+                  {/* Manage Classes Button */}
+                  <button
+                    onClick={() => navigate("/teacher/classes")}
+                    className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                    style={{ cursor: "pointer" }}
+                  >
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-sm">
+                      <svg
+                        className="w-6 h-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-gray-900 font-semibold text-sm">
+                        Manage Classes
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        Organize student class 
+                      </p>
+                    </div>
+                  </button>
+                  {/* Schedule Button */}
+                  <button
+                    onClick={() => navigate("/teacher/schedule")}
+                    className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                    style={{ cursor: "pointer" }}
+                  >
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                      <svg
+                        className="w-6 h-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-gray-900 font-semibold text-sm">
+                        Schedule
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        room schedule and room monitoring for cleaning
+                      </p>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -2788,6 +3007,6 @@ const TeacherDashboard: React.FC = () => {
       />
     </div>
   );
-};  
+};
 
 export default TeacherDashboard;
