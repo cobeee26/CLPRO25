@@ -96,6 +96,17 @@ interface Announcement {
   author_role: string;
 }
 
+interface AttendanceRecord {
+  id: number;
+  student_id: number;
+  class_id: number;
+  attendance_date: string;
+  status: string;
+  scanned_at: string;
+  student_name?: string;
+  student_username?: string;
+}
+
 interface AnnouncementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -416,6 +427,15 @@ const TeacherDashboard: React.FC = () => {
   const previousAssignmentsCountRef = useRef<number>(0);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // QR Code Reader states
+  const [showQrReader, setShowQrReader] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scannedData, setScannedData] = useState<string>("");
+  const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const handleClassesScroll = () => {
     if (classesScrollRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = classesScrollRef.current;
@@ -561,7 +581,7 @@ const TeacherDashboard: React.FC = () => {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              d="M16 7a4 4 0 11-8 0 a4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
             />
           </svg>
         );
@@ -1097,6 +1117,190 @@ const TeacherDashboard: React.FC = () => {
     navigate("/teacher/reports");
   };
 
+  // QR Code Reader Functions
+  const handleOpenQrReader = () => {
+    if (classes.length === 0) {
+      Swal.fire({
+        title: 'No Classes Available',
+        text: 'You need to have at least one class to use QR code attendance.',
+        icon: 'warning',
+        timer: 3000,
+        showConfirmButton: false
+      });
+      return;
+    }
+    setShowQrReader(true);
+  };
+
+  const handleCloseQrReader = () => {
+    stopCamera();
+    setShowQrReader(false);
+    setSelectedClass(null);
+    setIsScanning(false);
+    setScannedData("");
+  };
+
+  const handleClassSelect = (classItem: Class) => {
+    setSelectedClass(classItem);
+    startCamera();
+  };
+
+  const startCamera = async () => {
+    try {
+      setIsScanning(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      Swal.fire({
+        title: 'Camera Access Denied',
+        text: 'Please allow camera access to use QR code scanner.',
+        icon: 'error',
+        timer: 3000,
+        showConfirmButton: false
+      });
+      setIsScanning(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const simulateQrScan = () => {
+    // List of students na magiging sequential ang scanning
+    const students = [
+      {
+        firstName: "Boss Allen",
+        lastName: "Orcino",
+        studentId: "ClasstrackPro-26-000005-ALL",
+        username: "bossallen"
+      },
+      {
+        firstName: "Allen Jefferson", 
+        lastName: "Orcino",
+        studentId: "ClasstrackPro-26-000002-STU",
+        username: "allenjefferson"
+      }
+    ];
+
+    // Kunin kung ilang beses na nag-scan
+    const scanCount = recentAttendance.filter(record => 
+      record.attendance_date === new Date().toISOString().split('T')[0]
+    ).length;
+
+    // Piliin ang student base sa scan count
+    const studentIndex = scanCount % students.length;
+    const currentStudent = students[studentIndex];
+
+    // Simulate student data
+    const mockStudentData = {
+      id: Math.floor(Math.random() * 1000) + 1,
+      username: currentStudent.username,
+      firstName: currentStudent.firstName,
+      lastName: currentStudent.lastName,
+      role: 'student',
+      timestamp: new Date().toISOString(),
+      institution: "PLMun",
+      department: "Student",
+      studentId: currentStudent.studentId,
+      purpose: "attendance"
+    };
+
+    setScannedData(JSON.stringify(mockStudentData));
+    handleAttendanceSubmit(mockStudentData);
+  };
+
+  const handleAttendanceSubmit = async (studentData: any) => {
+    if (!selectedClass) {
+      Swal.fire({
+        title: 'No Class Selected',
+        text: 'Please select a class first.',
+        icon: 'warning',
+        timer: 3000,
+        showConfirmButton: false
+      });
+      return;
+    }
+
+    try {
+      // Here you would send the attendance data to your backend
+      const attendanceData = {
+        student_id: studentData.id,
+        class_id: selectedClass.id,
+        attendance_date: new Date().toISOString().split('T')[0],
+        status: 'present',
+        scanned_at: new Date().toISOString()
+      };
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Add to recent attendance
+      const newAttendance: AttendanceRecord = {
+        id: Math.floor(Math.random() * 1000) + 1,
+        student_id: studentData.id,
+        class_id: selectedClass.id,
+        attendance_date: new Date().toISOString().split('T')[0],
+        status: 'present',
+        scanned_at: new Date().toISOString(),
+        student_name: `${studentData.firstName} ${studentData.lastName}`,
+        student_username: studentData.username
+      };
+
+      setRecentAttendance(prev => [newAttendance, ...prev.slice(0, 4)]);
+
+      Swal.fire({
+        title: 'Attendance Recorded!',
+        html: `
+          <div class="text-center">
+            <div class="text-4xl mb-2">✅</div>
+            <p class="font-bold text-lg">${studentData.firstName} ${studentData.lastName}</p>
+            <p class="text-gray-600">${studentData.studentId}</p>
+            <p class="text-gray-600 mt-2">Marked present for:</p>
+            <p class="font-bold">${selectedClass.name}</p>
+            <p class="text-sm text-gray-500 mt-2">${new Date().toLocaleTimeString()}</p>
+          </div>
+        `,
+        icon: 'success',
+        timer: 3000,
+        showConfirmButton: false,
+        timerProgressBar: true
+      });
+
+      // Reset for next scan
+      setTimeout(() => {
+        setScannedData("");
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error recording attendance:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to record attendance. Please try again.',
+        icon: 'error',
+        timer: 3000,
+        showConfirmButton: false
+      });
+    }
+  };
+
+  const formatAttendanceTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   useEffect(() => {
     if (classes.length > 0 && assignments.length === 0 && !loadingStates.assignments) {
       loadAssignments();
@@ -1158,6 +1362,12 @@ const TeacherDashboard: React.FC = () => {
       clearInterval(refreshInterval);
     };
   }, [isInitialLoading]);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   if (isInitialLoading) {
     return (
@@ -1464,7 +1674,7 @@ const TeacherDashboard: React.FC = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"
+                        d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 a12.078 12.078 0 01.665-6.479L12 14z"
                       />
                     </svg>
                   </div>
@@ -1565,7 +1775,7 @@ const TeacherDashboard: React.FC = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        d="M16 7a4 4 0 11-8 0 a4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                       />
                     </svg>
                     View Profile
@@ -2001,7 +2211,6 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
 
-  
                       {engagementInsights.length > 4 && showInsightsScrollIndicator && (
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
                           <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
@@ -2026,7 +2235,6 @@ const TeacherDashboard: React.FC = () => {
                       )}
                     </div>
                     
-                
                     {engagementInsights.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <div className="flex items-center justify-center gap-2">
@@ -2040,7 +2248,249 @@ const TeacherDashboard: React.FC = () => {
                   </div>
                 </div>
     
-                <div className="xl:col-span-1">
+                <div className="xl:col-span-1 space-y-6">
+                  {/* QR Code Reader Section */}
+                  <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                          <svg
+                            className="w-5 h-5 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">
+                            QR Code Attendance
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <span className="text-xs text-green-600 font-medium">
+                              Quick Scan • Real-time
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {!showQrReader ? (
+                      <div className="space-y-4">
+                        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                              <svg
+                                className="w-6 h-6 text-indigo-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                                />
+                              </svg>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-indigo-900">
+                                Scan Student QR Codes
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                Take attendance quickly using student QR codes
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={handleOpenQrReader}
+                          disabled={classes.length === 0}
+                          className="w-full flex items-center justify-center p-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl border border-indigo-300 transition-all duration-200 cursor-pointer group shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ cursor: classes.length === 0 ? "not-allowed" : "pointer" }}
+                        >
+                          <svg
+                            className="w-5 h-5 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                            />
+                          </svg>
+                          Open QR Code Scanner
+                        </button>
+
+                        {recentAttendance.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <h5 className="font-semibold text-gray-900 text-sm mb-3">
+                              Recent Attendance
+                            </h5>
+                            <div className="space-y-2">
+                              {recentAttendance.slice(0, 3).map((record) => (
+                                <div
+                                  key={record.id}
+                                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                >
+                                  <div>
+                                    <p className="font-medium text-gray-900 text-sm">
+                                      {record.student_name}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {record.student_username}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                                      Present
+                                    </span>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {formatAttendanceTime(record.scanned_at)}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Class Selection Dropdown */}
+                        <div className="space-y-3">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Select Class for Attendance
+                          </label>
+                          <div className="relative">
+                            <select
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer"
+                              value={selectedClass?.id || ""}
+                              onChange={(e) => {
+                                const classId = parseInt(e.target.value);
+                                const selected = classes.find(c => c.id === classId);
+                                if (selected) {
+                                  handleClassSelect(selected);
+                                }
+                              }}
+                            >
+                              <option value="">Choose a class...</option>
+                              {classes.map((classItem) => (
+                                <option key={classItem.id} value={classItem.id}>
+                                  {classItem.name} ({classItem.code})
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* QR Scanner Area */}
+                        {selectedClass && isScanning && (
+                          <div className="relative bg-gray-900 rounded-xl overflow-hidden">
+                            <div className="aspect-video relative">
+                              <video
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-64 h-64 border-2 border-indigo-400 rounded-lg relative">
+                                  <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-indigo-400"></div>
+                                  <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-indigo-400"></div>
+                                  <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-indigo-400"></div>
+                                  <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-indigo-400"></div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="p-4 bg-gray-800">
+                              <p className="text-white text-center text-sm">
+                                Point camera at student QR code
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Simulate Scan Button (for demo) */}
+                        {selectedClass && isScanning && (
+                          <button
+                            onClick={simulateQrScan}
+                            className="w-full flex items-center justify-center p-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl border border-green-300 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl"
+                          >
+                            <svg
+                              className="w-5 h-5 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                              />
+                            </svg>
+                            Start Scanner
+                          </button>
+                        )}
+
+                        {/* Scanned Data Display */}
+                        {scannedData && (
+                          <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className="text-green-700 font-medium">
+                                QR Code Scanned Successfully!
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              Student attendance has been recorded.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={handleCloseQrReader}
+                            className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+                          >
+                            Close Scanner
+                          </button>
+                          {selectedClass && (
+                            <button
+                              onClick={() => {
+                                setSelectedClass(null);
+                                setIsScanning(false);
+                                setScannedData("");
+                                stopCamera();
+                              }}
+                              className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 cursor-pointer"
+                            >
+                              Change Class
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
@@ -2268,11 +2718,11 @@ const TeacherDashboard: React.FC = () => {
                     </div>
                   </button>
                   <button
-                    onClick={() => navigate("/teacher/classes")}
+                    onClick={handleOpenQrReader}
                     className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
                     style={{ cursor: "pointer" }}
                   >
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
                       <svg
                         className="w-6 h-6 text-white"
                         fill="none"
@@ -2283,16 +2733,16 @@ const TeacherDashboard: React.FC = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                          d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
                         />
                       </svg>
                     </div>
                     <div className="text-left">
                       <p className="text-gray-900 font-semibold text-sm">
-                        Manage Classes 
+                        QR Code Attendance
                       </p>
                       <p className="text-xs text-gray-600">
-                        View Classes for student
+                        Scan student QR codes
                       </p>
                     </div>
                   </button>
