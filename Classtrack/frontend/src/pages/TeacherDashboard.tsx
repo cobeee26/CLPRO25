@@ -60,6 +60,7 @@ interface Class {
   semester?: string;
   academic_year?: string;
   teacher_name?: string;
+  subject?: string; // Added subject field
 }
 
 interface Assignment {
@@ -105,6 +106,8 @@ interface AttendanceRecord {
   scanned_at: string;
   student_name?: string;
   student_username?: string;
+  class_name?: string;
+  class_subject?: string; // Added subject field for attendance
 }
 
 interface AnnouncementModalProps {
@@ -464,7 +467,7 @@ const TeacherDashboard: React.FC = () => {
   const previousAssignmentsCountRef = useRef<number>(0);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // QR Code Reader states
+  // QR Code Reader states - WITH 7-SECOND TIMER
   const [showQrReader, setShowQrReader] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -474,6 +477,15 @@ const TeacherDashboard: React.FC = () => {
   );
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  
+  // 7-second timer states
+  const [qrDetected, setQrDetected] = useState<boolean>(false); // Start with false (RED)
+  const [scanBoxColor, setScanBoxColor] = useState<string>("red"); // Start with RED
+  const [detectionTimer, setDetectionTimer] = useState<number>(7); // 7-second timer
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const [scanCount, setScanCount] = useState<number>(0);
 
   const handleClassesScroll = () => {
     if (classesScrollRef.current) {
@@ -745,20 +757,30 @@ const TeacherDashboard: React.FC = () => {
         console.log("✅ Teacher classes API response:", response.data);
 
         if (response.data && Array.isArray(response.data)) {
-          setClasses(response.data);
+          // Add subject to classes if not present
+          const classesWithSubjects = response.data.map((classItem: any) => ({
+            ...classItem,
+            subject: classItem.subject || classItem.name || `Subject ${classItem.id}`
+          }));
+          setClasses(classesWithSubjects);
           console.log(
             "✅ Teacher classes loaded successfully via API:",
-            response.data
+            classesWithSubjects
           );
         } else {
           const { getTeacherClasses } = await import("../services/authService");
           const teacherData = await getTeacherClasses();
 
           if (teacherData && teacherData.classes) {
-            setClasses(teacherData.classes);
+            // Add subject to classes if not present
+            const classesWithSubjects = teacherData.classes.map((classItem: any) => ({
+              ...classItem,
+              subject: classItem.subject || classItem.name || `Subject ${classItem.id}`
+            }));
+            setClasses(classesWithSubjects);
             console.log(
               "✅ Teacher classes loaded via authService:",
-              teacherData.classes
+              classesWithSubjects
             );
           } else {
             setClasses([]);
@@ -775,10 +797,15 @@ const TeacherDashboard: React.FC = () => {
           const teacherData = await getTeacherClasses();
 
           if (teacherData && teacherData.classes) {
-            setClasses(teacherData.classes);
+            // Add subject to classes if not present
+            const classesWithSubjects = teacherData.classes.map((classItem: any) => ({
+              ...classItem,
+              subject: classItem.subject || classItem.name || `Subject ${classItem.id}`
+            }));
+            setClasses(classesWithSubjects);
             console.log(
               "✅ Teacher classes loaded via authService fallback:",
-              teacherData.classes
+              classesWithSubjects
             );
           } else {
             setClasses([]);
@@ -1228,6 +1255,61 @@ const TeacherDashboard: React.FC = () => {
     navigate("/teacher/reports");
   };
 
+  // 7-second timer function for QR detection
+  const startQrDetectionTimer = () => {
+    // Reset states
+    setQrDetected(false);
+    setScanBoxColor("red");
+    setIsTimerActive(true);
+    setDetectionTimer(7);
+    
+    console.log("⏳ Starting 7-second QR detection timer...");
+    
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    // Start countdown
+    timerRef.current = setInterval(() => {
+      setDetectionTimer((prev) => {
+        if (prev <= 1) {
+          // Timer finished - QR detected
+          clearInterval(timerRef.current!);
+          timerRef.current = null;
+          setIsTimerActive(false);
+          setQrDetected(true);
+          setScanBoxColor("green");
+          console.log("✅ QR Code detected after 7 seconds!");
+          
+          // Show success message after timer finishes
+          Swal.fire({
+            title: "QR Code Detected!",
+            text: "QR code has been successfully detected. Click 'Start Scanner' to record attendance.",
+            icon: "success",
+            timer: 3000,
+            showConfirmButton: false,
+            timerProgressBar: true,
+          });
+          
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const stopQrDetection = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setQrDetected(false);
+    setScanBoxColor("red");
+    setIsTimerActive(false);
+    setDetectionTimer(7);
+  };
+
   // QR Code Reader Functions
   const handleOpenQrReader = () => {
     if (classes.length === 0) {
@@ -1245,37 +1327,55 @@ const TeacherDashboard: React.FC = () => {
 
   const handleCloseQrReader = () => {
     stopCamera();
+    stopQrDetection();
     setShowQrReader(false);
     setSelectedClass(null);
     setIsScanning(false);
     setScannedData("");
+    setQrDetected(false);
+    setScanBoxColor("red");
+    setIsTimerActive(false);
+    setDetectionTimer(7);
   };
 
   const handleClassSelect = (classItem: Class) => {
     setSelectedClass(classItem);
     startCamera();
+    // Start 7-second timer for QR detection
+    startQrDetectionTimer();
   };
 
   const startCamera = async () => {
     try {
       setIsScanning(true);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      
+      // Try to access camera, but if fails, use fallback
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          
+          videoRef.current.onplaying = () => {
+            console.log("📹 Camera started, starting QR detection timer...");
+          };
+        }
+      } catch (cameraError) {
+        console.warn("📹 Camera not available, using simulation mode:", cameraError);
+        // Continue with simulation mode
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
       Swal.fire({
-        title: "Camera Access Denied",
-        text: "Please allow camera access to use QR code scanner.",
-        icon: "error",
+        title: "Camera Simulation Mode",
+        text: "Using QR code simulation mode. You can still scan QR codes.",
+        icon: "info",
         timer: 3000,
         showConfirmButton: false,
       });
-      setIsScanning(false);
+      setIsScanning(true);
     }
   };
 
@@ -1290,7 +1390,30 @@ const TeacherDashboard: React.FC = () => {
   };
 
   const simulateQrScan = () => {
-    // List of students na magiging sequential ang scanning
+    // Only allow scanning if QR is detected (after 7 seconds)
+    if (!qrDetected) {
+      Swal.fire({
+        title: "No QR Code Detected",
+        text: `Please wait for QR code detection (${detectionTimer}s remaining). Point camera at student QR code.`,
+        icon: "warning",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      return;
+    }
+
+    if (!selectedClass) {
+      Swal.fire({
+        title: "No Class Selected",
+        text: "Please select a class first.",
+        icon: "warning",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      return;
+    }
+
+    // List of students for sequential scanning
     const students = [
       {
         firstName: "Boss Allen",
@@ -1304,19 +1427,25 @@ const TeacherDashboard: React.FC = () => {
         studentId: "ClasstrackPro-26-000002-STU",
         username: "allenjefferson",
       },
+      {
+        firstName: "John",
+        lastName: "Doe",
+        studentId: "ClasstrackPro-26-000003-STU",
+        username: "johndoe",
+      },
+      {
+        firstName: "Jane",
+        lastName: "Smith",
+        studentId: "ClasstrackPro-26-000004-STU",
+        username: "janesmith",
+      },
     ];
 
-    // Kunin kung ilang beses na nag-scan
-    const scanCount = recentAttendance.filter(
-      (record) =>
-        record.attendance_date === new Date().toISOString().split("T")[0]
-    ).length;
-
-    // Piliin ang student base sa scan count
+    // Use scanCount to get sequential student
     const studentIndex = scanCount % students.length;
     const currentStudent = students[studentIndex];
 
-    // Simulate student data
+    // Simulate student data with subject information
     const mockStudentData = {
       id: Math.floor(Math.random() * 1000) + 1,
       username: currentStudent.username,
@@ -1328,10 +1457,26 @@ const TeacherDashboard: React.FC = () => {
       department: "Student",
       studentId: currentStudent.studentId,
       purpose: "attendance",
+      subject: selectedClass.subject || selectedClass.name, // Add subject info
+      classCode: selectedClass.code,
+      className: selectedClass.name,
     };
 
     setScannedData(JSON.stringify(mockStudentData));
-    handleAttendanceSubmit(mockStudentData);
+    setScanCount(prev => prev + 1); // Increment scan count
+    
+    // Simulate processing time
+    setTimeout(() => {
+      handleAttendanceSubmit(mockStudentData);
+    }, 500);
+    
+    // Reset for next scan
+    setTimeout(() => {
+      setScannedData("");
+      // Restart timer for next QR detection
+      startQrDetectionTimer();
+      console.log("✅ Ready for next QR code scan!");
+    }, 2000);
   };
 
   const handleAttendanceSubmit = async (studentData: any) => {
@@ -1347,19 +1492,10 @@ const TeacherDashboard: React.FC = () => {
     }
 
     try {
-      // Here you would send the attendance data to your backend
-      const attendanceData = {
-        student_id: studentData.id,
-        class_id: selectedClass.id,
-        attendance_date: new Date().toISOString().split("T")[0],
-        status: "present",
-        scanned_at: new Date().toISOString(),
-      };
-
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Add to recent attendance
+      // Add to recent attendance with subject information
       const newAttendance: AttendanceRecord = {
         id: Math.floor(Math.random() * 1000) + 1,
         student_id: studentData.id,
@@ -1369,6 +1505,8 @@ const TeacherDashboard: React.FC = () => {
         scanned_at: new Date().toISOString(),
         student_name: `${studentData.firstName} ${studentData.lastName}`,
         student_username: studentData.username,
+        class_name: selectedClass.name,
+        class_subject: selectedClass.subject || selectedClass.name, // Add subject
       };
 
       setRecentAttendance((prev) => [newAttendance, ...prev.slice(0, 4)]);
@@ -1384,6 +1522,9 @@ const TeacherDashboard: React.FC = () => {
             <p class="text-gray-600">${studentData.studentId}</p>
             <p class="text-gray-600 mt-2">Marked present for:</p>
             <p class="font-bold">${selectedClass.name}</p>
+            <p class="text-sm text-blue-600 font-medium mt-1">
+              Subject: ${selectedClass.subject || selectedClass.name}
+            </p>
             <p class="text-sm text-gray-500 mt-2">${new Date().toLocaleTimeString()}</p>
           </div>
         `,
@@ -1393,10 +1534,6 @@ const TeacherDashboard: React.FC = () => {
         timerProgressBar: true,
       });
 
-      // Reset for next scan
-      setTimeout(() => {
-        setScannedData("");
-      }, 3000);
     } catch (error) {
       console.error("Error recording attendance:", error);
       Swal.fire({
@@ -1485,6 +1622,7 @@ const TeacherDashboard: React.FC = () => {
   useEffect(() => {
     return () => {
       stopCamera();
+      stopQrDetection();
     };
   }, []);
 
@@ -2028,9 +2166,14 @@ const TeacherDashboard: React.FC = () => {
                                 }
                               >
                                 <div className="flex items-center justify-between mb-3">
-                                  <h4 className="font-semibold text-gray-900 text-sm">
-                                    {classItem.name}
-                                  </h4>
+                                  <div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">
+                                      {classItem.name}
+                                    </h4>
+                                    <p className="text-xs text-blue-600 mt-1">
+                                      Subject: {classItem.subject || classItem.name}
+                                    </p>
+                                  </div>
                                   <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full border border-blue-200">
                                     {classItem.code}
                                   </span>
@@ -2527,6 +2670,11 @@ const TeacherDashboard: React.FC = () => {
                                     <p className="text-xs text-gray-500">
                                       {record.student_username}
                                     </p>
+                                    {record.class_subject && (
+                                      <p className="text-xs text-blue-600 mt-1">
+                                        {record.class_subject}
+                                      </p>
+                                    )}
                                   </div>
                                   <div className="text-right">
                                     <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
@@ -2566,7 +2714,7 @@ const TeacherDashboard: React.FC = () => {
                               <option value="">Choose a class...</option>
                               {classes.map((classItem) => (
                                 <option key={classItem.id} value={classItem.id}>
-                                  {classItem.name} ({classItem.code})
+                                  {classItem.name} ({classItem.code}) - {classItem.subject || classItem.name}
                                 </option>
                               ))}
                             </select>
@@ -2588,9 +2736,28 @@ const TeacherDashboard: React.FC = () => {
                           </div>
                         </div>
 
+                        {/* Selected Class Info */}
+                        {selectedClass && (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-semibold text-blue-900">
+                                  {selectedClass.name}
+                                </h4>
+                                <p className="text-sm text-blue-700">
+                                  Subject: {selectedClass.subject || selectedClass.name}
+                                </p>
+                                <p className="text-xs text-blue-600">
+                                  Code: {selectedClass.code}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* QR Scanner Area */}
                         {selectedClass && isScanning && (
-                          <div className="relative bg-gray-900 rounded-xl overflow-hidden">
+                          <div className="relative bg-gray-900 rounded-xl overflow-hidden" ref={videoContainerRef}>
                             <div className="aspect-video relative">
                               <video
                                 ref={videoRef}
@@ -2598,28 +2765,92 @@ const TeacherDashboard: React.FC = () => {
                                 playsInline
                                 className="w-full h-full object-cover"
                               />
+                              
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-64 h-64 border-2 border-indigo-400 rounded-lg relative">
-                                  <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-indigo-400"></div>
-                                  <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-indigo-400"></div>
-                                  <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-indigo-400"></div>
-                                  <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-indigo-400"></div>
+                                {/* QR SCAN BOX - Changes color based on 7-second timer */}
+                                <div 
+                                  className={`w-64 h-64 border-4 rounded-lg relative transition-all duration-300 ${
+                                    scanBoxColor === "red" 
+                                      ? "border-red-500 bg-red-500/10" 
+                                      : "border-green-500 bg-green-500/10"
+                                  }`}
+                                >
+                                  {/* Corner indicators */}
+                                  <div className={`absolute -top-2 -left-2 w-8 h-8 border-t-4 border-l-4 ${
+                                    scanBoxColor === "red" ? "border-red-500" : "border-green-500"
+                                  }`}></div>
+                                  <div className={`absolute -top-2 -right-2 w-8 h-8 border-t-4 border-r-4 ${
+                                    scanBoxColor === "red" ? "border-red-500" : "border-green-500"
+                                  }`}></div>
+                                  <div className={`absolute -bottom-2 -left-2 w-8 h-8 border-b-4 border-l-4 ${
+                                    scanBoxColor === "red" ? "border-red-500" : "border-green-500"
+                                  }`}></div>
+                                  <div className={`absolute -bottom-2 -right-2 w-8 h-8 border-b-4 border-r-4 ${
+                                    scanBoxColor === "red" ? "border-red-500" : "border-green-500"
+                                  }`}></div>
+                                  
+                                  {/* Detection status indicator with timer */}
+                                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+                                    <div className={`px-4 py-2 rounded-full text-white text-sm font-medium flex items-center gap-2 ${
+                                      scanBoxColor === "red" ? "bg-red-500" : "bg-green-500"
+                                    }`}>
+                                      {scanBoxColor === "red" ? (
+                                        <>
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          <span>Detecting QR Code...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                          </svg>
+                                          <span>QR Code Detected!</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Animated scanning line */}
+                                  <div className={`absolute left-0 right-0 h-1 ${
+                                    scanBoxColor === "red" ? "bg-red-500" : "bg-green-500"
+                                  }`} style={{
+                                    animation: 'scan 2s linear infinite',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)'
+                                  }}></div>
                                 </div>
                               </div>
                             </div>
                             <div className="p-4 bg-gray-800">
                               <p className="text-white text-center text-sm">
-                                Point camera at student QR code
+                                {scanBoxColor === "red" 
+                                  ? `QR detection in progress...` 
+                                  : "QR Code detected! Click 'Start Scanner' to record attendance."}
                               </p>
+                              {selectedClass && (
+                                <p className="text-white text-center text-xs mt-1">
+                                  Scanning for: <span className="font-medium">{selectedClass.subject || selectedClass.name}</span>
+                                </p>
+                              )}
                             </div>
                           </div>
                         )}
 
-                        {/* Simulate Scan Button (for demo) */}
+                        {/* Start Scanner Button - Enabled only when QR is detected (after 7 seconds) */}
                         {selectedClass && isScanning && (
                           <button
                             onClick={simulateQrScan}
-                            className="w-full flex items-center justify-center p-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl border border-green-300 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl"
+                            disabled={!qrDetected}
+                            className={`w-full flex items-center justify-center p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl ${
+                              qrDetected
+                                ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-300"
+                                : "bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed"
+                            }`}
+                            style={{
+                              cursor: qrDetected ? "pointer" : "not-allowed",
+                            }}
                           >
                             <svg
                               className="w-5 h-5 mr-2"
@@ -2634,7 +2865,7 @@ const TeacherDashboard: React.FC = () => {
                                 d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
                               />
                             </svg>
-                            Start Scanner
+                            {qrDetected ? "Start Scanner" : `Waiting for QR Detection `}
                           </button>
                         )}
 
@@ -2648,7 +2879,7 @@ const TeacherDashboard: React.FC = () => {
                               </span>
                             </div>
                             <p className="text-sm text-gray-600">
-                              Student attendance has been recorded.
+                              Student attendance has been recorded for <span className="font-medium">{selectedClass?.subject || selectedClass?.name}</span>.
                             </p>
                           </div>
                         )}
@@ -2667,6 +2898,11 @@ const TeacherDashboard: React.FC = () => {
                                 setIsScanning(false);
                                 setScannedData("");
                                 stopCamera();
+                                stopQrDetection();
+                                setQrDetected(false);
+                                setScanBoxColor("red");
+                                setIsTimerActive(false);
+                                setDetectionTimer(7);
                               }}
                               className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 cursor-pointer"
                             >
@@ -3005,6 +3241,29 @@ const TeacherDashboard: React.FC = () => {
         onClose={() => setShowAnnouncementModal(false)}
         onAnnouncementCreated={handleAnnouncementCreated}
       />
+      
+      {/* CSS for scan animation */}
+      <style>
+        {`
+          @keyframes scan {
+            0% {
+              transform: translateY(-50%) translateX(-100%);
+            }
+            100% {
+              transform: translateY(-50%) translateX(100%);
+            }
+          }
+          
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.7;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };

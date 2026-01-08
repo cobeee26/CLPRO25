@@ -772,7 +772,7 @@ const LoginPage: React.FC = () => {
                       </div>
                       <div className="text-center p-3 bg-slate-900/40 rounded-lg flex flex-col items-center justify-center hover:bg-slate-900/60 transition-all duration-300">
                         <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-1.5">
-                          <span className="text-green-400 text-sm">👥</span>
+                          <span className="text-green-400 text-sm">👑</span>
                         </div>
                         <h4 className="font-bold text-green-400 text-sm mb-0.5">
                           Assistant Leader
@@ -786,7 +786,7 @@ const LoginPage: React.FC = () => {
                       </div>
                       <div className="text-center p-3 bg-slate-900/40 rounded-lg flex flex-col items-center justify-center hover:bg-slate-900/60 transition-all duration-300">
                         <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-1.5">
-                          <span className="text-blue-400 text-sm">🎨</span>
+                          <span className="text-blue-400 text-sm">👑</span>
                         </div>
                         <h4 className="font-bold text-blue-400 text-sm mb-0.5">
                           Member
