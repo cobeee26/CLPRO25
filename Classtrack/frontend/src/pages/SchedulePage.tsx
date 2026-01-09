@@ -333,57 +333,88 @@ const SchedulePage: React.FC = () => {
         return;
       }
 
-      console.log('🔄 Loading unified schedule data...');
+      console.log('🔄 Loading schedule data based on role...');
       console.log('👤 Current user role:', user?.role);
 
       let schedulesData: any[] = [];
 
-      try {
-        console.log('📅 Loading unified schedules for all roles...');
-        schedulesData = await authService.getSchedulesLive();
-        console.log('✅ Unified schedules loaded:', schedulesData);
-      } catch (error) {
-        console.error('❌ Unified schedules failed, trying role-specific endpoints:', error);
-        
-        if (user?.role === 'admin') {
+      // BASED ON USER ROLE: Different logic for different users
+      if (user?.role === 'admin') {
+        // ADMIN: Get ALL schedules
+        console.log('👑 Admin: Loading ALL schedules...');
+        try {
           schedulesData = await authService.getSchedulesLive();
-        } else if (user?.role === 'teacher') {
+          console.log('✅ Admin got ALL schedules:', schedulesData.length);
+        } catch (adminError) {
+          console.error('❌ Admin schedules failed, trying getAllSchedules:', adminError);
+          schedulesData = await authService.getAllSchedules();
+        }
+      } 
+      else if (user?.role === 'teacher') {
+        // TEACHER: Get only their assigned class schedules
+        console.log('👨‍🏫 Teacher: Loading assigned class schedules...');
+        try {
+          // First get teacher's classes
           const teacherData = await getTeacherClasses();
           const teacherDataObj = teacherData as any;
-          schedulesData = teacherDataObj.schedules || [];
-        } else if (user?.role === 'student') {
-          const studentData = await loadStudentData();
-          schedulesData = studentData.schedulesData;
+          const teacherClasses = teacherDataObj.classes || [];
+          
+          console.log(`👨‍🏫 Teacher has ${teacherClasses.length} classes:`, teacherClasses);
+          
+          // Get ALL schedules first
+          let allSchedules = [];
+          try {
+            allSchedules = await authService.getSchedulesLive();
+          } catch (liveError) {
+            allSchedules = await authService.getAllSchedules();
+          }
+          
+          // Filter schedules to only show teacher's classes
+          const teacherClassIds = teacherClasses.map((cls: any) => cls.id);
+          console.log('👨‍🏫 Teacher class IDs:', teacherClassIds);
+          
+          schedulesData = allSchedules.filter((schedule: any) => 
+            teacherClassIds.includes(schedule.class_id)
+          );
+          
+          console.log(`👨‍🏫 Teacher filtered schedules: ${schedulesData.length} out of ${allSchedules.length}`);
+        } catch (teacherError) {
+          console.error('❌ Teacher schedule loading failed:', teacherError);
+          schedulesData = [];
+        }
+      } 
+      else if (user?.role === 'student') {
+        // STUDENT: Get ALL schedules (not just their own)
+        console.log('🎓 Student: Loading ALL schedules (for all classes)...');
+        try {
+          // Try to get all schedules
+          schedulesData = await authService.getSchedulesLive();
+          console.log('✅ Student got ALL schedules:', schedulesData.length);
+          
+          // If empty, try alternative
+          if (!schedulesData || schedulesData.length === 0) {
+            console.log('⚠️ Student schedules empty, trying getAllSchedules...');
+            schedulesData = await authService.getAllSchedules();
+          }
+        } catch (studentError) {
+          console.error('❌ Student schedule loading failed:', studentError);
+          schedulesData = [];
         }
       }
 
-      console.log('📅 Final schedules data:', schedulesData);
+      console.log('📅 Final schedules data for', user?.role + ':', schedulesData);
 
       const enrichedSchedules = Array.isArray(schedulesData) 
         ? schedulesData.map(schedule => convertToEnrichedSchedule(schedule))
         : [];
       
-      console.log('📅 Enriched schedules:', enrichedSchedules);
+      console.log('📅 Enriched schedules:', enrichedSchedules.length);
 
-      let finalSchedules = enrichedSchedules;
-      if (user?.role === 'student') {
-        try {
-          const studentScheduleData = await getStudentSchedule();
-          console.log('🎓 Student schedule data:', studentScheduleData);
-          
-          if (studentScheduleData.length > 0) {
-            finalSchedules = studentScheduleData.map(schedule => convertToEnrichedSchedule(schedule));
-            console.log('🎯 Using enhanced student schedule:', finalSchedules);
-          }
-        } catch (error) {
-          console.warn('⚠️ Could not load direct student schedule, using filtered schedules');
-        }
-      }
-
-      setSchedules(finalSchedules);
+      setSchedules(enrichedSchedules);
 
       updateLoadingProgress(2, 3);
       
+      // Load classes only for admin and teacher (for form dropdown)
       if (user?.role !== 'student') {
         try {
           let classesData: any[] = [];
@@ -399,6 +430,7 @@ const SchedulePage: React.FC = () => {
             classesData = rawClasses.map(convertApiClassToLocalClass);
           }
           setClasses(classesData);
+          console.log(`📚 Loaded ${classesData.length} classes for ${user?.role}`);
         } catch (error) {
           console.warn('⚠️ Could not load classes for form');
         }
@@ -406,10 +438,10 @@ const SchedulePage: React.FC = () => {
 
       updateLoadingProgress(3, 3);
 
-      if (finalSchedules.length === 0) {
+      if (enrichedSchedules.length === 0) {
         console.log('ℹ️ No schedules found for current user');
       } else {
-        console.log(`✅ Loaded ${finalSchedules.length} schedules for ${user?.role}`);
+        console.log(`✅ Loaded ${enrichedSchedules.length} schedules for ${user?.role}`);
       }
 
       setTimeout(() => {
@@ -501,7 +533,7 @@ const SchedulePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isModalOpen && classes.length === 0) {
+    if (isModalOpen && classes.length === 0 && user?.role !== 'student') {
       console.log('🔄 Modal opened with no classes, reloading data...');
       loadScheduleData();
     }
@@ -575,6 +607,18 @@ const SchedulePage: React.FC = () => {
       class_code = 'N/A';
     }
 
+    // Parse dates correctly
+    let start_time = schedule.start_time;
+    let end_time = schedule.end_time;
+    
+    // If dates are in string format, ensure they're proper ISO strings
+    if (start_time && typeof start_time === 'string' && !start_time.includes('T')) {
+      start_time = new Date(start_time).toISOString();
+    }
+    if (end_time && typeof end_time === 'string' && !end_time.includes('T')) {
+      end_time = new Date(end_time).toISOString();
+    }
+
     return {
       ...schedule,
       id: schedule.id || schedule.schedule_id || Math.random().toString(36).substr(2, 9),
@@ -584,87 +628,16 @@ const SchedulePage: React.FC = () => {
       teacher_name,
       teacher_full_name: teacher_name,
       room_number: schedule.room_number || schedule.room || schedule.room_name || 'Room 101',
-      start_time: schedule.start_time || schedule.startTime || schedule.start_date || new Date().toISOString(),
-      end_time: schedule.end_time || schedule.endTime || schedule.end_date || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      start_time: start_time || new Date().toISOString(),
+      end_time: end_time || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
       status: schedule.status || 'Occupied',
       cleanliness_before: schedule.cleanliness_before || schedule.is_clean_before || 'Unknown',
       cleanliness_after: schedule.cleanliness_after || schedule.is_clean_after || 'Unknown',
       last_report_time: schedule.last_report_time || schedule.report_time || null,
-      // Extract semester/term information
       semester: schedule.semester || schedule.term || schedule.academic_term || '2025-2026_4th',
-      day_of_week: schedule.day_of_week || formatDayOfWeek(schedule.start_time || schedule.start_date),
-      time_slot: schedule.time_slot || formatTimeRange(schedule.start_time || schedule.start_date, schedule.end_time || schedule.end_date)
+      day_of_week: schedule.day_of_week || formatDayOfWeek(start_time),
+      time_slot: schedule.time_slot || formatTimeRange(start_time, end_time)
     };
-  };
-
-  const loadStudentData = async (): Promise<{ schedulesData: any[] }> => {
-    let schedulesData: any[] = [];
-
-    try {
-      console.log('📅 Student: Loading student-specific schedule...');
-      const response = await authService.getStudentSchedule();
-      console.log('📊 Student schedule response:', response);
-      console.log('📊 Student schedule response TYPE:', typeof response);
-      console.log('📊 Student schedule response IS ARRAY:', Array.isArray(response));
-      
-      if (Array.isArray(response)) {
-        schedulesData = response;
-        console.log('✅ Student schedule is array with', schedulesData.length, 'items');
-        
-        schedulesData.forEach((schedule, index) => {
-          console.log(`📊 Schedule ${index}:`, {
-            id: schedule.id,
-            class_id: schedule.class_id,
-            class_name: schedule.class_name,
-            teacher_name: schedule.teacher_name,
-            teacher_full_name: schedule.teacher_full_name,
-            class_info: schedule.class_info,
-            teacher_info: schedule.teacher_info,
-            raw_keys: Object.keys(schedule)
-          });
-        });
-      } else if (response && typeof response === 'object') {
-        const responseObj = response as any;
-        console.log('📊 Response object keys:', Object.keys(responseObj));
-        
-        if (Array.isArray(responseObj.schedules)) {
-          schedulesData = responseObj.schedules;
-          console.log('✅ Found schedules in responseObj.schedules:', schedulesData.length);
-        } else if (Array.isArray(responseObj.data)) {
-          schedulesData = responseObj.data;
-          console.log('✅ Found schedules in responseObj.data:', schedulesData.length);
-        } else if (Array.isArray(responseObj.student_schedules)) {
-          schedulesData = responseObj.student_schedules;
-          console.log('✅ Found schedules in responseObj.student_schedules:', schedulesData.length);
-        } else if (responseObj.data && typeof responseObj.data === 'object') {
-          schedulesData = [responseObj.data];
-          console.log('✅ Found single schedule in responseObj.data');
-        } else if (responseObj.schedule && typeof responseObj.schedule === 'object') {
-          schedulesData = [responseObj.schedule];
-          console.log('✅ Found single schedule in responseObj.schedule');
-        } else {
-          for (const key in responseObj) {
-            if (Array.isArray(responseObj[key])) {
-              schedulesData = responseObj[key];
-              console.log(`✅ Found schedules in responseObj.${key}:`, schedulesData.length);
-              break;
-            }
-          }
-          
-          if (schedulesData.length === 0) {
-            schedulesData = [responseObj];
-            console.log('✅ Using entire response object as schedule');
-          }
-        }
-      }
-      
-      console.log('✅ Final student-specific schedules:', schedulesData);
-      
-    } catch (error) {
-      console.warn('⚠️ All student endpoints failed, using empty data');
-    }
-
-    return { schedulesData };
   };
 
   const handleRefreshCleanliness = async (scheduleId: number) => {
@@ -965,19 +938,6 @@ const SchedulePage: React.FC = () => {
     }
   };
 
-  const getDayOfWeekNumber = (day: string) => {
-    const dayMap: { [key: string]: number } = {
-      'Monday': 1,
-      'Tuesday': 2,
-      'Wednesday': 3,
-      'Thursday': 4,
-      'Friday': 5,
-      'Saturday': 6,
-      'Sunday': 7
-    };
-    return dayMap[day] || 8;
-  };
-
   // Filter schedules based on search term
   const filteredSchedules = schedules.filter(schedule =>
     schedule.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1102,6 +1062,7 @@ const SchedulePage: React.FC = () => {
           <div className="space-y-3">
             <button
               onClick={loadScheduleData}
+              disabled={loading}
               className="w-full px-6 py-3 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
             >
               <svg
@@ -1152,8 +1113,16 @@ const SchedulePage: React.FC = () => {
               <img src={plmunLogo} alt="PLMun Logo" className="relative w-8 h-8 object-contain" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">{user?.role === 'student' ? "My Schedule" : "Schedule Management"}</h1>
-              <p className="text-xs text-gray-600">{user?.role === 'student' ? "View your class schedules" : "Create, edit, and manage class schedules"}</p>
+              <h1 className="text-lg font-bold text-gray-900">
+                {user?.role === 'admin' ? 'All Schedules' : 
+                 user?.role === 'teacher' ? 'My Class Schedules' : 
+                 'All Class Schedules'}
+              </h1>
+              <p className="text-xs text-gray-600">
+                {user?.role === 'admin' ? 'Manage all class schedules' : 
+                 user?.role === 'teacher' ? 'View your class schedules' : 
+                 'View all class schedules'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1210,8 +1179,12 @@ const SchedulePage: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         <div className="hidden lg:block">
           <DynamicHeader
-            title={user?.role === 'student' ? "My Schedule" : "Schedule Management"}
-            subtitle={user?.role === 'student' ? "View your class schedules and timetables" : "Create, edit, and manage class schedules"}
+            title={user?.role === 'admin' ? 'All Schedules' : 
+                   user?.role === 'teacher' ? 'My Class Schedules' : 
+                   'All Class Schedules'}
+            subtitle={user?.role === 'admin' ? 'Manage all class schedules' : 
+                     user?.role === 'teacher' ? 'View schedules for your classes' : 
+                     'View all class schedules in the system'}
           />
         </div>
 
@@ -1262,7 +1235,23 @@ const SchedulePage: React.FC = () => {
                   </svg>
                 </div>
               </div>
-            </div>        
+            </div>
+
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 border border-amber-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-amber-700">Clean Rooms</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    {schedules.filter(s => s.status === 'Clean').length}
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1302,11 +1291,18 @@ const SchedulePage: React.FC = () => {
                 <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
                   <div className="flex items-center space-x-3">
                     <h2 className="text-lg font-semibold text-gray-900">
-                      {user?.role === 'student' ? "My Class Schedule" : "Class Schedules"}
+                      {user?.role === 'admin' ? 'All Schedules' : 
+                       user?.role === 'teacher' ? 'My Class Schedules' : 
+                       'All Class Schedules'}
                     </h2>
                     <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
                       {filteredSchedules.length} {filteredSchedules.length === 1 ? 'schedule' : 'schedules'}
                     </span>
+                    {user?.role === 'teacher' && (
+                      <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                        Showing only your classes
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="relative">
@@ -1317,7 +1313,7 @@ const SchedulePage: React.FC = () => {
                       </div>
                       <input
                         type="text"
-                        placeholder={user?.role === 'student' ? "Search classes, teachers, or rooms..." : "Search schedules..."}
+                        placeholder={user?.role === 'teacher' ? "Search your classes, rooms..." : "Search all schedules..."}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 text-gray-900 focus:outline-none focus:placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 sm:text-sm transition-all duration-200 cursor-text"
@@ -1357,9 +1353,20 @@ const SchedulePage: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <p className="text-blue-700 text-sm">
-                        {filteredSchedules.length > 2 
-                          ? `Showing ${filteredSchedules.length} of your class schedules` 
-                          : 'Showing your class schedule for the current semester'}
+                        Showing all class schedules in the system ({filteredSchedules.length} total)
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {user?.role === 'teacher' && filteredSchedules.length > 0 && (
+                  <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-purple-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-purple-700 text-sm">
+                        Showing schedules only for your assigned classes ({filteredSchedules.length} total)
                       </p>
                     </div>
                   </div>
@@ -1375,7 +1382,8 @@ const SchedulePage: React.FC = () => {
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No schedules found</h3>
                     <p className="text-gray-500 text-center max-w-md mb-4">
                       {searchTerm ? 'No schedules match your search criteria.' : 
-                       user?.role === 'student' ? 'No schedules assigned to you yet. Please check back later.' : 
+                       user?.role === 'teacher' ? 'No schedules found for your assigned classes.' : 
+                       user?.role === 'student' ? 'No schedules available in the system.' : 
                        'Get started by creating your first schedule.'}
                     </p>
                     {!searchTerm && user?.role !== 'student' && (
@@ -1396,7 +1404,9 @@ const SchedulePage: React.FC = () => {
                     {/* All Schedules - Responsive Grid 4 cards per row */}
                     <div className="flex flex-col">
                       <div className="flex items-center space-x-3 mb-4">
-                        <h3 className="text-xl font-bold text-gray-900">All Schedules</h3>
+                        <h3 className="text-xl font-bold text-gray-900">
+                          {user?.role === 'teacher' ? 'My Class Schedules' : 'All Schedules'}
+                        </h3>
                         <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
                           {sortedSchedules.length} total
                         </span>
