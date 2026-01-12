@@ -7,6 +7,7 @@ interface SkeletonLoaderProps {
   rounded?: boolean;
 }
 
+// Basic skeleton loader with customizable size and shape
 export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({ 
   className = '', 
   height = 'h-4', 
@@ -20,6 +21,7 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   );
 };
 
+// Skeleton for card components with title, subtitle, and content
 export const CardSkeleton: React.FC = () => {
   return (
     <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-xl p-6">
@@ -39,6 +41,7 @@ export const CardSkeleton: React.FC = () => {
   );
 };
 
+// Skeleton for table components with header and rows
 export const TableSkeleton: React.FC = () => {
   return (
     <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-xl overflow-hidden">
@@ -65,6 +68,7 @@ export const TableSkeleton: React.FC = () => {
   );
 };
 
+// Complete dashboard skeleton with header and layout
 export const DashboardSkeleton: React.FC = () => {
   return (
     <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-y-auto">

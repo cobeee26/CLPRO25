@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser } from '../services/authService';
+import { loginUser, authService } from '../services/authService';
 import { Button, Input } from './ui';
 import { useUser } from '../contexts/UserContext';
 
@@ -28,70 +28,152 @@ const LoginForm: React.FC<LoginFormProps> = () => {
     }
 
     setIsLoading(true);
-    setShowLoginLoading(true);
 
     try {
       console.log('Attempting login with:', { email, role });
-    
+      
+      // Step Authenticate user and get token
       const token = await loginUser(email, password);
       
-      console.log('Login successful, token received:', token ? 'Yes' : 'No');
-      
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('userRole', role.toLowerCase());
-      
-      const userId = role.toLowerCase() === 'student' ? '2' : 
-                    role.toLowerCase() === 'teacher' ? '1' : '3';
-      localStorage.setItem('userId', userId);
-      
-      console.log('Stored auth data, fetching user profile...');
-      
-      try {
-        await fetchCurrentUser();
-        console.log('User profile refreshed successfully');
-      } catch (error) {
-        console.error('Failed to fetch user profile after login:', error);
+      if (!token) {
+        throw new Error('Authentication failed: No token received');
       }
       
-      console.log('Redirecting to dashboard...');
+      console.log('Login successful, token received');
       
-      setTimeout(() => {
-        switch (role.toLowerCase()) {
-          case 'admin':
-            navigate('/admin/dashboard');
-            break;
-          case 'teacher':
-            navigate('/teacher/dashboard');
-            break;
-          case 'student':
-            navigate('/student/dashboard');
-            break;
-          default:
-            navigate('/dashboard');
+      // Store token
+      localStorage.setItem('authToken', token);
+      
+      // Step Fetch user profile to get actual role
+      try {
+        // Try to get user profile using the authenticated token
+        const profile = await authService.getUserProfile();
+        console.log('User profile from backend:', profile);
+        
+        // Determine user's actual role from backend
+        let actualRole = 'unknown';
+        
+        // Check role from different possible response structures
+        if (profile.role) {
+          actualRole = profile.role.toLowerCase();
+        } else if (profile.role_type) {
+          actualRole = profile.role_type.toLowerCase();
+        } else if (profile.user_type) {
+          actualRole = profile.user_type.toLowerCase();
+        } else if (profile.user_role) {
+          actualRole = profile.user_role.toLowerCase();
         }
-      }, 1500);
+        
+        console.log('Actual user role from backend:', actualRole);
+        console.log('Selected role on login form:', role.toLowerCase());
+        
+        // Step Validate role match - STRICT VALIDATION
+        const selectedRole = role.toLowerCase();
+        
+        // Admin validation: Only users with actual role 'admin' can select admin
+        if (selectedRole === 'admin' && actualRole !== 'admin') {
+          // User selected admin but is not actually an admin
+          console.log('Role mismatch: User selected admin but actual role is', actualRole);
+          setLoginError(`You are not authorized as an administrator. Your account is registered as ${actualRole}. Please select the correct role.`);
+          setIsLoading(false);
+          
+          // Clear stored token
+          localStorage.removeItem('authToken');
+          return;
+        }
+        
+        // Student validation: Only users with actual role 'student' can select student
+        if (selectedRole === 'student' && actualRole !== 'student') {
+          console.log('Role mismatch: User selected student but actual role is', actualRole);
+          setLoginError(`You are not registered as a student. Your account is registered as ${actualRole}. Please select the correct role.`);
+          setIsLoading(false);
+          localStorage.removeItem('authToken');
+          return;
+        }
+        
+        // Teacher validation: Only users with actual role 'teacher' can select teacher
+        if (selectedRole === 'teacher' && actualRole !== 'teacher') {
+          console.log('Role mismatch: User selected teacher but actual role is', actualRole);
+          setLoginError(`You are not registered as a teacher. Your account is registered as ${actualRole}. Please select the correct role.`);
+          setIsLoading(false);
+          localStorage.removeItem('authToken');
+          return;
+        }
+        
+        // Step Role validation passed - show loading animation
+        setShowLoginLoading(true);
+        
+        // Step Store user data
+        localStorage.setItem('userRole', actualRole);
+        localStorage.setItem('userId', profile.id?.toString() || 
+          (actualRole === 'student' ? '2' : 
+           actualRole === 'teacher' ? '1' : '3'));
+        
+        // Store full user profile
+        localStorage.setItem('userProfile', JSON.stringify(profile));
+        
+        // Fetch current user context
+        try {
+          await fetchCurrentUser();
+          console.log('User profile refreshed successfully');
+        } catch (error) {
+          console.error('Failed to fetch user profile after login:', error);
+        }
+        
+        // Redirect based on actual role
+        console.log(`✅ Role validation passed! Redirecting to ${actualRole} dashboard...`);
+        
+        setTimeout(() => {
+          switch (actualRole) {
+            case 'admin':
+              navigate('/admin/dashboard');
+              break;
+            case 'teacher':
+              navigate('/teacher/dashboard');
+              break;
+            case 'student':
+              navigate('/student/dashboard');
+              break;
+            default:
+              // Unknown role - redirect to generic dashboard
+              navigate('/dashboard');
+          }
+        }, 1500);
+        
+      } catch (profileError: any) {
+        console.error('Failed to fetch user profile:', profileError);
+        
+        // If we can't get profile, we can't validate role - show error
+        setLoginError('Unable to verify your account role. Please contact support.');
+        setIsLoading(false);
+        localStorage.removeItem('authToken');
+        return;
+      }
       
     } catch (error: any) {
       console.error('Login failed:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-
+      
       setShowLoginLoading(false);
+      setIsLoading(false);
 
+      // Handle specific error cases
       if (error.message === 'Network Error' || error.code === 'ERR_NETWORK') {
         setLoginError('Network error. Please check your internet connection and try again.');
       } else if (error.response?.status === 401 || error.response?.status === 404) {
-        setLoginError('Invalid email/student number or password. Please check your credentials.');
+        setLoginError('Invalid email or password. Please check your credentials.');
       } else if (error.response?.status === 422) {
         setLoginError('Please fill in all required fields correctly.');
+      } else if (error.message.includes('Authentication failed')) {
+        setLoginError('Authentication failed. Please check your credentials.');
+      } else if (error.message.includes('not authorized') || error.message.includes('not registered')) {
+        // Role mismatch error from our validation above
+        setLoginError(error.message);
       } else {
         setLoginError('Login failed. Please check your credentials and try again.');
       }
-    } finally {
-      setIsLoading(false);
+      
+      // Clear token on any error
+      localStorage.removeItem('authToken');
     }
   };
 
@@ -113,10 +195,10 @@ const LoginForm: React.FC<LoginFormProps> = () => {
               </div>
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-white mb-2">
-                  {role} Login
+                  {role} Login Successful
                 </h2>
                 <p className="text-gray-300 text-sm">
-                  Authenticating your credentials...
+                  Redirecting to {role.toLowerCase()} dashboard...
                 </p>
               </div>
             </div>
@@ -147,26 +229,26 @@ const LoginForm: React.FC<LoginFormProps> = () => {
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>Verifying credentials...</span>
-                  <span className="font-medium">{role} Access</span>
+                  <span>Role validation successful</span>
+                  <span className="font-medium">{role} Dashboard</span>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {[
                   { 
-                    text: "Validation", 
+                    text: "Authentication", 
                     icon: "✓",
-                    desc: "Checking"
+                    desc: "Verified"
                   },
                   { 
-                    text: "Security", 
-                    icon: "🔒",
-                    desc: "Verifying"
+                    text: "Role Check", 
+                    icon: "👑",
+                    desc: "Confirmed"
                   },
                   { 
                     text: "Access", 
                     icon: "🚪",
-                    desc: "Granting"
+                    desc: "Granted"
                   },
                 ].map((step, index) => (
                   <div
@@ -184,7 +266,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <p className="text-sm text-gray-300 font-medium">
-                    Preparing your {role.toLowerCase()} dashboard...
+                    Welcome! Loading your {role.toLowerCase()} interface...
                   </p>
                   <div className="flex space-x-1">
                     <span 
@@ -278,18 +360,21 @@ const LoginForm: React.FC<LoginFormProps> = () => {
               </svg>
             </div>
           </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Please select the role that matches your account type
+          </p>
         </div>
         <Input
           id="email-or-student-number"
           name="email"
-          label={role === 'Student' ? 'Email Address' : 'Email Address'}
-          type={role === 'Student' ? 'email' : 'email'}
+          label="Email Address"
+          type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder={role === 'Student' ? 'Enter your email address' : 'Enter your email address'}
+          placeholder="Enter your email address"
           leftIcon={
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={role === 'Student' ? "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" : "M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           }
           required
@@ -300,11 +385,11 @@ const LoginForm: React.FC<LoginFormProps> = () => {
         <Input
           id="password-or-pin"
           name="password"
-          label={role === 'Student' ? 'Password' : 'Password'}
+          label="Password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder={role === 'Student' ? 'Enter your password' : 'Enter your password'}
+          placeholder="Enter your password"
           leftIcon={
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -336,7 +421,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
             className="transform hover:scale-[1.02] hover:shadow-xl cursor-pointer transition-transform duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
             disabled={isLoading}
           >
-            {isLoading ? 'Signing In...' : 'Sign In'}
+            {isLoading ? 'Verifying...' : 'Sign In'}
           </Button>
         </div>
       </form>

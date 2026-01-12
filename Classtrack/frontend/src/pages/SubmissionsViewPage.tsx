@@ -6,10 +6,9 @@ import Sidebar from '../components/Sidebar';
 import plmunLogo from '../assets/images/PLMUNLOGO.png';
 import Swal from 'sweetalert2';
 
-// API configuration
 const API_BASE_URL = 'http://localhost:8000';
 
-// Create axios instance with auth interceptor
+// Axios instance configuration with interceptors
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -17,7 +16,7 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// IMPORTANT: Authentication interceptor for all API requests
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
@@ -83,7 +82,6 @@ const SubmissionsViewPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // SweetAlert Configuration
   const swalConfig = {
     customClass: {
       title: 'text-lg font-bold text-gray-900',
@@ -96,7 +94,7 @@ const SubmissionsViewPage: React.FC = () => {
     background: '#ffffff'
   };
 
-  // SweetAlert Helper Functions
+  // IMPORTANT: Alert system for user feedback
   const showSuccessAlert = (title: string, text: string = '', timer: number = 2000) => {
     Swal.fire({
       title,
@@ -167,7 +165,7 @@ const SubmissionsViewPage: React.FC = () => {
     Swal.close();
   };
 
-  // Logout function with SweetAlert
+  // IMPORTANT: Secure logout with token clearing
   const handleLogout = async () => {
     const result = await showConfirmDialog(
       'Confirm Logout',
@@ -177,9 +175,7 @@ const SubmissionsViewPage: React.FC = () => {
     
     if (result.isConfirmed) {
       try {
-        // Clear authentication data
         localStorage.clear();
-        
         showSuccessAlert('Logged Out', 'You have been successfully logged out.', 1500);
         setTimeout(() => {
           window.location.href = "/login";
@@ -195,8 +191,8 @@ const SubmissionsViewPage: React.FC = () => {
     setLoadingProgress(progress);
   };
 
+  // IMPORTANT: Authentication check on component mount
   useEffect(() => {
-    // Check authentication and role
     const token = localStorage.getItem('authToken');
     const userRole = localStorage.getItem('userRole');
     
@@ -205,24 +201,20 @@ const SubmissionsViewPage: React.FC = () => {
       return;
     }
 
-    // Allow teachers and students to access this page
     if (userRole !== 'teacher' && userRole !== 'student') {
       navigate('/login');
       return;
     }
 
-    // Fetch user data
     loadCurrentUser();
   }, [navigate, assignmentId]);
 
-  // Load data when user is available
+  // IMPORTANT: Load data based on user role
   useEffect(() => {
     if (user) {
       if (user.role === 'teacher' && assignmentId) {
-        // Teachers view assignment submissions
         loadAssignmentData();
       } else if (user.role === 'student') {
-        // Students view their grades
         loadStudentGrades();
       }
     }
@@ -236,7 +228,6 @@ const SubmissionsViewPage: React.FC = () => {
       setUser(response.data);
     } catch (error) {
       console.error('Error loading current user:', error);
-      // Fallback to default user data
       setUser({
         id: '1',
         username: 'teacher@classtrack.edu',
@@ -245,27 +236,23 @@ const SubmissionsViewPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Main data loading function for teachers
   const loadAssignmentData = async () => {
     try {
       setIsLoading(true);
       setLoadingProgress(10);
       
-      // Step 1: Load assignment details
       updateLoadingProgress(1, 4);
       await loadAssignment();
       
-      // Step 2: Load submissions
       updateLoadingProgress(2, 4);
       await loadSubmissions();
       
-      // Step 3: Load class info
       updateLoadingProgress(3, 4);
       
-      // Step 4: Load engagement insights
       updateLoadingProgress(4, 4);
       await loadEngagementInsight();
       
-      // Complete loading
       setLoadingProgress(100);
       setTimeout(() => {
         setIsLoading(false);
@@ -284,7 +271,6 @@ const SubmissionsViewPage: React.FC = () => {
     try {
       console.log('📝 Loading assignment data for ID:', assignmentId);
       
-      // Call real API endpoint
       const response = await apiClient.get(`/assignments/${assignmentId}`);
       const assignmentData = response.data;
       
@@ -309,7 +295,6 @@ const SubmissionsViewPage: React.FC = () => {
     try {
       console.log('📚 Loading class info for class ID:', classId);
       
-      // Call real API endpoint
       const response = await apiClient.get(`/classes/${classId}`);
       const classData = response.data;
       
@@ -328,6 +313,7 @@ const SubmissionsViewPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Load student grades for student users
   const loadStudentGrades = async () => {
     try {
       setIsLoading(true);
@@ -337,14 +323,13 @@ const SubmissionsViewPage: React.FC = () => {
       console.log('📊 Loading student grades...');
       updateLoadingProgress(1, 2);
       
-      // Call student grades endpoint
       const response = await apiClient.get('/students/me/grades');
       const gradesData = response.data;
       
       console.log('✅ Student grades loaded:', gradesData);
       updateLoadingProgress(2, 2);
       
-      // Transform grades data to submissions format for compatibility
+      // IMPORTANT: Transform grades data to match submission format
       const submissionsData = gradesData.map((grade: any) => ({
         id: grade.id,
         assignment_id: grade.assignment_id,
@@ -384,7 +369,7 @@ const SubmissionsViewPage: React.FC = () => {
     try {
       console.log('📚 Loading mock submissions for assignment:', assignmentId);
       
-      // Use mock data for submissions since /assignments/{id}/submissions endpoint doesn't exist
+      // IMPORTANT: Mock data fallback when submissions endpoint is not available
       const mockSubmissions = [
         {
           id: 1,
@@ -439,13 +424,13 @@ const SubmissionsViewPage: React.FC = () => {
     try {
       console.log('📊 Loading mock engagement insight for assignment:', assignmentId);
       
-      // Use mock data for engagement insights since /insights/engagement/{id} endpoint doesn't exist
+      // IMPORTANT: Mock data for engagement insights
       const mockEngagementInsight = {
         assignment_id: parseInt(assignmentId || '0'),
         class_name: "Mathematics 101",
         assignment_name: "Algebra Fundamentals",
         total_submissions: 3,
-        average_time_spent: 45, // minutes
+        average_time_spent: 45,
         engagement_score: 78,
         last_updated: new Date().toISOString()
       };
@@ -458,6 +443,7 @@ const SubmissionsViewPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Grade editing handlers
   const handleGradeChange = (submissionId: number, grade: number) => {
     setEditingGrade(prev => ({
       ...prev,
@@ -479,14 +465,12 @@ const SubmissionsViewPage: React.FC = () => {
       
       await apiClient.patch(`/submissions/${submissionId}/grade`, { grade });
       
-      // Update local state
       setSubmissions(prev => prev.map(sub => 
         sub.id === submissionId 
           ? { ...sub, grade, is_graded: true }
           : sub
       ));
       
-      // Remove from editing state
       setEditingGrade(prev => {
         const newState = { ...prev };
         delete newState[submissionId];
@@ -528,9 +512,8 @@ const SubmissionsViewPage: React.FC = () => {
     return 'bg-red-100 text-red-800 border-red-200';
   };
 
+  // IMPORTANT: Simple AI engagement scoring algorithm
   const calculateAIScore = (timeSpent: number): number => {
-    // Simple AI engagement score based on time spent
-    // This is a simplified algorithm - in a real system, this would be more sophisticated
     if (timeSpent >= 60) return 9.5;
     if (timeSpent >= 45) return 8.5;
     if (timeSpent >= 30) return 7.5;
@@ -538,11 +521,9 @@ const SubmissionsViewPage: React.FC = () => {
     return 5.0;
   };
 
-  // Loading Screen - Updated with progress bar
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Animated Logo */}
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-2xl blur-xl"></div>
           <div className="relative w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -565,7 +546,6 @@ const SubmissionsViewPage: React.FC = () => {
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
-        {/* Loading Text */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             {user?.role === 'student' ? 'Loading Your Grades' : 'Loading Submissions'}
@@ -578,7 +558,6 @@ const SubmissionsViewPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full max-w-md mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Loading data...</span>
@@ -592,7 +571,6 @@ const SubmissionsViewPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading Steps */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
           {user?.role === 'student' ? (
             <>
@@ -659,7 +637,6 @@ const SubmissionsViewPage: React.FC = () => {
           )}
         </div>
 
-        {/* Loading Animation */}
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
           <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -667,7 +644,6 @@ const SubmissionsViewPage: React.FC = () => {
           <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }}></div>
         </div>
 
-        {/* Loading Message */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             This might take a moment. Please wait...
@@ -679,7 +655,6 @@ const SubmissionsViewPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex">
-      {/* Fixed Sidebar - Always fixed position */}
       <div className={`fixed inset-y-0 left-0 z-50 w-64 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition duration-300 ease-in-out`}>
         <Sidebar 
           sidebarOpen={sidebarOpen}
@@ -687,7 +662,6 @@ const SubmissionsViewPage: React.FC = () => {
         />
       </div>
 
-      {/* Overlay for mobile sidebar */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -695,12 +669,8 @@ const SubmissionsViewPage: React.FC = () => {
         ></div>
       )}
 
-      {/* Main Content Area - Adjusted for fixed sidebar */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
-        
-        {/* Fixed Header Container - Hindi nag-scroll */}
         <div className="fixed top-0 left-0 right-0 z-30 lg:left-64 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
-          {/* Mobile Header */}
           <header className="lg:hidden p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -724,7 +694,6 @@ const SubmissionsViewPage: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* Logout Button */}
               <button
                 onClick={handleLogout}
                 className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
@@ -745,7 +714,6 @@ const SubmissionsViewPage: React.FC = () => {
                 </svg>
               </button>
 
-              {/* Menu Button */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
@@ -768,7 +736,6 @@ const SubmissionsViewPage: React.FC = () => {
             </div>
           </header>
 
-          {/* Desktop Header - Fixed position */}
           <div className="hidden lg:block">
             <DynamicHeader 
               title={user?.role === 'student' ? "My Grades" : "Digital Grading"}
@@ -784,10 +751,8 @@ const SubmissionsViewPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Scrollable Main Content - Adjusted padding for fixed headers */}
         <main className="flex-1 overflow-auto pt-16 lg:pt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Error Message */}
             {error && (
               <div className="mb-8 bg-red-50 border-2 border-red-200 text-red-700 px-6 py-4 rounded-xl">
                 <div className="flex items-center space-x-3">
@@ -804,7 +769,6 @@ const SubmissionsViewPage: React.FC = () => {
               </div>
             )}
 
-            {/* Assignment Info Card */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm mb-8">
               <div className="p-6">
                 <div className="flex items-start justify-between">
@@ -833,7 +797,6 @@ const SubmissionsViewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Submissions Table */}
             <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h3 className="text-lg font-bold text-gray-900">
@@ -969,7 +932,6 @@ const SubmissionsViewPage: React.FC = () => {
               )}
             </div>
 
-            {/* Grade Input Section (Teacher Only) */}
             {user?.role === 'teacher' && Object.keys(editingGrade).length > 0 && (
               <div className="mt-8 bg-white backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm">
                 <div className="p-6">

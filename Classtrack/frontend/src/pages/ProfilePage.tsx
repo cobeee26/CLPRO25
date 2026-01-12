@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 
 const API_BASE_URL = "http://localhost:8000";
 
+// Axios instance configuration with interceptors
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -105,13 +106,14 @@ const ProfilePage: React.FC = () => {
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // QR Code related states
+  // QR Code states - for student attendance feature
   const [qrCodeData, setQrCodeData] = useState<string>("");
   const [showQrCodeModal, setShowQrCodeModal] = useState(false);
   const [qrCodeDownloading, setQrCodeDownloading] = useState(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Success alert with type-specific styling
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -155,6 +157,7 @@ const ProfilePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Error alert with auto-dismiss option
   const showErrorAlert = (
     title: string, 
     text: string = '',
@@ -184,6 +187,7 @@ const ProfilePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Confirm dialog for logout action
   const showConfirmDialog = (
     title: string, 
     text: string, 
@@ -212,6 +216,7 @@ const ProfilePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Loading alert for async operations
   const showLoadingAlert = (
     title: string = 'Processing...',
     autoDismiss: boolean = false
@@ -240,6 +245,7 @@ const ProfilePage: React.FC = () => {
     Swal.close();
   };
 
+  // Info alert for notifications
   const showInfoAlert = (
     title: string,
     text: string = '',
@@ -269,11 +275,13 @@ const ProfilePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Update loading progress for visual feedback
   const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
     const progress = Math.floor((step / totalSteps) * 100);
     setLoadingProgress(progress);
   };
 
+  // Construct profile image URL from relative path or full URL
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -301,6 +309,7 @@ const ProfilePage: React.FC = () => {
     return constructedUrl;
   };
 
+  // Get member since date (placeholder - should come from API)
   const getMemberSince = (): string => {
     return new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -309,6 +318,7 @@ const ProfilePage: React.FC = () => {
     });
   };
 
+  // Format password last updated date
   const formatPasswordLastUpdated = (): string => {
     return new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -316,7 +326,7 @@ const ProfilePage: React.FC = () => {
     });
   };
 
-  // Generate unique QR code data based on user information
+  // Generate QR code data for student attendance
   const generateQrCodeData = (userData: any) => {
     const qrData = {
       id: userData.id,
@@ -333,7 +343,7 @@ const ProfilePage: React.FC = () => {
     return JSON.stringify(qrData);
   };
 
-  // Generate student ID based on user ID and username
+  // Generate formatted student ID
   const generateStudentId = (id: number, username: string): string => {
     const year = new Date().getFullYear().toString().slice(-2);
     const paddedId = id.toString().padStart(6, '0');
@@ -341,7 +351,7 @@ const ProfilePage: React.FC = () => {
     return `ClasstrackPro-${year}-${paddedId}-${usernamePart}`;
   };
 
-  // Get department based on role (for display purposes)
+  // Get department name based on user role
   const getDepartmentByRole = (role: string): string => {
     switch(role) {
       case 'student':
@@ -355,7 +365,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  // Function to create realistic QR code pattern
+  // Generate QR code pattern using canvas (simulated QR code)
   const generateQrCodePattern = (size: number = 80): string => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
@@ -364,14 +374,12 @@ const ProfilePage: React.FC = () => {
     
     if (!ctx) return '';
     
-    // Background
+    // White background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, size, size);
     
-    // QR code dots
+    // QR code pattern simulation
     ctx.fillStyle = '#000000';
-    
-    // Create grid pattern (simulating QR code)
     const cellSize = size / 21;
     
     // Position detection patterns (corners)
@@ -397,29 +405,22 @@ const ProfilePage: React.FC = () => {
     // Timing patterns
     ctx.fillStyle = '#000000';
     for (let i = 8; i < 13; i++) {
-      // Horizontal timing
       ctx.fillRect(cellSize * i, cellSize * 6, cellSize, cellSize);
-      // Vertical timing
       ctx.fillRect(cellSize * 6, cellSize * i, cellSize, cellSize);
     }
     
-    // Data dots pattern (randomized for realism)
+    // Random dots for QR code data simulation
     ctx.fillStyle = '#000000';
     for (let y = 0; y < 21; y++) {
       for (let x = 0; x < 21; x++) {
-        // Skip position patterns
-        if ((x < 8 && y < 8) || 
-            (x > 13 && y < 8) || 
-            (x < 8 && y > 13)) {
+        if ((x < 8 && y < 8) || (x > 13 && y < 8) || (x < 8 && y > 13)) {
           continue;
         }
         
-        // Skip timing patterns
         if ((x === 6 && y >= 8 && y <= 12) || (y === 6 && x >= 8 && x <= 12)) {
           continue;
         }
         
-        // Random dots to simulate QR code data
         if (Math.random() > 0.5) {
           ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         }
@@ -429,7 +430,7 @@ const ProfilePage: React.FC = () => {
     return canvas.toDataURL('image/png');
   };
 
-  // Function to download QR code as PNG
+  // Download QR code as PNG image
   const downloadQrCode = () => {
     setQrCodeDownloading(true);
     
@@ -449,37 +450,32 @@ const ProfilePage: React.FC = () => {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, 300, 350);
       
-      // Generate QR code pattern
+      // Generate QR code
       const qrSize = 200;
       const qrX = 50;
       const qrY = 30;
       
-      // Draw QR code background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(qrX, qrY, qrSize, qrSize);
       
-      // Draw QR code pattern
       const qrPattern = generateQrCodePattern(qrSize);
       if (qrPattern) {
         const qrImage = new Image();
         qrImage.onload = () => {
           ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
           
-          // Add PLMun text
+          // Add text information
           ctx.fillStyle = '#000000';
           ctx.font = 'bold 16px Arial';
           ctx.textAlign = 'center';
           ctx.fillText('PLMUN STUDENT ID', 150, 260);
           
-          // Add student name
           ctx.font = '14px Arial';
           ctx.fillText(`${user?.first_name} ${user?.last_name}`, 150, 280);
           
-          // Add student ID
           ctx.font = '12px Arial';
           ctx.fillText(`ID: ${generateStudentId(user?.id || 0, user?.username || '')}`, 150, 300);
           
-          // Add scan text
           ctx.font = '11px Arial';
           ctx.fillStyle = '#666666';
           ctx.fillText('Scan for attendance', 150, 320);
@@ -503,7 +499,7 @@ const ProfilePage: React.FC = () => {
     }, 500);
   };
 
-  // Function to show QR code modal
+  // Show QR code modal
   const handleShowQrCode = () => {
     if (!user) {
       showErrorAlert('Error', 'User data not available', true, 3000);
@@ -515,12 +511,12 @@ const ProfilePage: React.FC = () => {
     setShowQrCodeModal(true);
   };
 
-  // Function to close QR code modal
+  // Close QR code modal
   const handleCloseQrCodeModal = () => {
     setShowQrCodeModal(false);
   };
 
-  // Custom QR Code component
+  // QR Code display component
   const QRCodeDisplay = ({ size = 80 }: { size?: number }) => {
     const [qrImage, setQrImage] = useState<string>('');
     
@@ -548,6 +544,7 @@ const ProfilePage: React.FC = () => {
     );
   };
 
+  // Load profile data on component mount
   const loadProfileData = async () => {
     try {
       console.log('🔄 Loading profile data...');
@@ -574,7 +571,7 @@ const ProfilePage: React.FC = () => {
           last_name: user.last_name || "",
         });
         
-        // Generate QR code data when user data is loaded
+        // Generate QR code data for student users
         const qrData = generateQrCodeData(user);
         setQrCodeData(qrData);
       }
@@ -596,10 +593,12 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Load profile on mount and when user changes
   useEffect(() => {
     loadProfileData();
   }, [user, navigate]);
 
+  // Handle password input changes
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPasswordData((prev) => ({
@@ -615,6 +614,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Validate password form inputs
   const validatePasswordForm = (): boolean => {
     const errors: { [key: string]: string } = {};
 
@@ -643,6 +643,7 @@ const ProfilePage: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // Handle password form submission
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -752,6 +753,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Handle logout action
   const handleLogout = async () => {
     const result = await showConfirmDialog(
       'Confirm Logout',
@@ -774,6 +776,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Enable profile editing mode
   const handleProfileEdit = () => {
     setIsEditingProfile(true);
     setProfileData({
@@ -783,6 +786,7 @@ const ProfilePage: React.FC = () => {
     setProfileErrors({});
   };
 
+  // Cancel profile editing
   const handleProfileCancel = () => {
     setIsEditingProfile(false);
     setProfileData({
@@ -792,6 +796,7 @@ const ProfilePage: React.FC = () => {
     setProfileErrors({});
   };
 
+  // Handle profile input changes
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setProfileData((prev) => ({
@@ -807,6 +812,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Validate profile form inputs
   const validateProfileForm = (): boolean => {
     const errors: { [key: string]: string } = {};
 
@@ -822,6 +828,7 @@ const ProfilePage: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // Handle profile form submission
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -888,6 +895,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Handle profile photo selection
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -913,6 +921,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Handle profile photo upload
   const handlePhotoUpload = async () => {
     if (!selectedPhoto) {
       showErrorAlert("No Photo Selected", "Please select a photo first", true, 3000);
@@ -961,6 +970,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Get display name for user role
   const getRoleDisplayName = (role: string) => {
     switch (role) {
       case "admin":
@@ -974,6 +984,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Get icon for user role
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -987,6 +998,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // Navigation functions
   const handleBackToDashboard = () => {
     const userRole = localStorage.getItem("userRole");
     switch (userRole) {
@@ -1057,11 +1069,12 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  // Function to share QR code (simulated)
+  // Simulate QR code sharing
   const handleShareQrCode = () => {
     showInfoAlert('Share QR Code', 'You can share this QR code by downloading it and sending it to others.', true, 3000);
   };
 
+  // Loading state UI
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1143,6 +1156,7 @@ const ProfilePage: React.FC = () => {
     );
   }
 
+  // Error state UI
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1214,6 +1228,7 @@ const ProfilePage: React.FC = () => {
     );
   }
 
+  // No user data state
   if (!user) {
     return (
       <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
@@ -1256,6 +1271,7 @@ const ProfilePage: React.FC = () => {
     );
   }
 
+  // Main profile page UI
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
@@ -1458,7 +1474,7 @@ const ProfilePage: React.FC = () => {
                       Active
                     </span>
                     
-                    {/* Show QR Code button for students */}
+                    {/* QR Code button - only visible for students */}
                     {user.role === 'student' && (
                       <button
                         onClick={handleShowQrCode}
@@ -2243,7 +2259,7 @@ const ProfilePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* QR Code Section - Only for students */}
+                {/* QR Code Section - Only visible for student role */}
                 {user.role === 'student' && (
                   <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-3xl p-8 shadow-2xl">
                     <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
@@ -2517,7 +2533,7 @@ const ProfilePage: React.FC = () => {
         </main>
       </div>
 
-      {/* QR Code Modal */}
+      {/* QR Code Modal - Shows QR code in full screen */}
       {showQrCodeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">

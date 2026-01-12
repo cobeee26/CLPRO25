@@ -82,7 +82,7 @@ const AppRouter: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      {/* NEW: Teacher Assignment Management Page */}
+      {/* Teacher Assignment Management Page */}
       <Route
         path="/teacher/assignments/:assignmentId"
         element={
@@ -149,7 +149,7 @@ const AppRouter: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      {/* NEW: Student Assignment Submission Page */}
+      {/* Student Assignment Submission Page */}
       <Route
         path="/student/assignments/:assignmentId"
         element={
@@ -158,7 +158,7 @@ const AppRouter: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      {/* NEW: Student Assignment Submit Page (Alias for consistency) */}
+      {/* Student Assignment Submit Page (Alias for consistency) */}
       <Route
         path="/student/assignments/:assignmentId/submit"
         element={
@@ -184,7 +184,7 @@ const AppRouter: React.FC = () => {
         }
       />
 
-      {/* Shared Profile */}
+      {/* Shared Profile Route */}
       <Route
         path="/profile"
         element={
@@ -194,7 +194,7 @@ const AppRouter: React.FC = () => {
         }
       />
 
-      {/* Catch-all route for 404 */}
+      {/* 404 Catch-all Route */}
       <Route path="*" element={<div>Page Not Found</div>} />
     </Routes>
   );

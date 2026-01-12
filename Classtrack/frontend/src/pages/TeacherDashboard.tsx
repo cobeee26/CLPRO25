@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 
 const API_BASE_URL = "http://localhost:8000";
 
+// Axios instance configuration with interceptors
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -18,6 +19,7 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
+// Add authorization token to all requests
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -31,6 +33,7 @@ apiClient.interceptors.request.use(
   }
 );
 
+// Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => {
     return response;
@@ -51,6 +54,7 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Interface definitions for data types
 interface Class {
   id: number;
   name: string;
@@ -60,7 +64,7 @@ interface Class {
   semester?: string;
   academic_year?: string;
   teacher_name?: string;
-  subject?: string; // Added subject field
+  subject?: string; // Added subject field for class
 }
 
 interface Assignment {
@@ -110,12 +114,14 @@ interface AttendanceRecord {
   class_subject?: string; // Added subject field for attendance
 }
 
+// Announcement Modal Component Props
 interface AnnouncementModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAnnouncementCreated: () => void;
 }
 
+// Announcement Modal Component
 const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   isOpen,
   onClose,
@@ -129,6 +135,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Handle announcement form submission
   const handleAnnouncementSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -208,6 +215,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
     }
   };
 
+  // Handle modal close with confirmation for unsaved changes
   const closeModal = () => {
     if (announcementForm.title.trim() || announcementForm.content.trim()) {
       Swal.fire({
@@ -429,15 +437,16 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   );
 };
 
+// Main Teacher Dashboard Component
 const TeacherDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
+  
+  // State management
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [classes, setClasses] = useState<Class[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [engagementInsights, setEngagementInsights] = useState<
-    EngagementInsight[]
-  >([]);
+  const [engagementInsights, setEngagementInsights] = useState<EngagementInsight[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
@@ -449,17 +458,16 @@ const TeacherDashboard: React.FC = () => {
     announcements: true,
   });
 
+  // Announcement modal state
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  const [showClassesScrollIndicator, setShowClassesScrollIndicator] =
-    useState(true);
-  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] =
-    useState(true);
-  const [
-    showAnnouncementsScrollIndicator,
-    setShowAnnouncementsScrollIndicator,
-  ] = useState(true);
-  const [showInsightsScrollIndicator, setShowInsightsScrollIndicator] =
-    useState(true);
+  
+  // Scroll indicators state
+  const [showClassesScrollIndicator, setShowClassesScrollIndicator] = useState(true);
+  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] = useState(true);
+  const [showAnnouncementsScrollIndicator, setShowAnnouncementsScrollIndicator] = useState(true);
+  const [showInsightsScrollIndicator, setShowInsightsScrollIndicator] = useState(true);
+  
+  // Refs for scrollable containers
   const classesScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
@@ -467,18 +475,16 @@ const TeacherDashboard: React.FC = () => {
   const previousAssignmentsCountRef = useRef<number>(0);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // QR Code Reader states - WITH 7-SECOND TIMER
+  // QR Code Reader states with 7-second timer
   const [showQrReader, setShowQrReader] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scannedData, setScannedData] = useState<string>("");
-  const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>(
-    []
-  );
+  const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   
-  // 7-second timer states
+  // 7-second timer states for QR detection
   const [qrDetected, setQrDetected] = useState<boolean>(false); // Start with false (RED)
   const [scanBoxColor, setScanBoxColor] = useState<string>("red"); // Start with RED
   const [detectionTimer, setDetectionTimer] = useState<number>(7); // 7-second timer
@@ -487,10 +493,10 @@ const TeacherDashboard: React.FC = () => {
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const [scanCount, setScanCount] = useState<number>(0);
 
+  // Scroll handlers for different sections
   const handleClassesScroll = () => {
     if (classesScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        classesScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = classesScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowClassesScrollIndicator(false);
       } else {
@@ -501,8 +507,7 @@ const TeacherDashboard: React.FC = () => {
 
   const handleAssignmentsScroll = () => {
     if (assignmentsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        assignmentsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = assignmentsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowAssignmentsScrollIndicator(false);
       } else {
@@ -513,8 +518,7 @@ const TeacherDashboard: React.FC = () => {
 
   const handleAnnouncementsScroll = () => {
     if (announcementsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        announcementsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = announcementsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowAnnouncementsScrollIndicator(false);
       } else {
@@ -525,8 +529,7 @@ const TeacherDashboard: React.FC = () => {
 
   const handleInsightsScroll = () => {
     if (insightsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        insightsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = insightsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowInsightsScrollIndicator(false);
       } else {
@@ -535,6 +538,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Helper function to construct profile image URLs
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -562,6 +566,7 @@ const TeacherDashboard: React.FC = () => {
     return constructedUrl;
   };
 
+  // Role-based icon rendering
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -643,6 +648,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Logout handler with confirmation
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: "Confirm Logout",
@@ -679,6 +685,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Navigation handlers
   const handleViewProfile = () => {
     navigate("/profile");
   };
@@ -687,6 +694,7 @@ const TeacherDashboard: React.FC = () => {
     navigate("/teacher/reports");
   };
 
+  // Authentication check on component mount
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     const userRole = localStorage.getItem("userRole");
@@ -700,11 +708,13 @@ const TeacherDashboard: React.FC = () => {
     console.log("✅ Authentication verified for teacher");
   }, [navigate]);
 
+  // Update loading progress helper
   const updateLoadingProgress = (progress: number) => {
     const cappedProgress = Math.min(progress, 100);
     setLoadingProgress(cappedProgress);
   };
 
+  // Main data loading function
   const loadTeacherData = async () => {
     try {
       console.log("🔄 Loading teacher data...");
@@ -746,6 +756,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Load classes from API
   const loadClasses = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, classes: true }));
@@ -833,13 +844,12 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Load assignments from API
   const loadAssignments = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
 
-      console.log(
-        "📝 Loading teacher assignments from /teachers/me/assignments..."
-      );
+      console.log("📝 Loading teacher assignments from /teachers/me/assignments...");
 
       try {
         const response = await apiClient.get("/teachers/me/assignments");
@@ -866,25 +876,7 @@ const TeacherDashboard: React.FC = () => {
           response.data.assignments &&
           Array.isArray(response.data.assignments)
         ) {
-          assignmentsData = response.data.assignments.map(
-            (assignment: any) => ({
-              id: assignment.id,
-              name: assignment.name || `Assignment ${assignment.id}`,
-              description: assignment.description,
-              class_id: assignment.class_id,
-              creator_id: assignment.creator_id,
-              created_at: assignment.created_at || new Date().toISOString(),
-              class_name:
-                assignment.class_name || `Class ${assignment.class_id}`,
-              class_code:
-                assignment.class_code || `CLASS-${assignment.class_id}`,
-              due_date: assignment.due_date,
-              points: assignment.points,
-              assignment_type: assignment.assignment_type,
-            })
-          );
-        } else if (response.data && Array.isArray(response.data.data)) {
-          assignmentsData = response.data.data.map((assignment: any) => ({
+          assignmentsData = response.data.assignments.map((assignment: any) => ({
             id: assignment.id,
             name: assignment.name || `Assignment ${assignment.id}`,
             description: assignment.description,
@@ -901,23 +893,14 @@ const TeacherDashboard: React.FC = () => {
 
         console.log("✅ Processed assignments data:", assignmentsData);
         setAssignments(assignmentsData);
-        console.log(
-          "✅ Teacher assignments loaded successfully:",
-          assignmentsData
-        );
+        console.log("✅ Teacher assignments loaded successfully:", assignmentsData);
       } catch (apiError: any) {
-        console.warn(
-          "⚠️ /teachers/me/assignments API failed:",
-          apiError.message
-        );
+        console.warn("⚠️ /teachers/me/assignments API failed:", apiError.message);
         console.log("🔄 Trying alternative endpoint...");
 
         try {
           const response = await apiClient.get("/assignments/teacher");
-          console.log(
-            "✅ Alternative assignments API response:",
-            response.data
-          );
+          console.log("✅ Alternative assignments API response:", response.data);
 
           let assignmentsData: Assignment[] = [];
 
@@ -929,10 +912,8 @@ const TeacherDashboard: React.FC = () => {
               class_id: assignment.class_id,
               creator_id: assignment.creator_id,
               created_at: assignment.created_at || new Date().toISOString(),
-              class_name:
-                assignment.class_name || `Class ${assignment.class_id}`,
-              class_code:
-                assignment.class_code || `CLASS-${assignment.class_id}`,
+              class_name: assignment.class_name || `Class ${assignment.class_id}`,
+              class_code: assignment.class_code || `CLASS-${assignment.class_id}`,
               due_date: assignment.due_date,
               points: assignment.points,
               assignment_type: assignment.assignment_type,
@@ -941,16 +922,11 @@ const TeacherDashboard: React.FC = () => {
 
           if (assignmentsData.length === 0) {
             try {
-              const { getTeacherAssignments } = await import(
-                "../services/authService"
-              );
+              const { getTeacherAssignments } = await import("../services/authService");
               const assignmentsData2 = await getTeacherAssignments();
 
               setAssignments(assignmentsData2);
-              console.log(
-                "✅ Teacher assignments loaded via authService:",
-                assignmentsData2
-              );
+              console.log("✅ Teacher assignments loaded via authService:", assignmentsData2);
             } catch (thirdError) {
               console.error("❌ All assignment endpoints failed:", thirdError);
               setAssignments([]);
@@ -958,25 +934,17 @@ const TeacherDashboard: React.FC = () => {
             }
           } else {
             setAssignments(assignmentsData);
-            console.log(
-              "✅ Teacher assignments loaded via alternative:",
-              assignmentsData
-            );
+            console.log("✅ Teacher assignments loaded via alternative:", assignmentsData);
           }
         } catch (secondError: any) {
           console.error("❌ Alternative endpoint failed:", secondError.message);
 
           try {
-            const { getTeacherAssignments } = await import(
-              "../services/authService"
-            );
+            const { getTeacherAssignments } = await import("../services/authService");
             const assignmentsData = await getTeacherAssignments();
 
             setAssignments(assignmentsData);
-            console.log(
-              "✅ Teacher assignments loaded via authService fallback:",
-              assignmentsData
-            );
+            console.log("✅ Teacher assignments loaded via authService fallback:", assignmentsData);
           } catch (thirdError) {
             console.error("❌ All assignment endpoints failed:", thirdError);
             setAssignments([]);
@@ -1007,6 +975,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Load engagement insights with real data
   const loadEngagementInsights = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, insights: true }));
@@ -1090,10 +1059,7 @@ const TeacherDashboard: React.FC = () => {
             last_updated: new Date().toISOString(),
           };
         } catch (error) {
-          console.error(
-            `Error loading insights for assignment ${assignment.id}:`,
-            error
-          );
+          console.error(`Error loading insights for assignment ${assignment.id}:`, error);
 
           return {
             id: assignment.id,
@@ -1101,9 +1067,7 @@ const TeacherDashboard: React.FC = () => {
             assignment_name: assignment.name,
             total_submissions: Math.floor(Math.random() * 30) + 1,
             average_time_spent: Math.floor(Math.random() * 120) + 10,
-            engagement_score: parseFloat(
-              (Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)
-            ),
+            engagement_score: parseFloat((Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)),
             last_updated: new Date().toISOString(),
           };
         }
@@ -1115,19 +1079,15 @@ const TeacherDashboard: React.FC = () => {
     } catch (error) {
       console.error("Error loading engagement insights:", error);
 
-      const mockInsights: EngagementInsight[] = assignments.map(
-        (assignment) => ({
-          id: assignment.id,
-          class_name: assignment.class_name || `Class ${assignment.class_id}`,
-          assignment_name: assignment.name,
-          total_submissions: Math.floor(Math.random() * 30) + 1,
-          average_time_spent: Math.floor(Math.random() * 120) + 10,
-          engagement_score: parseFloat(
-            (Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)
-          ),
-          last_updated: new Date().toISOString(),
-        })
-      );
+      const mockInsights: EngagementInsight[] = assignments.map((assignment) => ({
+        id: assignment.id,
+        class_name: assignment.class_name || `Class ${assignment.class_id}`,
+        assignment_name: assignment.name,
+        total_submissions: Math.floor(Math.random() * 30) + 1,
+        average_time_spent: Math.floor(Math.random() * 120) + 10,
+        engagement_score: parseFloat((Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)),
+        last_updated: new Date().toISOString(),
+      }));
 
       setEngagementInsights(mockInsights);
       console.log("🔄 Using mock data as fallback");
@@ -1136,6 +1096,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Load announcements from API
   const loadAnnouncements = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, announcements: true }));
@@ -1149,16 +1110,11 @@ const TeacherDashboard: React.FC = () => {
           setAnnouncements(response.data);
           console.log("✅ Announcements loaded from API:", response.data);
         } else {
-          console.warn(
-            "⚠️ Announcements API returned invalid data, using mock data"
-          );
+          console.warn("⚠️ Announcements API returned invalid data, using mock data");
           setAnnouncements(getFallbackAnnouncements());
         }
       } catch (error: any) {
-        console.warn(
-          "⚠️ Announcements API failed, using mock data:",
-          error.message
-        );
+        console.warn("⚠️ Announcements API failed, using mock data:", error.message);
         setAnnouncements(getFallbackAnnouncements());
       }
     } catch (error) {
@@ -1177,6 +1133,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Fallback announcements for when API fails
   const getFallbackAnnouncements = (): Announcement[] => {
     return [
       {
@@ -1209,16 +1166,16 @@ const TeacherDashboard: React.FC = () => {
     ];
   };
 
+  // Refresh announcements after new announcement is created
   const handleAnnouncementCreated = () => {
     loadAnnouncements();
   };
 
+  // Date formatting helper
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      const localDate = new Date(
-        date.getTime() - date.getTimezoneOffset() * 60000
-      );
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
       return localDate.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
@@ -1232,18 +1189,18 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Engagement score badge color based on score
   const getEngagementBadge = (score: number) => {
     if (score >= 8.5) return "bg-green-100 text-green-800 border-green-200";
     if (score >= 7.0) return "bg-yellow-100 text-yellow-800 border-yellow-200";
     return "bg-red-100 text-red-800 border-red-200";
   };
 
+  // Time ago calculation for engagement insights
   const getTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    );
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
 
     if (diffInHours < 1) return "Just now";
     if (diffInHours < 24) return `${diffInHours} hours ago`;
@@ -1251,6 +1208,7 @@ const TeacherDashboard: React.FC = () => {
     return `${Math.floor(diffInHours / 168)} weeks ago`;
   };
 
+  // Navigate to reports page
   const handleViewReportsNav = () => {
     navigate("/teacher/reports");
   };
@@ -1299,6 +1257,7 @@ const TeacherDashboard: React.FC = () => {
     }, 1000);
   };
 
+  // Stop QR detection timer
   const stopQrDetection = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -1311,6 +1270,8 @@ const TeacherDashboard: React.FC = () => {
   };
 
   // QR Code Reader Functions
+
+  // Open QR reader modal
   const handleOpenQrReader = () => {
     if (classes.length === 0) {
       Swal.fire({
@@ -1325,6 +1286,7 @@ const TeacherDashboard: React.FC = () => {
     setShowQrReader(true);
   };
 
+  // Close QR reader modal
   const handleCloseQrReader = () => {
     stopCamera();
     stopQrDetection();
@@ -1338,6 +1300,7 @@ const TeacherDashboard: React.FC = () => {
     setDetectionTimer(7);
   };
 
+  // Handle class selection for QR scanning
   const handleClassSelect = (classItem: Class) => {
     setSelectedClass(classItem);
     startCamera();
@@ -1345,6 +1308,7 @@ const TeacherDashboard: React.FC = () => {
     startQrDetectionTimer();
   };
 
+  // Start camera for QR scanning
   const startCamera = async () => {
     try {
       setIsScanning(true);
@@ -1379,6 +1343,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Stop camera stream
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -1389,6 +1354,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Simulate QR code scanning with sequential student data
   const simulateQrScan = () => {
     // Only allow scanning if QR is detected (after 7 seconds)
     if (!qrDetected) {
@@ -1479,6 +1445,7 @@ const TeacherDashboard: React.FC = () => {
     }, 2000);
   };
 
+  // Submit attendance after QR scan
   const handleAttendanceSubmit = async (studentData: any) => {
     if (!selectedClass) {
       Swal.fire({
@@ -1516,9 +1483,7 @@ const TeacherDashboard: React.FC = () => {
         html: `
           <div class="text-center">
             <div class="text-4xl mb-2">✅</div>
-            <p class="font-bold text-lg">${studentData.firstName} ${
-          studentData.lastName
-        }</p>
+            <p class="font-bold text-lg">${studentData.firstName} ${studentData.lastName}</p>
             <p class="text-gray-600">${studentData.studentId}</p>
             <p class="text-gray-600 mt-2">Marked present for:</p>
             <p class="font-bold">${selectedClass.name}</p>
@@ -1546,27 +1511,24 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Format time for attendance display
   const formatAttendanceTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  // Effect: Load assignments when classes are available
   useEffect(() => {
-    if (
-      classes.length > 0 &&
-      assignments.length === 0 &&
-      !loadingStates.assignments
-    ) {
+    if (classes.length > 0 && assignments.length === 0 && !loadingStates.assignments) {
       loadAssignments();
     }
   }, [classes]);
 
+  // Effect: Refresh engagement insights when assignments change
   useEffect(() => {
     if (assignments.length > 0) {
       if (previousAssignmentsCountRef.current !== assignments.length) {
-        console.log(
-          "🔄 Assignments changed, refreshing engagement insights..."
-        );
+        console.log("🔄 Assignments changed, refreshing engagement insights...");
         loadEngagementInsights();
         previousAssignmentsCountRef.current = assignments.length;
       } else if (!loadingStates.insights && engagementInsights.length === 0) {
@@ -1575,6 +1537,7 @@ const TeacherDashboard: React.FC = () => {
     }
   }, [assignments]);
 
+  // Effect: Load teacher data when user is available
   useEffect(() => {
     if (user && user.role === "teacher") {
       console.log("👤 User data loaded, starting data fetch...");
@@ -1585,6 +1548,7 @@ const TeacherDashboard: React.FC = () => {
     }
   }, [user, navigate]);
 
+  // Effect: Auto-refresh engagement insights every 15 seconds
   useEffect(() => {
     if (isInitialLoading || assignments.length === 0) return;
 
@@ -1606,6 +1570,7 @@ const TeacherDashboard: React.FC = () => {
     };
   }, [isInitialLoading, assignments.length]);
 
+  // Effect: Auto-refresh announcements every 30 seconds
   useEffect(() => {
     if (isInitialLoading) return;
 
@@ -1619,6 +1584,7 @@ const TeacherDashboard: React.FC = () => {
     };
   }, [isInitialLoading]);
 
+  // Effect: Clean up camera and timer on unmount
   useEffect(() => {
     return () => {
       stopCamera();
@@ -1626,6 +1592,7 @@ const TeacherDashboard: React.FC = () => {
     };
   }, []);
 
+  // Loading state UI
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1682,21 +1649,9 @@ const TeacherDashboard: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
           {[
             { text: "Classes", color: "bg-red-100 text-red-600", progress: 25 },
-            {
-              text: "Assignments",
-              color: "bg-green-100 text-green-600",
-              progress: 50,
-            },
-            {
-              text: "Announcements",
-              color: "bg-orange-100 text-orange-600",
-              progress: 75,
-            },
-            {
-              text: "Insights",
-              color: "bg-purple-100 text-purple-600",
-              progress: 100,
-            },
+            { text: "Assignments", color: "bg-green-100 text-green-600", progress: 50 },
+            { text: "Announcements", color: "bg-orange-100 text-orange-600", progress: 75 },
+            { text: "Insights", color: "bg-purple-100 text-purple-600", progress: 100 },
           ].map((step, index) => (
             <div
               key={index}
@@ -1739,6 +1694,7 @@ const TeacherDashboard: React.FC = () => {
     );
   }
 
+  // Error state UI
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1800,6 +1756,7 @@ const TeacherDashboard: React.FC = () => {
     );
   }
 
+  // User verification check
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
@@ -1811,8 +1768,10 @@ const TeacherDashboard: React.FC = () => {
     );
   }
 
+  // Main dashboard UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex relative">
+      {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center space-x-3">
@@ -1825,9 +1784,7 @@ const TeacherDashboard: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">
-                Teacher Portal
-              </h1>
+              <h1 className="text-lg font-bold text-gray-900">Teacher Portal</h1>
               <p className="text-xs text-gray-600">ClassTrack Dashboard</p>
             </div>
           </div>
@@ -1894,6 +1851,7 @@ const TeacherDashboard: React.FC = () => {
         </div>
       </header>
 
+      {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-40 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -1902,7 +1860,9 @@ const TeacherDashboard: React.FC = () => {
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       </div>
 
+      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+        {/* Desktop Header */}
         <div className="hidden lg:block fixed top-0 right-0 left-64 z-30 bg-white border-b border-gray-200">
           <DynamicHeader
             title="Teacher Portal"
@@ -1911,14 +1871,13 @@ const TeacherDashboard: React.FC = () => {
         </div>
 
         <div className="flex-1 flex flex-col mt-16 lg:mt-20">
+          {/* Status Bar */}
           <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-4 lg:mt-6">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-green-600 font-medium">
-                    System Active
-                  </span>
+                  <span className="text-green-600 font-medium">System Active</span>
                 </div>
                 <div className="text-gray-600">
                   Last updated: {new Date().toLocaleTimeString()}
@@ -1927,17 +1886,16 @@ const TeacherDashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                 <span className="text-blue-600 font-medium">
-                  {user?.role
-                    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
-                    : "Teacher"}{" "}
-                  User
+                  {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Teacher"} User
                 </span>
               </div>
             </div>
           </div>
 
+          {/* Main Dashboard Content */}
           <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+              {/* Welcome Card */}
               <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-xl">
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
@@ -1981,45 +1939,36 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </h2>
                     <p className="text-gray-700 leading-relaxed text-sm md:text-base">
-                      Manage your classes, create assignments, and gain insights
-                      into student engagement.
+                      Manage your classes, create assignments, and gain insights into student engagement.
                     </p>
                   </div>
                 </div>
               </div>
 
+              {/* Profile Card */}
               <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-xl">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-lg">
-                      {user?.profile_picture_url &&
-                      user.profile_picture_url.trim() !== "" ? (
+                      {user?.profile_picture_url && user.profile_picture_url.trim() !== "" ? (
                         <img
                           src={getProfileImageUrl(user.profile_picture_url)}
                           alt="Profile"
                           className="w-full h-full object-cover"
                           onLoad={() => {
-                            console.log(
-                              "🖼️  Profile image loaded successfully in teacher dashboard"
-                            );
+                            console.log("🖼️ Profile image loaded successfully in teacher dashboard");
                           }}
                           onError={(e) => {
-                            console.error(
-                              "🖼️  Profile image failed to load in teacher dashboard:",
-                              e.currentTarget.src
-                            );
+                            console.error("🖼️ Profile image failed to load in teacher dashboard:", e.currentTarget.src);
                             e.currentTarget.style.display = "none";
-                            e.currentTarget.nextElementSibling?.classList.remove(
-                              "hidden"
-                            );
+                            e.currentTarget.nextElementSibling?.classList.remove("hidden");
                           }}
                         />
                       ) : null}
 
                       <div
                         className={`w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-2xl ${
-                          !user?.profile_picture_url ||
-                          user.profile_picture_url.trim() === ""
+                          !user?.profile_picture_url || user.profile_picture_url.trim() === ""
                             ? ""
                             : "hidden"
                         }`}
@@ -2038,8 +1987,7 @@ const TeacherDashboard: React.FC = () => {
                       </p>
                       <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full border border-purple-200">
                         {user?.role
-                          ? user.role.charAt(0).toUpperCase() +
-                            user.role.slice(1)
+                          ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                           : "Teacher"}
                       </span>
                     </div>
@@ -2067,9 +2015,13 @@ const TeacherDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Main Dashboard Grid */}
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                {/* Left Column (2/3) */}
                 <div className="xl:col-span-2 space-y-6">
+                  {/* Classes and Assignments Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* My Classes Card */}
                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
@@ -2088,9 +2040,7 @@ const TeacherDashboard: React.FC = () => {
                               />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-bold text-gray-900">
-                            My Classes
-                          </h3>
+                          <h3 className="text-lg font-bold text-gray-900">My Classes</h3>
                         </div>
                         <button
                           onClick={() => navigate("/teacher/classes")}
@@ -2142,12 +2092,8 @@ const TeacherDashboard: React.FC = () => {
                                   />
                                 </svg>
                               </div>
-                              <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                                No Classes Yet
-                              </h4>
-                              <p className="text-gray-600 mb-4">
-                                You haven't been assigned to any classes yet.
-                              </p>
+                              <h4 className="text-lg font-semibold text-gray-900 mb-2">No Classes Yet</h4>
+                              <p className="text-gray-600 mb-4">You haven't been assigned to any classes yet.</p>
                               <button
                                 className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
                                 style={{ cursor: "pointer" }}
@@ -2161,15 +2107,11 @@ const TeacherDashboard: React.FC = () => {
                                 key={classItem.id}
                                 className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                                 style={{ cursor: "pointer" }}
-                                onClick={() =>
-                                  navigate(`/teacher/classes/${classItem.id}`)
-                                }
+                                onClick={() => navigate(`/teacher/classes/${classItem.id}`)}
                               >
                                 <div className="flex items-center justify-between mb-3">
                                   <div>
-                                    <h4 className="font-semibold text-gray-900 text-sm">
-                                      {classItem.name}
-                                    </h4>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{classItem.name}</h4>
                                     <p className="text-xs text-blue-600 mt-1">
                                       Subject: {classItem.subject || classItem.name}
                                     </p>
@@ -2180,16 +2122,9 @@ const TeacherDashboard: React.FC = () => {
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="text-gray-600">
-                                    {
-                                      assignments.filter(
-                                        (a) => a.class_id === classItem.id
-                                      ).length
-                                    }{" "}
-                                    assignments
+                                    {assignments.filter((a) => a.class_id === classItem.id).length} assignments
                                   </span>
-                                  <span className="text-green-600 font-medium">
-                                    Active
-                                  </span>
+                                  <span className="text-green-600 font-medium">Active</span>
                                 </div>
                               </div>
                             ))
@@ -2221,6 +2156,7 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Recent Assignments Card */}
                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
@@ -2239,9 +2175,7 @@ const TeacherDashboard: React.FC = () => {
                               />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-bold text-gray-900">
-                            Recent Assignments
-                          </h3>
+                          <h3 className="text-lg font-bold text-gray-900">Recent Assignments</h3>
                         </div>
                         <button
                           onClick={() => navigate("/teacher/assignments")}
@@ -2290,12 +2224,8 @@ const TeacherDashboard: React.FC = () => {
                                   />
                                 </svg>
                               </div>
-                              <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                                No Assignments Yet
-                              </h4>
-                              <p className="text-gray-600 mb-4">
-                                Create your first assignment to get started.
-                              </p>
+                              <h4 className="text-lg font-semibold text-gray-900 mb-2">No Assignments Yet</h4>
+                              <p className="text-gray-600 mb-4">Create your first assignment to get started.</p>
                               <button
                                 className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
                                 style={{ cursor: "pointer" }}
@@ -2309,16 +2239,10 @@ const TeacherDashboard: React.FC = () => {
                                 key={assignment.id}
                                 className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                                 style={{ cursor: "pointer" }}
-                                onClick={() =>
-                                  navigate(
-                                    `/teacher/assignments/${assignment.id}`
-                                  )
-                                }
+                                onClick={() => navigate(`/teacher/assignments/${assignment.id}`)}
                               >
                                 <div className="flex items-center justify-between mb-3">
-                                  <h4 className="font-semibold text-gray-900 text-sm">
-                                    {assignment.name}
-                                  </h4>
+                                  <h4 className="font-semibold text-gray-900 text-sm">{assignment.name}</h4>
                                   <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200">
                                     Active
                                   </span>
@@ -2328,33 +2252,33 @@ const TeacherDashboard: React.FC = () => {
                           )}
                         </div>
 
-                        {assignments.length > 4 &&
-                          showAssignmentsScrollIndicator && (
-                            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                              <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                                <svg
-                                  className="w-3 h-3 text-green-500 animate-bounce"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                                  />
-                                </svg>
-                                <span className="text-xs text-gray-600">
-                                  Scroll for more ({assignments.length} total)
-                                </span>
-                              </div>
+                        {assignments.length > 4 && showAssignmentsScrollIndicator && (
+                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                              <svg
+                                className="w-3 h-3 text-green-500 animate-bounce"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                                />
+                              </svg>
+                              <span className="text-xs text-gray-600">
+                                Scroll for more ({assignments.length} total)
+                              </span>
                             </div>
-                          )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
 
+                  {/* Student Engagement Insights Card */}
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center space-x-3">
@@ -2374,22 +2298,16 @@ const TeacherDashboard: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold text-gray-900">
-                            Student Engagement Insights
-                          </h3>
+                          <h3 className="text-lg font-bold text-gray-900">Student Engagement Insights</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-blue-600 font-medium">
-                              AI Powered • Auto-Refresh
-                            </span>
+                            <span className="text-xs text-blue-600 font-medium">AI Powered • Auto-Refresh</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs text-green-600 font-medium">
-                          Live
-                        </span>
+                        <span className="text-xs text-green-600 font-medium">Live</span>
                         <button
                           onClick={loadEngagementInsights}
                           className="px-3 py-1 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-700 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm cursor-pointer flex items-center gap-1"
@@ -2454,16 +2372,11 @@ const TeacherDashboard: React.FC = () => {
                                 />
                               </svg>
                             </div>
-                            <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                              No Engagement Data Yet
-                            </h4>
+                            <h4 className="text-lg font-semibold text-gray-900 mb-2">No Engagement Data Yet</h4>
                             <p className="text-gray-600 mb-4">
-                              Create assignments to start tracking student
-                              engagement.
+                              Create assignments to start tracking student engagement.
                               <br />
-                              <span className="text-sm text-blue-600">
-                                Data will auto-refresh every 15 seconds.
-                              </span>
+                              <span className="text-sm text-blue-600">Data will auto-refresh every 15 seconds.</span>
                             </p>
                           </div>
                         ) : (
@@ -2472,9 +2385,7 @@ const TeacherDashboard: React.FC = () => {
                               key={insight.id}
                               className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                               style={{ cursor: "pointer" }}
-                              onClick={() =>
-                                navigate(`/teacher/assignments/${insight.id}`)
-                              }
+                              onClick={() => navigate(`/teacher/assignments/${insight.id}`)}
                             >
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex-1 min-w-0">
@@ -2493,17 +2404,13 @@ const TeacherDashboard: React.FC = () => {
 
                               <div className="grid grid-cols-2 gap-2 mb-3">
                                 <div className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                                  <div className="text-gray-600 text-xs mb-1">
-                                    Submissions
-                                  </div>
+                                  <div className="text-gray-600 text-xs mb-1">Submissions</div>
                                   <div className="text-gray-900 font-bold text-sm">
                                     {insight.total_submissions}
                                   </div>
                                 </div>
                                 <div className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                                  <div className="text-gray-600 text-xs mb-1">
-                                    Avg. Time Spent
-                                  </div>
+                                  <div className="text-gray-600 text-xs mb-1">Avg. Time Spent</div>
                                   <div className="text-gray-900 font-bold text-sm">
                                     {insight.average_time_spent}m
                                   </div>
@@ -2511,9 +2418,7 @@ const TeacherDashboard: React.FC = () => {
                               </div>
 
                               <div className="text-xs text-gray-500 flex items-center justify-between">
-                                <span>
-                                  Updated: {getTimeAgo(insight.last_updated)}
-                                </span>
+                                <span>Updated: {getTimeAgo(insight.last_updated)}</span>
                                 <span className="text-green-500 text-xs flex items-center gap-1">
                                   <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
                                   Live
@@ -2524,30 +2429,28 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {engagementInsights.length > 4 &&
-                        showInsightsScrollIndicator && (
-                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                              <svg
-                                className="w-3 h-3 text-purple-500 animate-bounce"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                                />
-                              </svg>
-                              <span className="text-xs text-gray-600">
-                                Scroll for more ({engagementInsights.length}{" "}
-                                total)
-                              </span>
-                            </div>
+                      {engagementInsights.length > 4 && showInsightsScrollIndicator && (
+                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                          <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                            <svg
+                              className="w-3 h-3 text-purple-500 animate-bounce"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                              />
+                            </svg>
+                            <span className="text-xs text-gray-600">
+                              Scroll for more ({engagementInsights.length} total)
+                            </span>
                           </div>
-                        )}
+                        </div>
+                      )}
                     </div>
 
                     {engagementInsights.length > 0 && (
@@ -2563,6 +2466,7 @@ const TeacherDashboard: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Right Column (1/3) */}
                 <div className="xl:col-span-1 space-y-6">
                   {/* QR Code Reader Section */}
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
@@ -2584,14 +2488,10 @@ const TeacherDashboard: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold text-gray-900">
-                            QR Code Attendance
-                          </h3>
+                          <h3 className="text-lg font-bold text-gray-900">QR Code Attendance</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-green-600 font-medium">
-                              Quick Scan • Real-time
-                            </span>
+                            <span className="text-xs text-green-600 font-medium">Quick Scan • Real-time</span>
                           </div>
                         </div>
                       </div>
@@ -2617,9 +2517,7 @@ const TeacherDashboard: React.FC = () => {
                               </svg>
                             </div>
                             <div>
-                              <h4 className="font-semibold text-indigo-900">
-                                Scan Student QR Codes
-                              </h4>
+                              <h4 className="font-semibold text-indigo-900">Scan Student QR Codes</h4>
                               <p className="text-sm text-gray-600">
                                 Take attendance quickly using student QR codes
                               </p>
@@ -2632,8 +2530,7 @@ const TeacherDashboard: React.FC = () => {
                           disabled={classes.length === 0}
                           className="w-full flex items-center justify-center p-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl border border-indigo-300 transition-all duration-200 cursor-pointer group shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{
-                            cursor:
-                              classes.length === 0 ? "not-allowed" : "pointer",
+                            cursor: classes.length === 0 ? "not-allowed" : "pointer",
                           }}
                         >
                           <svg
@@ -2654,9 +2551,7 @@ const TeacherDashboard: React.FC = () => {
 
                         {recentAttendance.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-gray-200">
-                            <h5 className="font-semibold text-gray-900 text-sm mb-3">
-                              Recent Attendance
-                            </h5>
+                            <h5 className="font-semibold text-gray-900 text-sm mb-3">Recent Attendance</h5>
                             <div className="space-y-2">
                               {recentAttendance.slice(0, 3).map((record) => (
                                 <div
@@ -2664,16 +2559,10 @@ const TeacherDashboard: React.FC = () => {
                                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                                 >
                                   <div>
-                                    <p className="font-medium text-gray-900 text-sm">
-                                      {record.student_name}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {record.student_username}
-                                    </p>
+                                    <p className="font-medium text-gray-900 text-sm">{record.student_name}</p>
+                                    <p className="text-xs text-gray-500">{record.student_username}</p>
                                     {record.class_subject && (
-                                      <p className="text-xs text-blue-600 mt-1">
-                                        {record.class_subject}
-                                      </p>
+                                      <p className="text-xs text-blue-600 mt-1">{record.class_subject}</p>
                                     )}
                                   </div>
                                   <div className="text-right">
@@ -2703,9 +2592,7 @@ const TeacherDashboard: React.FC = () => {
                               value={selectedClass?.id || ""}
                               onChange={(e) => {
                                 const classId = parseInt(e.target.value);
-                                const selected = classes.find(
-                                  (c) => c.id === classId
-                                );
+                                const selected = classes.find((c) => c.id === classId);
                                 if (selected) {
                                   handleClassSelect(selected);
                                 }
@@ -2741,15 +2628,11 @@ const TeacherDashboard: React.FC = () => {
                           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
                             <div className="flex items-center justify-between">
                               <div>
-                                <h4 className="font-semibold text-blue-900">
-                                  {selectedClass.name}
-                                </h4>
+                                <h4 className="font-semibold text-blue-900">{selectedClass.name}</h4>
                                 <p className="text-sm text-blue-700">
                                   Subject: {selectedClass.subject || selectedClass.name}
                                 </p>
-                                <p className="text-xs text-blue-600">
-                                  Code: {selectedClass.code}
-                                </p>
+                                <p className="text-xs text-blue-600">Code: {selectedClass.code}</p>
                               </div>
                             </div>
                           </div>
@@ -2914,6 +2797,7 @@ const TeacherDashboard: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Announcements Card */}
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
@@ -2932,16 +2816,13 @@ const TeacherDashboard: React.FC = () => {
                             />
                           </svg>
                         </div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                          Announcements
-                        </h3>
+                        <h3 className="text-lg font-bold text-gray-900">Announcements</h3>
                       </div>
                       {announcements.filter((a) => a.is_urgent).length > 0 && (
                         <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
                           <span className="text-xs text-orange-600 font-medium">
-                            {announcements.filter((a) => a.is_urgent).length}{" "}
-                            Urgent
+                            {announcements.filter((a) => a.is_urgent).length} Urgent
                           </span>
                         </div>
                       )}
@@ -2984,9 +2865,7 @@ const TeacherDashboard: React.FC = () => {
                               <div className="flex items-start space-x-3">
                                 <div
                                   className={`w-3 h-3 rounded-full mt-2 ${
-                                    announcement.is_urgent
-                                      ? "bg-orange-500"
-                                      : "bg-blue-500"
+                                    announcement.is_urgent ? "bg-orange-500" : "bg-blue-500"
                                   }`}
                                 ></div>
                                 <div className="flex-1 min-w-0">
@@ -3025,44 +2904,40 @@ const TeacherDashboard: React.FC = () => {
                                 d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                               />
                             </svg>
-                            <h5 className="font-medium text-gray-900 text-sm mb-1">
-                              No Announcements
-                            </h5>
-                            <p className="text-xs text-gray-600">
-                              No announcements to display
-                            </p>
+                            <h5 className="font-medium text-gray-900 text-sm mb-1">No Announcements</h5>
+                            <p className="text-xs text-gray-600">No announcements to display</p>
                           </div>
                         )}
                       </div>
 
-                      {announcements.length > 2 &&
-                        showAnnouncementsScrollIndicator && (
-                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                              <svg
-                                className="w-3 h-3 text-orange-500 animate-bounce"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                                />
-                              </svg>
-                              <span className="text-xs text-gray-600">
-                                Scroll for more ({announcements.length} total)
-                              </span>
-                            </div>
+                      {announcements.length > 2 && showAnnouncementsScrollIndicator && (
+                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                          <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                            <svg
+                              className="w-3 h-3 text-orange-500 animate-bounce"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                              />
+                            </svg>
+                            <span className="text-xs text-gray-600">
+                              Scroll for more ({announcements.length} total)
+                            </span>
                           </div>
-                        )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
+              {/* Quick Actions Card */}
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                 <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center space-x-3">
                   <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
@@ -3104,12 +2979,8 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-gray-900 font-semibold text-sm">
-                        Manage Assignments
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        Create and manage tasks
-                      </p>
+                      <p className="text-gray-900 font-semibold text-sm">Manage Assignments</p>
+                      <p className="text-xs text-gray-600">Create and manage tasks</p>
                     </div>
                   </button>
                   <button
@@ -3133,12 +3004,8 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-gray-900 font-semibold text-sm">
-                        Post Announcements
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        Share updates with students
-                      </p>
+                      <p className="text-gray-900 font-semibold text-sm">Post Announcements</p>
+                      <p className="text-xs text-gray-600">Share updates with students</p>
                     </div>
                   </button>
                   <button
@@ -3162,12 +3029,8 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-gray-900 font-semibold text-sm">
-                        View Reports
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        Analytics and insights
-                      </p>
+                      <p className="text-gray-900 font-semibold text-sm">View Reports</p>
+                      <p className="text-xs text-gray-600">Analytics and insights</p>
                     </div>
                   </button>
                   {/* Manage Classes Button */}
@@ -3192,12 +3055,8 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-gray-900 font-semibold text-sm">
-                        Manage Classes
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        Organize student class 
-                      </p>
+                      <p className="text-gray-900 font-semibold text-sm">Manage Classes</p>
+                      <p className="text-xs text-gray-600">Organize student class</p>
                     </div>
                   </button>
                   {/* Schedule Button */}
@@ -3222,12 +3081,8 @@ const TeacherDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div className="text-left">
-                      <p className="text-gray-900 font-semibold text-sm">
-                        Schedule
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        room schedule and room monitoring for cleaning
-                      </p>
+                      <p className="text-gray-900 font-semibold text-sm">Schedule</p>
+                      <p className="text-xs text-gray-600">room schedule and room monitoring for cleaning</p>
                     </div>
                   </button>
                 </div>
@@ -3236,6 +3091,8 @@ const TeacherDashboard: React.FC = () => {
           </main>
         </div>
       </div>
+      
+      {/* Announcement Modal */}
       <AnnouncementModal
         isOpen={showAnnouncementModal}
         onClose={() => setShowAnnouncementModal(false)}

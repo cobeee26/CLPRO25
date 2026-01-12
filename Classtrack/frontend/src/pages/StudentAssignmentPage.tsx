@@ -107,6 +107,7 @@ const StudentAssignmentPage: React.FC = () => {
   const timeSpentRef = useRef<HTMLInputElement>(null);
   const linkRef = useRef<HTMLInputElement>(null);
   
+  // Core tracking refs
   const startTimeRef = useRef<number>(Date.now());
   const activeTimeRef = useRef<number>(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -115,9 +116,8 @@ const StudentAssignmentPage: React.FC = () => {
   const pageUnloadRef = useRef<boolean>(false);
   const lastPagePathRef = useRef<string>(window.location.pathname);
   
+  // Anti-cheat tracking refs
   const strictModeRef = useRef<boolean>(false);
-  const tabSwitchCountRef = useRef<number>(0);
-  const lastTabSwitchTimeRef = useRef<number>(Date.now());
   const typingStartTimeRef = useRef<number | null>(null);
   const lastTypingTimeRef = useRef<number>(Date.now());
   const initialContentLengthRef = useRef<number>(0);
@@ -143,6 +143,7 @@ const StudentAssignmentPage: React.FC = () => {
   const excessiveInactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const tabSwitchWindowRef = useRef<number>(15000);
   
+  // Control refs
   const shouldStopTrackingRef = useRef<boolean>(false);
   const isTextareaFocusedRef = useRef<boolean>(false);
   const initialLoadRef = useRef<boolean>(true);
@@ -181,6 +182,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Detect AI-generated content patterns
   const detectAIContent = (content: string): { isSuspicious: boolean; score: number } => {
     const text = content.toLowerCase();
     let score = 0;
@@ -197,6 +199,7 @@ const StudentAssignmentPage: React.FC = () => {
       /\bfrom this perspective\b.*\bin this context\b/i,
     ];
     
+    // Check for long, complex sentences
     if (text.length > 500) {
       const sentences = text.split(/[.!?]+/);
       const avgSentenceLength = sentences.reduce((acc, sentence) => acc + sentence.split(' ').length, 0) / sentences.length;
@@ -205,12 +208,14 @@ const StudentAssignmentPage: React.FC = () => {
       if (sentences.length > 20 && text.length / sentences.length > 100) score += 0.2;
     }
     
+    // Check for AI writing patterns
     aiPatterns.forEach(pattern => {
       if (pattern.test(text)) {
         score += 0.15;
       }
     });
     
+    // Check for lack of personal pronouns (AI tends to be formal)
     const personalPronouns = ['i', 'me', 'my', 'mine', 'we', 'us', 'our', 'ours'];
     const pronounCount = personalPronouns.reduce((count, pronoun) => {
       const regex = new RegExp(`\\b${pronoun}\\b`, 'gi');
@@ -227,6 +232,7 @@ const StudentAssignmentPage: React.FC = () => {
     };
   };
 
+  // Detect large copy-paste operations
   const detectLargePaste = (oldContent: string, newContent: string): { isLargePaste: boolean; addedLength: number } => {
     const oldLength = oldContent.length;
     const newLength = newContent.length;
@@ -240,6 +246,7 @@ const StudentAssignmentPage: React.FC = () => {
     };
   };
 
+  // Check for excessive tab switching
   const checkExcessiveTabSwitching = (currentTime: number): boolean => {
     tabSwitchHistoryRef.current.push(currentTime);
     
@@ -253,6 +260,7 @@ const StudentAssignmentPage: React.FC = () => {
     return false;
   };
 
+  // Check for excessive inactivity
   const checkExcessiveInactivity = (): boolean => {
     const now = Date.now();
     const timeSinceLastAction = now - Math.max(lastTypingTimeRef.current, lastFocusTimeRef.current);
@@ -264,6 +272,7 @@ const StudentAssignmentPage: React.FC = () => {
     return false;
   };
 
+  // Convert API response to Violation type
   const convertToViolation = (violationResponse: ViolationResponse): Violation => {
     const violationType = violationResponse.violation_type as Violation['violation_type'];
     const severity = violationResponse.severity as Violation['severity'];
@@ -285,6 +294,7 @@ const StudentAssignmentPage: React.FC = () => {
     };
   };
 
+  // Report violation to server and store locally
   const reportViolation = async (violationData: Omit<Violation, 'id' | 'detected_at'>) => {
     if (!user || !assignmentId || !isTextareaFocusedRef.current) return;
     
@@ -298,13 +308,16 @@ const StudentAssignmentPage: React.FC = () => {
       
       console.log('🚨 VIOLATION DETECTED:', violation);
       
+      // Store violation locally
       const savedViolations = JSON.parse(localStorage.getItem(`assignment_${assignmentId}_violations`) || '[]');
       savedViolations.push(violation);
       localStorage.setItem(`assignment_${assignmentId}_violations`, JSON.stringify(savedViolations));
       
+      // Update session violations
       sessionViolationsRef.current.push(violation);
       setViolations(sessionViolationsRef.current);
       
+      // Show warning for medium/high severity violations
       if (violation.severity === 'high' || violation.severity === 'medium') {
         setShowViolationWarning(true);
         setViolationMessage(`⚠️ ${violation.description}`);
@@ -314,6 +327,7 @@ const StudentAssignmentPage: React.FC = () => {
         }, 5000);
       }
       
+      // Try to send to server
       try {
         const violationDataForServer = {
           student_id: violation.student_id,
@@ -340,6 +354,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Sync all violations to server
   const syncAllViolationsToServer = async () => {
     if (!assignmentId || !user) return;
     
@@ -360,6 +375,7 @@ const StudentAssignmentPage: React.FC = () => {
         return;
       }
     
+      // Sync each unsynced violation
       for (const violation of unsyncedViolations) {
         try {
           const violationDataForServer = {
@@ -377,6 +393,7 @@ const StudentAssignmentPage: React.FC = () => {
           console.log('📤 Syncing violation:', violationDataForServer);
           const response = await authService.createViolation(violationDataForServer);
           
+          // Update local violation with server ID
           const index = savedViolations.findIndex((v: Violation) => 
             v.detected_at === violation.detected_at && 
             v.description === violation.description
@@ -401,7 +418,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
-  // NEW FUNCTION: Delete violations from server when unsubmitting
+  // IMPORTANT: Delete violations from server when unsubmitting
   const deleteAssignmentViolations = async () => {
     if (!assignmentId || !user) return;
     
@@ -433,6 +450,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Check for text-based violations
   const checkTextModeViolations = () => {
     if (!assignmentId || !user || !isTextareaFocusedRef.current) return;
     
@@ -440,6 +458,7 @@ const StudentAssignmentPage: React.FC = () => {
     const content = contentRef.current?.value || '';
     const currentLength = content.length;
     
+    // Check for rapid typing (possible copy-paste)
     if (typingStartTimeRef.current && hasTypedRef.current) {
       const typingDuration = (now - typingStartTimeRef.current) / 1000;
       const charsPerMinute = (currentLength / typingDuration) * 60;
@@ -456,6 +475,7 @@ const StudentAssignmentPage: React.FC = () => {
       }
     }
     
+    // Check for paste operations
     if (pasteDetectionRef.current && hasTypedRef.current) {
       const currentTime = Date.now();
       const timeSinceLastPaste = currentTime - lastLargePasteTimeRef.current;
@@ -502,6 +522,7 @@ const StudentAssignmentPage: React.FC = () => {
       pasteDetectionRef.current = false;
     }
     
+    // Check for AI-generated content
     if (currentLength > 200 && !aiContentDetectionRef.current) {
       const aiDetection = detectAIContent(content);
       if (aiDetection.isSuspicious) {
@@ -518,6 +539,7 @@ const StudentAssignmentPage: React.FC = () => {
       }
     }
     
+    // Check for excessive inactivity
     if (checkExcessiveInactivity()) {
       reportViolation({
         student_id: user.id,
@@ -545,11 +567,13 @@ const StudentAssignmentPage: React.FC = () => {
       }, 600000);
     }
     
+    // Update last typing time
     if (content.length > 0 && hasTypedRef.current) {
       lastTypingTimeRef.current = now;
     }
   };
 
+  // Handle tab/app switching detection
   const handleTabSwitchDetection = () => {
     if (!hasTypedRef.current || !isTextareaFocusedRef.current) return;
     
@@ -569,6 +593,7 @@ const StudentAssignmentPage: React.FC = () => {
       switchHistory: tabSwitchHistoryRef.current.length
     });
     
+    // Check for excessive tab switching
     const isExcessiveTabSwitching = checkExcessiveTabSwitching(now);
     
     if (isExcessiveTabSwitching) {
@@ -584,6 +609,7 @@ const StudentAssignmentPage: React.FC = () => {
       tabSwitchHistoryRef.current = [];
     }
     
+    // CRITICAL: If text was added while away, reset time to 0
     if (contentAdded > 0 && timeSinceLastSwitch > 1000) {
       contentAddedWhileAwayRef.current += contentAdded;
       wasAwayDuringTypingRef.current = true;
@@ -602,6 +628,7 @@ const StudentAssignmentPage: React.FC = () => {
       resetTimeTrackingForTextMode();
       return;
     }
+    // Other suspicious activities
     else if (timeSinceLastSwitch > 30000 && isCurrentlyTypingRef.current) {
       reportViolation({
         student_id: user?.id || 0,
@@ -627,6 +654,7 @@ const StudentAssignmentPage: React.FC = () => {
     isCurrentlyTypingRef.current = false;
   };
 
+  // Reset time tracking when text added while away
   const resetTimeTrackingForTextMode = () => {
     console.log('🔄 RESETTING TIME TO 0 - Text added while away from page!');
     
@@ -640,11 +668,13 @@ const StudentAssignmentPage: React.FC = () => {
       timeSpentRef.current.value = '0';
     }
     
+    // Clear local storage
     if (assignmentId) {
       localStorage.removeItem(`assignment_${assignmentId}_time`);
       localStorage.removeItem(`content_length_${assignmentId}`);
     }
     
+    // Show warning
     setShowViolationWarning(true);
     setViolationMessage('⚠️ TIME RESET TO 0! Text was added while you were away from the page. This is considered cheating.');
     
@@ -669,6 +699,7 @@ const StudentAssignmentPage: React.FC = () => {
     }, 5000);
   };
 
+  // Calculate time spent on assignment
   const calculateTimeSpent = () => {
     if (!isActive || shouldStopTrackingRef.current) return;
     
@@ -690,12 +721,14 @@ const StudentAssignmentPage: React.FC = () => {
         timeSpentRef.current.value = activeTimeRef.current.toFixed(2);
       }
       
+      // Check for violations during active typing
       if (hasTypedRef.current && isTextareaFocusedRef.current) {
         checkTextModeViolations();
       }
     }
   };
 
+  // Update seconds counter
   const updateSecondsCounter = () => {
     if (!isActive || shouldStopTrackingRef.current) return;
     
@@ -716,12 +749,14 @@ const StudentAssignmentPage: React.FC = () => {
         timeSpentRef.current.value = activeTimeRef.current.toFixed(2);
       }
       
+      // Save to localStorage every 30 seconds
       if (Math.floor(activeTimeRef.current * 60) % 30 === 0) {
         saveTimeToLocalStorage();
       }
     }
   };
 
+  // Save time to localStorage
   const saveTimeToLocalStorage = () => {
     if (!assignmentId) return;
     
@@ -744,6 +779,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Load time from localStorage
   const loadTimeFromLocalStorage = () => {
     if (!assignmentId) return 0;
     
@@ -754,12 +790,14 @@ const StudentAssignmentPage: React.FC = () => {
       if (savedData) {
         const timeData = JSON.parse(savedData);
         
+        // Verify it's for the same assignment and page
         if (timeData.assignmentId === assignmentId && timeData.pagePath === window.location.pathname) {
           const timeElapsed = timeData.timeSpent || 0;
           keystrokesCountRef.current = timeData.keystrokes || 0;
           hasTypedRef.current = timeData.hasTyped || false;
           strictModeRef.current = timeData.strictMode || false;
           
+          // Restore content if available
           if (timeData.contentSnapshot && contentRef.current && !contentRef.current.value) {
             contentRef.current.value = timeData.contentSnapshot;
           }
@@ -777,6 +815,7 @@ const StudentAssignmentPage: React.FC = () => {
     return 0;
   };
 
+  // Reset time tracking
   const resetTimeTracking = () => {
     console.log('🔄 Resetting time tracking...');
     activeTimeRef.current = 0;
@@ -790,17 +829,20 @@ const StudentAssignmentPage: React.FC = () => {
       timeSpentRef.current.value = '0';
     }
     
+    // Clear localStorage
     if (assignmentId) {
       localStorage.removeItem(`assignment_${assignmentId}_time`);
       localStorage.removeItem(`content_length_${assignmentId}`);
     }
   };
 
+  // Stop time tracking after submission
   const stopTimeTracking = () => {
     console.log('🛑 STOPPING time tracking - Assignment already submitted');
     shouldStopTrackingRef.current = true;
     setIsActive(false);
     
+    // Clear all intervals and timers
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -823,6 +865,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Handle page visibility changes (tab switching)
   const handleVisibilityChange = () => {
     const now = Date.now();
     const timeSinceLastVisibilityChange = now - lastVisibilityChangeRef.current;
@@ -831,6 +874,7 @@ const StudentAssignmentPage: React.FC = () => {
       console.log('👋 Page hidden (switched to another app/tab)');
       setIsActive(false);
       
+      // Store content length before leaving
       if (hasTypedRef.current && isTextareaFocusedRef.current) {
         const currentLength = contentRef.current?.value?.length || 0;
         contentBeforeLeavingRef.current = currentLength;
@@ -846,6 +890,7 @@ const StudentAssignmentPage: React.FC = () => {
       
       saveTimeToLocalStorage();
       
+      // Clear timers when page is hidden
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
@@ -865,6 +910,7 @@ const StudentAssignmentPage: React.FC = () => {
       if (!shouldStopTrackingRef.current) {
         setIsActive(true);
         
+        // Check for suspiciously long absences
         if (timeSinceLastVisibilityChange > 60000 && isTextareaFocusedRef.current) {
           reportViolation({
             student_id: user?.id || 0,
@@ -876,6 +922,7 @@ const StudentAssignmentPage: React.FC = () => {
           });
         }
         
+        // Check for tab switching violations
         if (hasTypedRef.current && timeSinceLastVisibilityChange > 1000 && isTextareaFocusedRef.current) {
           handleTabSwitchDetection();
         }
@@ -888,16 +935,19 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Check for page navigation
   const checkPageNavigation = () => {
     const currentPath = window.location.pathname;
     
     if (currentPath !== lastPagePathRef.current) {
       console.log(`🔄 Page navigation detected: ${lastPagePathRef.current} -> ${currentPath}`);
       
+      // If leaving assignment page
       if (lastPagePathRef.current.includes('/student/assignments/') && 
           !currentPath.includes('/student/assignments/')) {
         console.log('🚪 Leaving assignment page');
         
+        // Clear violations for this assignment
         if (assignmentId) {
           console.log('🗑️ Clearing violations for assignment:', assignmentId);
           localStorage.removeItem(`assignment_${assignmentId}_violations`);
@@ -905,6 +955,7 @@ const StudentAssignmentPage: React.FC = () => {
           setViolations([]);
         }
         
+        // Report suspicious navigation
         if (hasTypedRef.current && contentRef.current?.value?.length > 50 && isTextareaFocusedRef.current) {
           console.log('⚠️ Leaving text assignment page with unsaved work');
           reportViolation({
@@ -924,9 +975,11 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Start all timers
   const startTimers = () => {
     if (shouldStopTrackingRef.current) return;
     
+    // Clear existing timers
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
@@ -939,15 +992,18 @@ const StudentAssignmentPage: React.FC = () => {
     
     lastActiveTimeRef.current = Date.now();
     
+    // Start main timers
     timerIntervalRef.current = setInterval(calculateTimeSpent, 10000);
     secondTimerRef.current = setInterval(updateSecondsCounter, 1000);
     
+    // Start violation checks for text mode
     if (hasTypedRef.current && isTextareaFocusedRef.current) {
       if (violationCheckIntervalRef.current) {
         clearInterval(violationCheckIntervalRef.current);
       }
       violationCheckIntervalRef.current = setInterval(checkTextModeViolations, 30000);
       
+      // Check for excessive inactivity
       excessiveInactivityTimerRef.current = setTimeout(() => {
         if (hasTypedRef.current && !document.hidden && isTextareaFocusedRef.current) {
           reportViolation({
@@ -965,6 +1021,7 @@ const StudentAssignmentPage: React.FC = () => {
     startInactivityMonitoring();
   };
 
+  // Start inactivity monitoring
   const startInactivityMonitoring = () => {
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
@@ -978,10 +1035,12 @@ const StudentAssignmentPage: React.FC = () => {
     }, 30000);
   };
 
+  // Handle page unload
   const handlePageUnload = () => {
     console.log('📤 Page unloading...');
     pageUnloadRef.current = true;
     
+    // Final violation check
     if (hasTypedRef.current && isTextareaFocusedRef.current) {
       checkTextModeViolations();
     }
@@ -989,6 +1048,7 @@ const StudentAssignmentPage: React.FC = () => {
     saveTimeToLocalStorage();
   };
 
+  // Handle before unload (warn about unsaved changes)
   const handleBeforeUnload = (e: BeforeUnloadEvent) => {
     console.log('⚠️ Page about to unload...');
     
@@ -998,27 +1058,32 @@ const StudentAssignmentPage: React.FC = () => {
     
     saveTimeToLocalStorage();
     
+    // Warn about unsaved changes
     if (contentRef.current?.value || fileRef.current?.files?.length || linkUrl) {
       e.preventDefault();
       e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
     }
   };
 
+  // Track typing activity - enables strict mode on first keystroke
   const trackTypingActivity = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (shouldStopTrackingRef.current) return;
     
+    // Clear inactivity timer
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
     
     keystrokesCountRef.current++;
     
+    // Enable strict mode on first keystroke
     if (!hasTypedRef.current) {
       hasTypedRef.current = true;
       strictModeRef.current = true;
       typingStartTimeRef.current = Date.now();
       console.log('📝 First keystroke detected - Enabling STRICT MODE');
       
+      // Show strict mode warning
       setShowViolationWarning(true);
       setViolationMessage('⚠️ STRICT MODE ENABLED: You have started typing. Switching tabs/apps will reset your time to 0 if text is added while away!');
       
@@ -1038,16 +1103,19 @@ const StudentAssignmentPage: React.FC = () => {
         setShowViolationWarning(false);
       }, 10000);
       
+      // Start violation checks
       if (violationCheckIntervalRef.current) {
         clearInterval(violationCheckIntervalRef.current);
       }
       violationCheckIntervalRef.current = setInterval(checkTextModeViolations, 30000);
     }
     
+    // Update activity tracking
     isCurrentlyTypingRef.current = true;
     lastTypingTimeRef.current = Date.now();
     lastFocusTimeRef.current = Date.now();
     
+    // Clear excessive inactivity timer
     if (excessiveInactivityTimerRef.current) {
       clearTimeout(excessiveInactivityTimerRef.current);
     }
@@ -1055,6 +1123,7 @@ const StudentAssignmentPage: React.FC = () => {
     startInactivityMonitoring();
   };
 
+  // Track content changes for paste detection
   const trackContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (shouldStopTrackingRef.current) return;
     
@@ -1062,6 +1131,7 @@ const StudentAssignmentPage: React.FC = () => {
     const newLength = newContent.length;
     const oldLength = initialContentLengthRef.current;
     
+    // Enable strict mode if content detected
     if (newLength > 0 && !hasTypedRef.current) {
       hasTypedRef.current = true;
       strictModeRef.current = true;
@@ -1069,6 +1139,7 @@ const StudentAssignmentPage: React.FC = () => {
       console.log('📝 Content detected - Enabling STRICT MODE');
     }
     
+    // Check for paste operations
     if (hasTypedRef.current && isTextareaFocusedRef.current) {
       const now = Date.now();
       const timeSinceLastAction = now - lastTypingTimeRef.current;
@@ -1078,6 +1149,7 @@ const StudentAssignmentPage: React.FC = () => {
       if (pasteDetection.isLargePaste && timeSinceLastAction < 2000) {
         pasteDetectionRef.current = true;
         
+        // Report extremely large pastes
         if (pasteDetection.addedLength > 500) {
           reportViolation({
             student_id: user?.id || 0,
@@ -1091,6 +1163,7 @@ const StudentAssignmentPage: React.FC = () => {
         }
       }
       
+      // Check for AI content in pasted text
       if (pasteDetection.addedLength > 200) {
         const aiDetection = detectAIContent(newContent);
         if (aiDetection.isSuspicious) {
@@ -1107,10 +1180,12 @@ const StudentAssignmentPage: React.FC = () => {
       }
     }
     
+    // Update tracking refs
     contentSnapshotRef.current = newContent;
     initialContentLengthRef.current = newLength;
     lastTypingTimeRef.current = Date.now();
     
+    // Reset inactivity monitoring
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
@@ -1121,6 +1196,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Check if assignment is text-based
   const checkIfTextAssignment = (description: string | null): boolean => {
     if (!description) return false;
     
@@ -1144,6 +1220,7 @@ const StudentAssignmentPage: React.FC = () => {
     return false;
   };
 
+  // Load student schedule
   const loadSchedules = async (): Promise<Schedule[]> => {
     try {
       console.log('📅 Loading student schedule...');
@@ -1172,6 +1249,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Load assignment details
   const loadStudentAssignment = async (): Promise<Assignment | null> => {
     try {
       console.log('📝 Loading student assignment...');
@@ -1181,9 +1259,8 @@ const StudentAssignmentPage: React.FC = () => {
       if (isNaN(assignmentIdNum)) throw new Error('Invalid assignment ID');
       
       let assignmentData: any = null;
-      let classData: any = null;
-      let teacherData: any = null;
       
+      // Try multiple endpoints for compatibility
       try {
         assignmentData = await authService.getStudentAssignmentDetail(assignmentIdNum);
         console.log('✅ Assignment data loaded:', assignmentData);
@@ -1213,40 +1290,28 @@ const StudentAssignmentPage: React.FC = () => {
       
       if (!assignmentData) throw new Error('Failed to load assignment');
       
+      // Extract teacher and class information
       let className = 'Class';
       let classCode = '';
       let teacherName = 'Unknown Teacher';
       let teacherFullName = 'Unknown Teacher';
-      let creatorName = 'Unknown Teacher';
-      let creatorUsername = '';
       
-      if (assignmentData.class_name) {
-        className = assignmentData.class_name;
-      }
-      if (assignmentData.class_code) {
-        classCode = assignmentData.class_code;
-      }
-      
+      // Try multiple possible fields for teacher name
       if (assignmentData.teacher_name) {
         teacherName = assignmentData.teacher_name;
         teacherFullName = assignmentData.teacher_full_name || assignmentData.teacher_name;
-        console.log('👨‍🏫 Found teacher_name in assignment data:', teacherName);
       } else if (assignmentData.teacher_full_name) {
         teacherName = assignmentData.teacher_full_name;
         teacherFullName = assignmentData.teacher_full_name;
-        console.log('👨‍🏫 Found teacher_full_name in assignment data:', teacherName);
       } else if (assignmentData.creator_name) {
         teacherName = assignmentData.creator_name;
         teacherFullName = assignmentData.creator_name;
-        creatorName = assignmentData.creator_name;
-        console.log('👨‍🏫 Found creator_name in assignment data:', teacherName);
       } else if (assignmentData.creator_username) {
         teacherName = assignmentData.creator_username;
         teacherFullName = assignmentData.creator_username;
-        creatorUsername = assignmentData.creator_username;
-        console.log('👨‍🏫 Found creator_username in assignment data:', teacherName);
       }
       
+      // Check nested structures
       if (assignmentData.class && typeof assignmentData.class === 'object') {
         if (assignmentData.class.name) {
           className = assignmentData.class.name;
@@ -1257,52 +1322,12 @@ const StudentAssignmentPage: React.FC = () => {
         if (assignmentData.class.teacher_name && teacherName === 'Unknown Teacher') {
           teacherName = assignmentData.class.teacher_name;
           teacherFullName = assignmentData.class.teacher_full_name || assignmentData.class.teacher_name;
-          console.log('👨‍🏫 Found teacher_name in nested class:', teacherName);
-        } else if (assignmentData.class.teacher_full_name && teacherName === 'Unknown Teacher') {
-          teacherName = assignmentData.class.teacher_full_name;
-          teacherFullName = assignmentData.class.teacher_full_name;
-          console.log('👨‍🏫 Found teacher_full_name in nested class:', teacherName);
         }
       }
       
-      if (assignmentData.teacher && typeof assignmentData.teacher === 'object') {
-        if (assignmentData.teacher.name && teacherName === 'Unknown Teacher') {
-          teacherName = assignmentData.teacher.name;
-          teacherFullName = assignmentData.teacher.name;
-          console.log('👨‍🏫 Found teacher.name in nested teacher:', teacherName);
-        } else if (assignmentData.teacher.username && teacherName === 'Unknown Teacher') {
-          teacherName = assignmentData.teacher.username;
-          teacherFullName = assignmentData.teacher.username;
-          console.log('👨‍🏫 Found teacher.username in nested teacher:', teacherName);
-        } else if (assignmentData.teacher.full_name && teacherName === 'Unknown Teacher') {
-          teacherName = assignmentData.teacher.full_name;
-          teacherFullName = assignmentData.teacher.full_name;
-          console.log('👨‍🏫 Found teacher.full_name in nested teacher:', teacherName);
-        }
-      }
-   
-      if (assignmentData.creator && typeof assignmentData.creator === 'object') {
-        if (assignmentData.creator.name && teacherName === 'Unknown Teacher') {
-          teacherName = assignmentData.creator.name;
-          teacherFullName = assignmentData.creator.name;
-          creatorName = assignmentData.creator.name;
-          console.log('👨‍🏫 Found creator.name in nested creator:', teacherName);
-        } else if (assignmentData.creator.username && teacherName === 'Unknown Teacher') {
-          teacherName = assignmentData.creator.username;
-          teacherFullName = assignmentData.creator.username;
-          creatorUsername = assignmentData.creator.username;
-          console.log('👨‍🏫 Found creator.username in nested creator:', teacherName);
-        } else if (assignmentData.creator.full_name && teacherName === 'Unknown Teacher') {
-          teacherName = assignmentData.creator.full_name;
-          teacherFullName = assignmentData.creator.full_name;
-          creatorName = assignmentData.creator.full_name;
-          console.log('👨‍🏫 Found creator.full_name in nested creator:', teacherName);
-        }
-      }
-      
+      // Try to enhance with additional data if needed
       if ((!classCode || classCode === 'N/A' || teacherName === 'Unknown Teacher') && assignmentData.class_id) {
         try {
-          console.log('📚 Fetching class data from /classes/student/ endpoint...');
           const studentClasses = await authService.getStudentClassesAll();
           const matchingClass = studentClasses.find((cls: any) => cls.id === assignmentData.class_id);
           
@@ -1317,24 +1342,15 @@ const StudentAssignmentPage: React.FC = () => {
               if (matchingClass.teacher_name) {
                 teacherName = matchingClass.teacher_name;
                 teacherFullName = matchingClass.teacher_full_name || matchingClass.teacher_name;
-                console.log('👨‍🏫 Enhanced with class teacher_name:', teacherName);
-              } else if (matchingClass.teacher_full_name) {
-                teacherName = matchingClass.teacher_full_name;
-                teacherFullName = matchingClass.teacher_full_name;
-                console.log('👨‍🏫 Enhanced with class teacher_full_name:', teacherName);
-              } else if (matchingClass.teacher_username) {
-                teacherName = matchingClass.teacher_username;
-                teacherFullName = matchingClass.teacher_username;
-                console.log('👨‍🏫 Enhanced with class teacher_username:', teacherName);
               }
             }
-            console.log('✅ Enhanced with class data:', { className, classCode, teacherName });
           }
         } catch (classError) {
           console.warn('⚠️ Could not fetch class data:', classError);
         }
       }
       
+      // Try schedule data as fallback
       if ((!classCode || classCode === '' || teacherName === 'Unknown Teacher') && assignmentData.class_id) {
         try {
           const schedulesData = await loadSchedules();
@@ -1347,9 +1363,7 @@ const StudentAssignmentPage: React.FC = () => {
               if (teacherName === 'Unknown Teacher') {
                 teacherName = schedule.teacher_name || schedule.teacher_full_name || teacherName;
                 teacherFullName = schedule.teacher_full_name || schedule.teacher_name || teacherFullName;
-                console.log('👨‍🏫 Enhanced with schedule teacher data:', teacherName);
               }
-              console.log('✅ Enhanced with schedule data:', { classCode, teacherName });
             }
           }
         } catch (scheduleError) {
@@ -1357,20 +1371,6 @@ const StudentAssignmentPage: React.FC = () => {
         }
       }
       
-      if (teacherName === 'Unknown Teacher' && assignmentData.creator_id) {
-        try {
-          console.log('👤 Fetching teacher/user data for creator_id:', assignmentData.creator_id);
-          const teacherResponse = await authService.getUserById(assignmentData.creator_id);
-          if (teacherResponse) {
-            teacherName = teacherResponse.username || teacherResponse.name || teacherResponse.full_name || `User ${assignmentData.creator_id}`;
-            teacherFullName = teacherResponse.full_name || teacherResponse.name || teacherResponse.username || `User ${assignmentData.creator_id}`;
-            console.log('👨‍🏫 Found teacher from user endpoint:', teacherName);
-          }
-        } catch (userError) {
-          console.warn('⚠️ Could not fetch teacher user data:', userError);
-        }
-      }
-  
       const assignment: Assignment = {
         id: assignmentData.id,
         name: assignmentData.name,
@@ -1385,27 +1385,6 @@ const StudentAssignmentPage: React.FC = () => {
         due_date: assignmentData.due_date
       };
       
-      console.log('📝 Processed assignment data:', {
-        id: assignment.id,
-        name: assignment.name,
-        class_id: assignment.class_id,
-        creator_id: assignment.creator_id,
-        teacher_name: assignment.teacher_name,
-        teacher_full_name: assignment.teacher_full_name,
-        rawData: assignmentData
-      });
-      
-      console.log('🔍 Checking raw assignment data for teacher fields:');
-      Object.keys(assignmentData).forEach(key => {
-        if (key.toLowerCase().includes('teacher') || 
-            key.toLowerCase().includes('creator') || 
-            key.toLowerCase().includes('instructor') ||
-            key.toLowerCase().includes('professor') ||
-            key.toLowerCase().includes('user')) {
-          console.log(`  ${key}:`, assignmentData[key]);
-        }
-      });
-      
       return assignment;
       
     } catch (error: any) {
@@ -1414,6 +1393,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Load student submission
   const loadStudentSubmission = async (): Promise<Submission | null> => {
     try {
       console.log('📤 Loading student submission...');
@@ -1424,6 +1404,7 @@ const StudentAssignmentPage: React.FC = () => {
       
       let submissionData: any = null;
       
+      // Try multiple endpoints
       try {
         submissionData = await authService.getStudentMySubmission(assignmentIdNum);
         console.log('✅ Success with getStudentMySubmission:', submissionData);
@@ -1469,6 +1450,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Load violations
   const loadViolations = async () => {
     if (!assignmentId || !user) return;
     
@@ -1477,7 +1459,7 @@ const StudentAssignmentPage: React.FC = () => {
       
       let violationsData = [];
       
-      // Only load violations from localStorage for current session
+      // Load from localStorage for current session
       const savedViolations = localStorage.getItem(`assignment_${assignmentId}_violations`);
       if (savedViolations) {
         violationsData = JSON.parse(savedViolations);
@@ -1506,45 +1488,34 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Enrich assignment data with schedule information
   const enrichAssignmentWithScheduleData = (assignmentData: Assignment, schedulesData: Schedule[]): Assignment => {
     const enrichedAssignment = { ...assignmentData };
-    
-    console.log('📊 Enriching assignment with schedule data...');
-    console.log('📊 Schedules available:', schedulesData.length);
-    console.log('📊 Looking for class_id:', assignmentData.class_id);
-    console.log('📊 Current teacher name:', assignmentData.teacher_name);
     
     const schedule = schedulesData.find(s => s.class_id === assignmentData.class_id);
     
     if (schedule) {
-      console.log('✅ Found matching schedule:', schedule);
-      
       if (schedule.teacher_name && schedule.teacher_name !== 'Teacher') {
         enrichedAssignment.teacher_name = schedule.teacher_name;
         enrichedAssignment.teacher_full_name = schedule.teacher_full_name || schedule.teacher_name;
-        console.log('👨‍🏫 Override teacher name from schedule:', schedule.teacher_name);
       } else if (schedule.teacher_full_name && schedule.teacher_full_name !== 'Teacher') {
         enrichedAssignment.teacher_name = schedule.teacher_full_name;
         enrichedAssignment.teacher_full_name = schedule.teacher_full_name;
-        console.log('👨‍🏫 Override teacher name from schedule (full):', schedule.teacher_full_name);
       }
       
       if (schedule.class_name && schedule.class_name !== `Class ${assignmentData.class_id}`) {
         enrichedAssignment.class_name = schedule.class_name;
-        console.log('🏫 Updated class name from schedule:', schedule.class_name);
       }
       
       if (schedule.class_code) {
         enrichedAssignment.class_code = schedule.class_code;
-        console.log('📚 Updated class code from schedule:', schedule.class_code);
       }
-    } else {
-      console.log('❌ No matching schedule found for class_id:', assignmentData.class_id);
     }
     
     return enrichedAssignment;
   };
 
+  // Main data loading function
   const loadAssignmentData = async () => {
     try {
       setIsLoading(true);
@@ -1557,39 +1528,42 @@ const StudentAssignmentPage: React.FC = () => {
         return;
       }
 
+      // Load schedules
       const schedulesData = await loadSchedules();
       setSchedules(schedulesData);
-      console.log('📅 Schedules loaded:', schedulesData.length);
 
+      // Load assignment
       const assignmentData = await loadStudentAssignment();
       if (!assignmentData) {
         throw new Error('Assignment not found or no permission.');
       }
 
-      console.log('📝 Assignment loaded:', assignmentData);
-
+      // Enrich with schedule data
       const enrichedAssignment = enrichAssignmentWithScheduleData(assignmentData, schedulesData);
       setAssignment(enrichedAssignment);
 
+      // Check if text-based assignment
       const isTextAssignment = checkIfTextAssignment(enrichedAssignment.description);
       if (isTextAssignment) {
         console.log('📝 This appears to be a text-based assignment');
       }
 
+      // Load submission
       const submissionData = await loadStudentSubmission();
       if (submissionData) {
         setSubmission(submissionData);
         
+        // Stop tracking if already submitted
         shouldStopTrackingRef.current = true;
         stopTimeTracking();
         
+        // Restore content
         if (contentRef.current) {
           contentRef.current.value = submissionData.content || '';
           contentSnapshotRef.current = submissionData.content || '';
           if (submissionData.content && submissionData.content.length > 0) {
             hasTypedRef.current = true;
             strictModeRef.current = true;
-            console.log('📝 Existing submission found - STRICT MODE was enabled');
           }
         }
         if (submissionData.link_url) {
@@ -1599,6 +1573,7 @@ const StudentAssignmentPage: React.FC = () => {
         shouldStopTrackingRef.current = false;
       }
 
+      // Load saved time
       const savedTime = loadTimeFromLocalStorage();
       activeTimeRef.current = savedTime;
       
@@ -1612,8 +1587,10 @@ const StudentAssignmentPage: React.FC = () => {
         timeSpentRef.current.value = savedTime.toFixed(2);
       }
 
+      // Load violations
       await loadViolations();
 
+      // Load saved content length
       try {
         const savedContentLength = localStorage.getItem(`content_before_leaving_${assignmentId}`);
         if (savedContentLength) {
@@ -1637,14 +1614,13 @@ const StudentAssignmentPage: React.FC = () => {
       
       setError(errorMessage);
       
+      // Try fallback from localStorage
       try {
         const savedAssignments = localStorage.getItem('student_assignments');
         if (savedAssignments && assignmentId) {
           const assignments = JSON.parse(savedAssignments);
           const fallbackAssignment = assignments.find((a: any) => a.id === parseInt(assignmentId));
           if (fallbackAssignment) {
-            console.log('🔄 Using fallback assignment data');
-            
             const schedulesData = await loadSchedules();
             if (schedulesData.length > 0 && fallbackAssignment.class_id) {
               const enrichedAssignment = enrichAssignmentWithScheduleData(fallbackAssignment, schedulesData);
@@ -1662,28 +1638,34 @@ const StudentAssignmentPage: React.FC = () => {
       setIsLoading(false);
       initialLoadRef.current = false;
       
+      // Start timers if not submitted
       if (!shouldStopTrackingRef.current) {
         startTimers();
       }
     }
   };
 
+  // Main useEffect
   useEffect(() => {
     if (!user || user.role !== 'student') {
       navigate('/login');
       return;
     }
     
+    // Initialize refs
     lastPagePathRef.current = window.location.pathname;
     lastVisibilityChangeRef.current = Date.now();
     initialLoadRef.current = true;
     
+    // Load data
     loadAssignmentData();
     
+    // Event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handlePageUnload);
     window.addEventListener('beforeunload', handleBeforeUnload);
     
+    // Override history methods to detect navigation
     const originalPushState = history.pushState;
     history.pushState = function(...args) {
       originalPushState.apply(this, args);
@@ -1696,6 +1678,7 @@ const StudentAssignmentPage: React.FC = () => {
       checkPageNavigation();
     };
     
+    // Cleanup
     return () => {
       console.log('🧹 Cleaning up...');
       
@@ -1703,6 +1686,7 @@ const StudentAssignmentPage: React.FC = () => {
         saveTimeToLocalStorage();
       }
       
+      // Clear all timers
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
@@ -1719,18 +1703,22 @@ const StudentAssignmentPage: React.FC = () => {
         clearTimeout(excessiveInactivityTimerRef.current);
       }
       
+      // Remove event listeners
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageUnload);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       
+      // Restore original history methods
       history.pushState = originalPushState;
       history.replaceState = originalReplaceState;
     };
   }, [user, assignmentId]);
 
+  // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size
       if (file.size > 10 * 1024 * 1024) {
         setError('File size exceeds 10MB limit');
         if (fileRef.current) fileRef.current.value = '';
@@ -1746,6 +1734,7 @@ const StudentAssignmentPage: React.FC = () => {
         return;
       }
       
+      // Check file type
       const allowedTypes = [
         'application/pdf',
         'application/msword',
@@ -1791,6 +1780,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Remove selected file
   const handleRemoveFile = () => {
     if (fileRef.current) {
       fileRef.current.value = '';
@@ -1806,6 +1796,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Remove link
   const handleRemoveLink = () => {
     setLinkUrl('');
     
@@ -1818,6 +1809,7 @@ const StudentAssignmentPage: React.FC = () => {
     });
   };
 
+  // Submit assignment
   const handleSubmitAssignment = async () => {
     try {
       setIsSubmitting(true);
@@ -1830,6 +1822,7 @@ const StudentAssignmentPage: React.FC = () => {
       
       const timeSpentValue = parseFloat(activeTimeRef.current.toFixed(2));
 
+      // Validate at least one submission method
       if (!content && !file && !link) {
         setError('Please provide either text content, upload a file, or submit a link');
       
@@ -1844,6 +1837,7 @@ const StudentAssignmentPage: React.FC = () => {
         return;
       }
 
+      // Validate URL
       if (link && !isValidUrl(link)) {
         setError('Please enter a valid URL (must start with http:// or https://)');
         
@@ -1871,6 +1865,7 @@ const StudentAssignmentPage: React.FC = () => {
 
       console.log(`⏱️ Submitting with ${timeSpentValue} minutes tracked`);
 
+      // Show loading
       Swal.fire({
         title: submission ? 'Updating Submission...' : 'Submitting Assignment...',
         text: 'Please wait while we process your submission.',
@@ -1882,10 +1877,12 @@ const StudentAssignmentPage: React.FC = () => {
         }
       });
 
+      // Sync violations before submission
       await syncAllViolationsToServer();
 
       let newSubmission;
       
+      // Submit with file if present
       if (file) {
         if (submission?.id) {
           newSubmission = await authService.updateSubmissionWithFile(
@@ -1908,6 +1905,7 @@ const StudentAssignmentPage: React.FC = () => {
           setSuccess('Assignment submitted successfully!');
         }
       } else {
+        // Submit without file
         const submissionData = {
           assignment_id: assignmentIdNum,
           time_spent_minutes: timeSpentValue,
@@ -1940,6 +1938,7 @@ const StudentAssignmentPage: React.FC = () => {
         }
       }
 
+      // Update submission state
       const updatedSubmission = {
         id: newSubmission.id,
         assignment_id: newSubmission.assignment_id,
@@ -1957,14 +1956,17 @@ const StudentAssignmentPage: React.FC = () => {
       
       setSubmission(updatedSubmission);
 
+      // Stop tracking
       stopTimeTracking();
       
+      // Clear local storage
       if (assignmentId) {
         localStorage.removeItem(`assignment_${assignmentId}_time`);
         localStorage.removeItem(`content_length_${assignmentId}`);
         localStorage.removeItem(`content_before_leaving_${assignmentId}`);
       }
 
+      // Update local cache
       try {
         const savedSubmissions = localStorage.getItem('student_submissions') || '[]';
         const submissions = JSON.parse(savedSubmissions);
@@ -1986,11 +1988,13 @@ const StudentAssignmentPage: React.FC = () => {
         console.warn('Failed to update localStorage cache:', cacheError);
       }
 
+      // Reset form
       if (contentRef.current) contentRef.current.value = '';
       if (fileRef.current) fileRef.current.value = '';
       setSelectedFileName('');
       setLinkUrl('');
       
+      // Reset tracking refs
       resetTimeTracking();
       hasTypedRef.current = false;
       strictModeRef.current = false;
@@ -2004,6 +2008,7 @@ const StudentAssignmentPage: React.FC = () => {
       sessionViolationsRef.current = [];
       setViolations([]);
 
+      // Show success
       Swal.close();
 
       Swal.fire({
@@ -2045,9 +2050,11 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Unsubmit assignment
   const handleUnsubmit = async () => {
     if (!submission?.id) return;
 
+    // Confirm unsubmit
     const result = await Swal.fire({
       title: 'Are you sure?',
       text: "You won't be able to revert this!",
@@ -2075,6 +2082,7 @@ const StudentAssignmentPage: React.FC = () => {
         }
       });
 
+      // Validate user and token
       if (!user) {
         throw new Error('No user found. Please log in again.');
       }
@@ -2084,10 +2092,10 @@ const StudentAssignmentPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
 
-      // DELETE VIOLATIONS FROM SERVER BEFORE DELETING SUBMISSION
+      // IMPORTANT: Delete violations from server BEFORE deleting submission
       await deleteAssignmentViolations();
       
-      // DELETE SUBMISSION FROM SERVER
+      // Delete submission from server
       const response = await fetch(`http://localhost:8000/submissions/${submission.id}`, {
         method: 'DELETE',
         headers: {
@@ -2101,7 +2109,7 @@ const StudentAssignmentPage: React.FC = () => {
         throw new Error(errorData.detail || `Failed to delete submission: ${response.status}`);
       }
 
-      // CLEAR LOCAL STORAGE
+      // Clear local storage
       if (assignmentId) {
         localStorage.removeItem(`assignment_${assignmentId}_violations`);
         localStorage.removeItem(`assignment_${assignmentId}_time`);
@@ -2109,25 +2117,27 @@ const StudentAssignmentPage: React.FC = () => {
         localStorage.removeItem(`content_before_leaving_${assignmentId}`);
       }
 
-      // RESET STATE
+      // Reset state
       setSubmission(null);
       setSelectedFileName('');
       setLinkUrl('');
       
+      // Restart tracking
       resetTimeTracking();
       shouldStopTrackingRef.current = false;
       setIsActive(true);
       startTimers();
       
+      // Keep strict mode if content exists
       if (contentRef.current && contentRef.current.value.length > 0) {
         hasTypedRef.current = true;
         strictModeRef.current = true;
-        console.log('📝 Content found after unsubmit - KEEPING STRICT MODE');
       } else {
         hasTypedRef.current = false;
         strictModeRef.current = false;
       }
       
+      // Reset other refs
       isCurrentlyTypingRef.current = false;
       isTextareaFocusedRef.current = false;
       contentBeforeLeavingRef.current = 0;
@@ -2140,6 +2150,7 @@ const StudentAssignmentPage: React.FC = () => {
       
       setSuccess('Assignment unsubmitted successfully! You can now edit and resubmit.');
       
+      // Clear form
       if (contentRef.current) contentRef.current.value = '';
       if (fileRef.current) fileRef.current.value = '';
 
@@ -2185,6 +2196,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Format date for display
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString('en-US', {
@@ -2199,6 +2211,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Get color based on grade
   const getGradeColor = (grade: number) => {
     if (grade >= 90) return 'text-green-600 bg-green-50 border-green-200';
     if (grade >= 80) return 'text-blue-600 bg-blue-50 border-blue-200';
@@ -2206,6 +2219,7 @@ const StudentAssignmentPage: React.FC = () => {
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
+  // Download submitted file
   const downloadFile = async () => {
     if (!submission?.file_path || !submission.id) return;
     
@@ -2248,6 +2262,7 @@ const StudentAssignmentPage: React.FC = () => {
     } catch (error) {
       console.error('Error downloading file:', error);
       
+      // Fallback to direct URL
       try {
         const fileUrl = `http://localhost:8000${submission.file_path}`;
         window.open(fileUrl, '_blank');
@@ -2265,6 +2280,7 @@ const StudentAssignmentPage: React.FC = () => {
     }
   };
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
@@ -2286,6 +2302,7 @@ const StudentAssignmentPage: React.FC = () => {
     );
   }
 
+  // Error state
   if (error && !assignment) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4">
@@ -2336,6 +2353,7 @@ const StudentAssignmentPage: React.FC = () => {
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
+        {/* Mobile Header */}
         <header className="lg:hidden bg-white/80 backdrop-blur-xl border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -2376,6 +2394,7 @@ const StudentAssignmentPage: React.FC = () => {
           </div>
         </header>
 
+        {/* Desktop Header */}
         <div className="hidden lg:block">
           <DynamicHeader 
             title={assignment?.name || "Assignment"}
@@ -2385,8 +2404,10 @@ const StudentAssignmentPage: React.FC = () => {
           />
         </div>
 
+        {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="max-w-6xl mx-auto p-4 md:p-6">
+            {/* Violation Warning */}
             {showViolationWarning && (
               <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-2xl p-4 shadow-lg animate-pulse">
                 <div className="flex items-center">
@@ -2411,6 +2432,7 @@ const StudentAssignmentPage: React.FC = () => {
               </div>
             )}
 
+            {/* Error Message */}
             {error && !showViolationWarning && (
               <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center">
@@ -2435,6 +2457,7 @@ const StudentAssignmentPage: React.FC = () => {
               </div>
             )}
 
+            {/* Success Message */}
             {success && (
               <div className="mb-6 bg-green-50 border border-green-200 rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center">
@@ -2450,7 +2473,9 @@ const StudentAssignmentPage: React.FC = () => {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Assignment Details and Submission */}
               <div className="lg:col-span-2 space-y-6">
+                {/* Assignment Card */}
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
                   <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -2468,6 +2493,7 @@ const StudentAssignmentPage: React.FC = () => {
                                 {assignment?.class_name}
                                 {assignment?.class_code && ` (${assignment.class_code})`}
                               </span>
+                              {/* Status Badges */}
                               {strictModeRef.current && hasTypedRef.current && !shouldStopTrackingRef.current && (
                                 <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full border border-red-300">
                                   ⚠️ STRICT MODE
@@ -2482,6 +2508,7 @@ const StudentAssignmentPage: React.FC = () => {
                           </div>
                         </div>
                         
+                        {/* Assignment Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                           <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                             <div className="flex items-center gap-2 mb-2">
@@ -2509,6 +2536,7 @@ const StudentAssignmentPage: React.FC = () => {
                         </div>
                       </div>
                       
+                      {/* Grade Display */}
                       {submission && submission.grade !== null && submission.grade !== undefined && (
                         <div className="flex items-center gap-2">
                           <div className={`px-6 py-3 rounded-xl border-2 font-bold text-lg ${getGradeColor(submission.grade)}`}>
@@ -2519,6 +2547,7 @@ const StudentAssignmentPage: React.FC = () => {
                     </div>
                   </div>
                   
+                  {/* Assignment Description */}
                   <div className="p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2534,6 +2563,7 @@ const StudentAssignmentPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Submission Form */}
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
                   <h3 className="text-xl font-bold text-gray-900 mb-6">Your Submission</h3>
                   
@@ -2579,6 +2609,7 @@ const StudentAssignmentPage: React.FC = () => {
                         }}
                         disabled={shouldStopTrackingRef.current}
                       />
+                      {/* Status Messages */}
                       {shouldStopTrackingRef.current ? (
                         <div className="mt-3 text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
                           ✅ <strong>Assignment Submitted:</strong> Time tracking has been stopped. No violations will be recorded. Click "Unsubmit" to edit and restart tracking.
@@ -2597,7 +2628,9 @@ const StudentAssignmentPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Right Column - Time Tracking, Links, Files, Actions */}
               <div className="space-y-6">
+                {/* Time Tracking */}
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2686,6 +2719,7 @@ const StudentAssignmentPage: React.FC = () => {
                     </div>
                   </div>
                   
+                  {/* Hidden time input for form submission */}
                   <input
                     id="time-spent"
                     ref={timeSpentRef}
@@ -2734,6 +2768,7 @@ const StudentAssignmentPage: React.FC = () => {
                       </div>
                     </div>
                     
+                    {/* Violation Summary */}
                     {violations.length > 0 && (
                       <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
                         <div className="flex items-center justify-between mb-2">
@@ -2761,6 +2796,7 @@ const StudentAssignmentPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Link Submission */}
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2820,6 +2856,7 @@ const StudentAssignmentPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* File Upload */}
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2886,6 +2923,7 @@ const StudentAssignmentPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Submission Status */}
                 {submission && (
                   <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -2945,6 +2983,7 @@ const StudentAssignmentPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* Instructions */}
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2975,6 +3014,7 @@ const StudentAssignmentPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-6 border-t border-gray-200">
                   <button
                     onClick={() => navigate('/student/assignments')}
@@ -3042,6 +3082,7 @@ const StudentAssignmentPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Violation History */}
             {violations.length > 0 && (
               <div className="mt-6 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">

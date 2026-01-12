@@ -15,7 +15,7 @@ from database import engine, SessionLocal, get_db
 from models import Base, User, Class, UserRole, ClassCreate, ClassResponse, Assignment, AssignmentCreate, AssignmentResponse, Schedule, ScheduleCreate, ScheduleResponse, Announcement, AnnouncementCreate, AnnouncementResponse, Submission, ClassroomReport, ClassroomReportCreate, ClassroomReportResponse, Enrollment
 from schemas import ClassExport, SubmissionCreate, Submission as SubmissionSchema, SubmissionResponse
 from security import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password, get_password_hash, create_access_token, verify_token
-import crud  # IMPORTANT: DITO NILAGAY ANG ACTUAL VIOLATION CRUD FUNCTIONS
+import crud  # Contains actual violation CRUD functions
 
 # Security scheme
 security = HTTPBearer()
@@ -215,7 +215,7 @@ class GradeUpdate(BaseModel):
 # Database lifespan function
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Create database tables
+    # Create database tables
     Base.metadata.create_all(bind=engine)
     
     # Run migrations to add missing columns
@@ -228,7 +228,7 @@ async def lifespan(app: FastAPI):
         # Check if test admin user already exists
         admin_user = get_user_by_username(db, "admin@classtrack.edu")
         if not admin_user:
-            # Create test admin user with properly hashed password
+            # Create test admin user
             plain_password = "password123"
             admin_hashed_password = get_password_hash(plain_password)
             
@@ -238,12 +238,11 @@ async def lifespan(app: FastAPI):
                 role=UserRole.ADMIN
             )
             db.add(admin_user)
-            print(f"✅ Test Admin user created: admin@classtrack.edu / {plain_password}")
         
         # Check if test student user already exists
         student_user = get_user_by_username(db, "student@classtrack.edu")
         if not student_user:
-            # Create test student user with properly hashed password
+            # Create test student user
             plain_password = "password123"
             student_hashed_password = get_password_hash(plain_password)
             
@@ -253,12 +252,11 @@ async def lifespan(app: FastAPI):
                 role=UserRole.STUDENT
             )
             db.add(student_user)
-            print(f"✅ Test Student user created: student@classtrack.edu / {plain_password}")
         
         # Check if test teacher user already exists
         teacher_user = get_user_by_username(db, "teacher@classtrack.edu")
         if not teacher_user:
-            # Create test teacher user with properly hashed password
+            # Create test teacher user
             plain_password = "password123"
             teacher_hashed_password = get_password_hash(plain_password)
             
@@ -268,21 +266,16 @@ async def lifespan(app: FastAPI):
                 role=UserRole.TEACHER
             )
             db.add(teacher_user)
-            print(f"✅ Test Teacher user created: teacher@classtrack.edu / {plain_password}")
         
         # Commit all changes
         db.commit()
-        print("✅ All test users committed to database successfully")
         
     except Exception as e:
-        print(f"❌ Error creating test users: {e}")
-        print(f"   Error type: {type(e).__name__}")
         db.rollback()
     finally:
         db.close()
     
     yield
-    # Shutdown: Clean up if needed
     pass
 
 # Initialize FastAPI app
@@ -296,47 +289,34 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,  # Allows credentials
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Helper functions
 
 def get_user_by_username(db: Session, username: str) -> Optional[User]:
-    """Get user by username"""
     return db.query(User).filter(User.username == username).first()
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
-    """Get user by ID"""
     return db.query(User).filter(User.id == user_id).first()
 
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
-    """
-    Authenticate a user by checking username and password.
-    
-    Args:
-        db: Database session
-        username: Username to authenticate
-        password: Plain text password to verify
-        
-    Returns:
-        User object if authentication successful, None otherwise
-    """
     # Get user by username
     user = get_user_by_username(db, username)
     if not user:
         return None
     
-    # Verify password using the stored hash
+    # Verify password
     if not verify_password(password, user.hashed_password):
         return None
     
     return user
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> User:
-    """Get the current authenticated user from JWT token"""
+    # Verify token
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -362,30 +342,10 @@ async def create_violation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new violation record
-    
-    - **student_id**: ID of the student who committed the violation
-    - **assignment_id**: ID of the assignment
-    - **violation_type**: Type of violation
-    - **description**: Description of the violation
-    - **time_away_seconds**: Time away in seconds
-    - **severity**: Severity level ('low', 'medium', 'high')
-    - **content_added_during_absence**: Optional content added during absence
-    - **ai_similarity_score**: Optional AI similarity score
-    - **paste_content_length**: Optional paste content length
-    
-    Requires authentication. Students can create violations for themselves.
-    """
+    # Use CRUD function to create violation
     try:
-        print(f"📝 Creating violation for student {violation.student_id}, assignment {violation.assignment_id}")
-        
-        # Use the actual CRUD function
         new_violation = crud.create_violation(db, violation_in=violation)
         
-        print(f"✅ Violation recorded: {new_violation}")
-        
-        # Convert to response
         return ViolationResponse(
             id=new_violation.id,
             student_id=new_violation.student_id,
@@ -401,13 +361,11 @@ async def create_violation(
         )
         
     except ValueError as e:
-        print(f"❌ Validation error creating violation: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        print(f"❌ Error creating violation: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create violation: {str(e)}"
@@ -418,14 +376,6 @@ async def get_all_violations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all violations for assignments
-    
-    Returns:
-        List of all violations
-        
-    Requires authentication. Teachers and Admins can view all violations.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -434,12 +384,9 @@ async def get_all_violations(
         )
     
     try:
-        print(f"📊 Fetching all violations for user: {current_user.username}")
-        
-        # Use the actual CRUD function
+        # Get all violations
         violations = crud.get_violations(db)
         
-        # Convert to response format
         violation_responses = []
         for violation in violations:
             violation_responses.append(ViolationResponse(
@@ -459,7 +406,6 @@ async def get_all_violations(
         return violation_responses
         
     except Exception as e:
-        print(f"❌ Error fetching violations: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch violations: {str(e)}"
@@ -471,17 +417,6 @@ async def get_assignment_violations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get violations for a specific assignment
-    
-    Args:
-        assignment_id: ID of the assignment
-        
-    Returns:
-        List of violations for the assignment
-        
-    Requires authentication. Teachers can view violations for their assignments.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -490,8 +425,6 @@ async def get_assignment_violations(
         )
     
     try:
-        print(f"📊 Fetching violations for assignment {assignment_id}")
-        
         # Verify the assignment exists
         assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
         if not assignment:
@@ -507,10 +440,9 @@ async def get_assignment_violations(
                 detail="Not authorized to view violations for this assignment"
             )
         
-        # Use the actual CRUD function
+        # Get violations for this assignment
         violations = crud.get_violations_by_assignment(db, assignment_id)
         
-        # Convert to response format
         violation_responses = []
         for violation in violations:
             violation_responses.append(ViolationResponse(
@@ -532,7 +464,6 @@ async def get_assignment_violations(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching assignment violations: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch assignment violations: {str(e)}"
@@ -548,22 +479,7 @@ async def get_violations_for_submission(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get violations for a specific submission
-    
-    Args:
-        submission_id: ID of the submission
-        
-    Returns:
-        List of violations for the submission
-        
-    Requires authentication.
-    Teachers and Admins can view violations for any submission.
-    Students can view violations for their own submissions.
-    """
     try:
-        print(f"📊 Fetching violations for submission {submission_id}")
-        
         # Get the submission
         submission = db.query(Submission).filter(Submission.id == submission_id).first()
         if not submission:
@@ -592,7 +508,6 @@ async def get_violations_for_submission(
         # Get violations for this student in this assignment
         violations = crud.get_violations_by_student_and_assignment(db, submission.student_id, submission.assignment_id)
         
-        # Convert to response format
         violation_responses = []
         for violation in violations:
             violation_responses.append(ViolationResponse(
@@ -614,7 +529,6 @@ async def get_violations_for_submission(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching submission violations: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch submission violations: {str(e)}"
@@ -626,17 +540,6 @@ async def get_enriched_violations_for_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get enriched violations for a specific assignment with student and assignment information
-    
-    Args:
-        assignment_id: ID of the assignment
-        
-    Returns:
-        List of enriched violations with student and assignment details
-        
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -645,8 +548,6 @@ async def get_enriched_violations_for_assignment(
         )
     
     try:
-        print(f"📊 Fetching enriched violations for assignment {assignment_id}")
-        
         # Verify the assignment exists
         assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
         if not assignment:
@@ -662,7 +563,7 @@ async def get_enriched_violations_for_assignment(
                 detail="Not authorized to view violations for this assignment"
             )
         
-        # Use the actual CRUD function with enriched data
+        # Get enriched violations
         violations = crud.get_assignment_violations_with_student_info(db, assignment_id)
         
         return violations
@@ -670,7 +571,6 @@ async def get_enriched_violations_for_assignment(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching enriched violations: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch enriched violations: {str(e)}"
@@ -682,17 +582,6 @@ async def get_violations_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get violations summary for a specific assignment
-    
-    Args:
-        assignment_id: ID of the assignment
-        
-    Returns:
-        Summary of violations for the assignment
-        
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -701,8 +590,6 @@ async def get_violations_summary(
         )
     
     try:
-        print(f"📊 Fetching violations summary for assignment {assignment_id}")
-        
         # Verify the assignment exists
         assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
         if not assignment:
@@ -718,10 +605,9 @@ async def get_violations_summary(
                 detail="Not authorized to view violations summary for this assignment"
             )
         
-        # Get violation summary using CRUD function
+        # Get violation summary
         summary = crud.get_violation_summary_for_assignment(db, assignment_id)
         
-        # Convert to response model
         return ViolationSummary(
             assignment_id=assignment_id,
             assignment_name=summary['assignment_name'],
@@ -742,7 +628,6 @@ async def get_violations_summary(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching violations summary: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch violations summary: {str(e)}"
@@ -754,17 +639,6 @@ async def get_submissions_with_violations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get submissions with their violations for a specific assignment
-    
-    Args:
-        assignment_id: ID of the assignment
-        
-    Returns:
-        List of submissions with their violations
-        
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -773,8 +647,6 @@ async def get_submissions_with_violations(
         )
     
     try:
-        print(f"📊 Fetching submissions with violations for assignment {assignment_id}")
-        
         # Verify the assignment exists
         assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
         if not assignment:
@@ -811,7 +683,6 @@ async def get_submissions_with_violations(
             # Get violations for this student
             student_violations = violations_by_student.get(submission.student_id, [])
             
-            # Convert violations to response format
             violation_responses = []
             for violation in student_violations:
                 violation_responses.append(ViolationResponse(
@@ -845,7 +716,6 @@ async def get_submissions_with_violations(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching submissions with violations: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch submissions with violations: {str(e)}"
@@ -858,18 +728,6 @@ async def get_all_violations_paginated(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all violations with pagination
-    
-    Args:
-        skip: Number of violations to skip (for pagination)
-        limit: Maximum number of violations to return
-        
-    Returns:
-        List of violations
-        
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -878,12 +736,9 @@ async def get_all_violations_paginated(
         )
     
     try:
-        print(f"📊 Fetching all violations (skip={skip}, limit={limit})")
-        
-        # Use the actual CRUD function
+        # Get violations with pagination
         violations = crud.get_violations(db, skip=skip, limit=limit)
         
-        # Convert to response format
         violation_responses = []
         for violation in violations:
             violation_responses.append(ViolationResponse(
@@ -903,7 +758,6 @@ async def get_all_violations_paginated(
         return violation_responses
         
     except Exception as e:
-        print(f"❌ Error fetching all violations: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch all violations: {str(e)}"
@@ -915,22 +769,7 @@ async def get_violations_for_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get violations for a specific student
-    
-    Args:
-        student_id: ID of the student
-        
-    Returns:
-        List of violations for the student
-        
-    Requires authentication.
-    Teachers and Admins can view violations for any student.
-    Students can view their own violations only.
-    """
     try:
-        print(f"📊 Fetching violations for student {student_id}")
-        
         # Check permissions
         if current_user.role == UserRole.STUDENT:
             # Students can only view their own violations
@@ -940,10 +779,9 @@ async def get_violations_for_student(
                     detail="Not authorized to view violations for this student"
                 )
         
-        # Use the actual CRUD function
+        # Get violations for student
         violations = crud.get_violations_by_student(db, student_id)
         
-        # Convert to response format
         violation_responses = []
         for violation in violations:
             violation_responses.append(ViolationResponse(
@@ -965,7 +803,6 @@ async def get_violations_for_student(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching student violations: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student violations: {str(e)}"
@@ -977,23 +814,8 @@ async def get_violation_by_id(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get a specific violation by ID
-    
-    Args:
-        violation_id: ID of the violation
-        
-    Returns:
-        The violation
-        
-    Requires authentication.
-    Teachers and Admins can view any violation.
-    Students can view their own violations only.
-    """
     try:
-        print(f"📊 Fetching violation {violation_id}")
-        
-        # Use the actual CRUD function
+        # Get violation
         violation = crud.get_violation(db, violation_id)
         if not violation:
             raise HTTPException(
@@ -1036,7 +858,6 @@ async def get_violation_by_id(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching violation: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch violation: {str(e)}"
@@ -1048,17 +869,6 @@ async def delete_violation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete a violation (Admin only)
-    
-    Args:
-        violation_id: ID of the violation to delete
-        
-    Returns:
-        Success message
-        
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -1067,9 +877,7 @@ async def delete_violation(
         )
     
     try:
-        print(f"🗑️ Deleting violation {violation_id}")
-        
-        # Use the actual CRUD function
+        # Delete violation
         success = crud.delete_violation(db, violation_id)
         if not success:
             raise HTTPException(
@@ -1082,7 +890,6 @@ async def delete_violation(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error deleting violation: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete violation: {str(e)}"
@@ -1102,17 +909,6 @@ async def create_submission_with_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new submission with optional file upload (Student only)
-    
-    - **assignment_id**: ID of the assignment being submitted
-    - **content**: Text content (optional)
-    - **link_url**: Link URL (optional)
-    - **time_spent_minutes**: Time spent on the assignment
-    - **photo**: Optional file upload (PDF, DOC, DOCX, TXT, JPG, PNG, GIF, max 10MB)
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -1155,7 +951,7 @@ async def create_submission_with_file(
                 content_bytes = await photo.read()
                 await f.write(content_bytes)
             
-            # Generate URL (relative path)
+            # Generate URL
             file_path = f"/uploads/{filename}"
             
         except Exception as e:
@@ -1165,8 +961,6 @@ async def create_submission_with_file(
             )
     
     try:
-        print(f"📤 Creating submission for user {current_user.id}, assignment {assignment_id}")
-        
         # Check if submission already exists
         existing_submission = db.query(Submission).filter(
             Submission.assignment_id == assignment_id,
@@ -1187,8 +981,6 @@ async def create_submission_with_file(
             
             db.commit()
             db.refresh(existing_submission)
-            
-            print(f"✅ Updated existing submission {existing_submission.id}")
             
             return {
                 "id": existing_submission.id,
@@ -1221,8 +1013,6 @@ async def create_submission_with_file(
             db.commit()
             db.refresh(new_submission)
             
-            print(f"✅ Created new submission {new_submission.id}")
-            
             return {
                 "id": new_submission.id,
                 "assignment_id": new_submission.assignment_id,
@@ -1240,7 +1030,6 @@ async def create_submission_with_file(
         
     except Exception as e:
         db.rollback()
-        print(f"❌ Error creating submission with file: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create submission: {str(e)}"
@@ -1257,18 +1046,6 @@ async def update_submission_with_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update a submission with optional file upload (Student only)
-    
-    - **submission_id**: ID of the submission to update
-    - **assignment_id**: ID of the assignment
-    - **content**: Text content (optional)
-    - **link_url**: Link URL (optional)
-    - **time_spent_minutes**: Time spent on the assignment
-    - **photo**: Optional file upload (PDF, DOC, DOCX, TXT, JPG, PNG, GIF, max 10MB)
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -1304,7 +1081,7 @@ async def update_submission_with_file(
                     detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"
                 )
             
-            # Validate file size (max 10MB)
+            # Validate file size
             MAX_FILE_SIZE = 10 * 1024 * 1024
             if photo.size and photo.size > MAX_FILE_SIZE:
                 raise HTTPException(
@@ -1345,8 +1122,6 @@ async def update_submission_with_file(
         db.commit()
         db.refresh(submission)
         
-        print(f"✅ Updated submission {submission.id}")
-        
         return {
             "id": submission.id,
             "assignment_id": submission.assignment_id,
@@ -1366,7 +1141,6 @@ async def update_submission_with_file(
         raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error updating submission: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update submission: {str(e)}"
@@ -1378,17 +1152,6 @@ async def download_submission_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Download submission file
-    
-    Args:
-        submission_id: ID of the submission
-        
-    Returns:
-        File download
-        
-    Requires authentication.
-    """
     try:
         # Get submission
         submission = db.query(Submission).filter(Submission.id == submission_id).first()
@@ -1445,7 +1208,6 @@ async def download_submission_file(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error downloading file: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to download file: {str(e)}"
@@ -1461,17 +1223,6 @@ async def get_assignment_submissions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all submissions for a specific assignment (Teacher and Admin only)
-    
-    Args:
-        assignment_id: ID of the assignment
-        
-    Returns:
-        List of submissions with student information
-        
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -1564,7 +1315,6 @@ async def get_assignment_submissions(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error getting assignment submissions: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get assignment submissions: {str(e)}"
@@ -1577,15 +1327,6 @@ async def update_submission_grade(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update the grade for a submission (Teacher and Admin only)
-    
-    - **submission_id**: ID of the submission to grade
-    - **grade**: Grade value (float between 0 and 100)
-    - **feedback**: Optional feedback text
-    
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -1648,17 +1389,6 @@ async def get_student_assignment_detail(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get assignment details for a student
-    
-    Args:
-        assignment_id: ID of the assignment
-        
-    Returns:
-        Assignment details with class and teacher information
-        
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -1667,8 +1397,6 @@ async def get_student_assignment_detail(
         )
     
     try:
-        print(f"📝 Fetching assignment {assignment_id} for student: {current_user.username}")
-        
         # Get assignment
         assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
         if not assignment:
@@ -1723,7 +1451,6 @@ async def get_student_assignment_detail(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching student assignment: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student assignment: {str(e)}"
@@ -1735,17 +1462,6 @@ async def get_student_my_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get assignment details for the current student
-    
-    Args:
-        assignment_id: ID of the assignment
-        
-    Returns:
-        Assignment details for the current student
-        
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -1754,8 +1470,6 @@ async def get_student_my_assignment(
         )
     
     try:
-        print(f"📝 Fetching assignment {assignment_id} for student: {current_user.username}")
-        
         # Get assignment
         assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
         if not assignment:
@@ -1810,7 +1524,6 @@ async def get_student_my_assignment(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching student assignment: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student assignment: {str(e)}"
@@ -1822,14 +1535,6 @@ async def get_student_submission_for_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get the current student's submission for a specific assignment
-    
-    Returns:
-        The student's submission for the specified assignment, or 404 if not found
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -1888,7 +1593,6 @@ async def get_student_submission_for_assignment(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching student submission: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch submission: {str(e)}"
@@ -1900,14 +1604,6 @@ async def get_student_my_submission(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get the current student's submission for a specific assignment
-    
-    Returns:
-        The student's submission for the specified assignment, or 404 if not found
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -1966,7 +1662,6 @@ async def get_student_my_submission(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching student submission: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch submission: {str(e)}"
@@ -1978,27 +1673,10 @@ async def get_student_my_submission(
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
     return {"message": "Welcome to ClassTrack API"}
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """
-    Authenticate user and return access token.
-    
-    This endpoint handles user authentication and returns a JWT access token
-    if the provided credentials are valid.
-    
-    Args:
-        form_data: OAuth2PasswordRequestForm containing username and password
-        db: Database session
-        
-    Returns:
-        Token object containing access_token and token_type
-        
-    Raises:
-        HTTPException: 400 status with "Incorrect username or password" if authentication fails
-    """
     # Authenticate the user
     user = authenticate_user(db, form_data.username, form_data.password)
     
@@ -2020,13 +1698,6 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 @app.post("/users/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    """
-    Create a new user
-    
-    - **username**: Unique username (min 3 characters)
-    - **password**: Password (min 6 characters)
-    - **role**: User role ('admin', 'teacher', or 'student')
-    """
     # Check if user already exists
     db_user = get_user_by_username(db, username=user.username)
     if db_user:
@@ -2064,16 +1735,6 @@ async def update_user_by_admin(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update an existing user (Admin only)
-    
-    - **user_id**: ID of the user to update
-    - **username**: New username (optional)
-    - **password**: New password (optional)
-    - **role**: New role (optional)
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -2128,13 +1789,6 @@ async def delete_user_by_admin(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete an existing user (Admin only)
-    
-    - **user_id**: ID of the user to delete
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -2151,7 +1805,6 @@ async def delete_user_by_admin(
             )
         return {"message": "User deleted successfully"}
     except ValueError as e:
-        # Handle foreign key constraint errors with user-friendly message
         error_message = str(e)
         if "foreign key constraint" in error_message.lower():
             raise HTTPException(
@@ -2180,14 +1833,6 @@ async def get_classes_endpoint(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all classes (Admin only)
-    
-    - **skip**: Number of classes to skip (for pagination)
-    - **limit**: Maximum number of classes to return
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -2210,15 +1855,6 @@ async def create_new_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new class (Admin only)
-    
-    - **name**: Class name
-    - **code**: Unique class code
-    - **teacher_id**: Optional teacher ID to assign to the class
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -2247,16 +1883,6 @@ async def update_existing_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update an existing class (Admin only)
-    
-    - **class_id**: ID of the class to update
-    - **name**: Updated class name
-    - **code**: Updated class code
-    - **teacher_id**: Updated teacher ID assignment
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -2291,13 +1917,6 @@ async def delete_existing_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete a class (Admin only)
-    
-    - **class_id**: ID of the class to delete
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -2314,7 +1933,6 @@ async def delete_existing_class(
             )
         return {"message": "Class deleted successfully"}
     except ValueError as e:
-        # Handle foreign key constraint errors with user-friendly message
         error_message = str(e)
         if "foreign key constraint" in error_message.lower():
             raise HTTPException(
@@ -2343,17 +1961,6 @@ async def get_assignments_endpoint(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all assignments (Teacher and Admin only)
-    
-    - **skip**: Number of assignments to skip (for pagination)
-    - **limit**: Maximum number of assignments to return
-    
-    For teachers, returns only assignments they created.
-    For admins, returns all assignments.
-    
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -2363,10 +1970,8 @@ async def get_assignments_endpoint(
     
     try:
         if current_user.role == UserRole.ADMIN:
-            # Admins can see all assignments
             assignments = crud.get_assignments(db, skip=skip, limit=limit)
         else:
-            # Teachers can only see their own assignments
             assignments = crud.get_assignments_by_teacher(db, teacher_id=current_user.id, skip=skip, limit=limit)
         
         return assignments
@@ -2382,15 +1987,6 @@ async def create_new_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new assignment (Teacher and Admin only)
-    
-    - **name**: Assignment name
-    - **description**: Assignment description (optional)
-    - **class_id**: ID of the class this assignment belongs to
-    
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -2399,8 +1995,6 @@ async def create_new_assignment(
         )
     
     try:
-        print(f"API: Creating assignment for user {current_user.id} with data: {assignment_data}")
-        
         # Additional validation at API level
         if not assignment_data.name or not assignment_data.name.strip():
             raise HTTPException(
@@ -2415,25 +2009,16 @@ async def create_new_assignment(
             )
         
         new_assignment = crud.create_assignment(db, assignment_in=assignment_data, creator_id=current_user.id)
-        print(f"API: Successfully created assignment {new_assignment.id}")
         return new_assignment
         
     except ValueError as e:
-        print(f"API: ValueError in assignment creation: {e}")
-        # All ValueError exceptions from crud.py are validation errors that should return 400
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except HTTPException:
-        # Re-raise HTTPException as-is (these are our API-level validation errors)
         raise
     except Exception as e:
-        print(f"API: Unexpected error in assignment creation: {e}")
-        print(f"API: Error type: {type(e).__name__}")
-        import traceback
-        traceback.print_exc()
-        # Only return 500 for truly unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while creating the assignment. Please try again."
@@ -2444,13 +2029,6 @@ async def get_my_assignments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get assignments for the current student (Student only)
-    
-    Returns all assignments for classes where the current user is enrolled.
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -2478,14 +2056,6 @@ async def delete_existing_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete an assignment (Teacher and Admin only)
-    
-    - **assignment_id**: ID of the assignment to delete
-    
-    Requires authentication and TEACHER or ADMIN role.
-    Teachers can only delete their own assignments, Admins can delete any assignment.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -2493,7 +2063,7 @@ async def delete_existing_assignment(
             detail="Not authorized to delete assignments"
         )
     
-    # First, check if the assignment exists and get it
+    # Check if the assignment exists and get it
     assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
     if not assignment:
         raise HTTPException(
@@ -2510,17 +2080,12 @@ async def delete_existing_assignment(
             )
     
     try:
-        # Now delete the assignment (we already have it, so no need to query again)
-        print(f"DEBUG: Deleting assignment {assignment_id} (name: {assignment.name}) for user {current_user.id} (role: {current_user.role})")
         db.delete(assignment)
         db.commit()
-        print(f"DEBUG: Assignment {assignment_id} deleted successfully")
         
         return {"message": "Assignment deleted successfully"}
     except Exception as e:
         db.rollback()
-        print(f"DEBUG: Error deleting assignment {assignment_id}: {str(e)}")
-        # Handle foreign key constraint errors with user-friendly message
         error_message = str(e)
         if "foreign key constraint" in error_message.lower():
             raise HTTPException(
@@ -2533,19 +2098,12 @@ async def delete_existing_assignment(
                 detail=f"Failed to delete assignment: {error_message}"
             )
 
-# FIXED: Student assignments endpoint - ALL STUDENTS CAN SEE ALL ASSIGNMENTS
+# Student assignments endpoint - ALL STUDENTS CAN SEE ALL ASSIGNMENTS
 @app.get("/assignments/student/", response_model=List[AssignmentResponse])
 async def get_student_assignments_all(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get ALL assignments for ALL students (including from all teachers)
-    
-    Returns ALL assignments from ALL classes.
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -2554,12 +2112,8 @@ async def get_student_assignments_all(
         )
     
     try:
-        print(f"📝 Fetching ALL assignments for student: {current_user.username}")
-        
         # Get ALL assignments with class and teacher information
         assignments = db.query(Assignment).join(Class).join(User, Class.teacher_id == User.id).all()
-        
-        print(f"✅ Found {len(assignments)} assignments for student")
         
         # Convert to response format
         assignment_responses = []
@@ -2575,7 +2129,7 @@ async def get_student_assignments_all(
             elif assignment.creator:
                 teacher_name = assignment.creator.first_name + " " + assignment.creator.last_name if assignment.creator.first_name and assignment.creator.last_name else assignment.creator.username
             
-            # FIX: Safely handle created_at
+            # Safely handle created_at
             created_at = getattr(assignment, 'created_at', None)
             if created_at:
                 created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
@@ -2598,25 +2152,17 @@ async def get_student_assignments_all(
         return assignment_responses
         
     except Exception as e:
-        print(f"❌ Error fetching student assignments: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student assignments: {str(e)}"
         )
 
-# FIXED: Student classes endpoint - ALL STUDENTS CAN SEE ALL CLASSES
+# Student classes endpoint - ALL STUDENTS CAN SEE ALL CLASSES
 @app.get("/classes/student/", response_model=List[dict])
 async def get_student_classes_all(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get ALL classes for ALL students with teacher information
-    
-    Returns ALL classes with teacher details.
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -2625,12 +2171,8 @@ async def get_student_classes_all(
         )
     
     try:
-        print(f"📚 Fetching ALL classes for student: {current_user.username}")
-        
         # Get ALL classes with teacher information
         classes = db.query(Class).join(User, Class.teacher_id == User.id).all()
-        
-        print(f"✅ Found {len(classes)} classes for student")
         
         classes_data = []
         for class_obj in classes:
@@ -2641,10 +2183,10 @@ async def get_student_classes_all(
             if teacher:
                 teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
             
-            # FIX: Safely handle description attribute
+            # Safely handle description attribute
             description = getattr(class_obj, 'description', None)
             
-            # FIX: Safely handle created_at attribute - use current time if not available
+            # Safely handle created_at attribute
             created_at = getattr(class_obj, 'created_at', None)
             if created_at:
                 created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
@@ -2662,29 +2204,20 @@ async def get_student_classes_all(
             }
             classes_data.append(class_data)
         
-        print(f"✅ Returning {len(classes_data)} classes for student")
         return classes_data
         
     except Exception as e:
-        print(f"❌ Error fetching student classes: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student classes: {str(e)}"
         )
 
-# FIXED: Add the missing /students/me/classes endpoint
+# Add the missing /students/me/classes endpoint
 @app.get("/students/me/classes", response_model=List[dict])
 async def get_student_my_classes(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get classes for the current student (Student only)
-    
-    Returns classes that the student is enrolled in.
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -2693,8 +2226,6 @@ async def get_student_my_classes(
         )
     
     try:
-        print(f"📚 Fetching enrolled classes for student: {current_user.username}")
-        
         # Get classes the student is enrolled in
         enrollments = db.query(Enrollment).filter(Enrollment.student_id == current_user.id).all()
         class_ids = [enrollment.class_id for enrollment in enrollments]
@@ -2707,8 +2238,6 @@ async def get_student_my_classes(
             Class.id.in_(class_ids)
         ).all()
         
-        print(f"✅ Found {len(classes)} enrolled classes for student")
-        
         classes_data = []
         for class_obj in classes:
             teacher = class_obj.teacher
@@ -2718,10 +2247,10 @@ async def get_student_my_classes(
             if teacher:
                 teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
             
-            # FIX: Safely handle description attribute
+            # Safely handle description attribute
             description = getattr(class_obj, 'description', None)
             
-            # FIX: Safely handle created_at attribute
+            # Safely handle created_at attribute
             created_at = getattr(class_obj, 'created_at', None)
             if created_at:
                 created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
@@ -2739,11 +2268,9 @@ async def get_student_my_classes(
             }
             classes_data.append(class_data)
         
-        print(f"✅ Returning {len(classes_data)} enrolled classes for student")
         return classes_data
         
     except Exception as e:
-        print(f"❌ Error fetching student enrolled classes: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student enrolled classes: {str(e)}"
@@ -2755,13 +2282,6 @@ async def get_teacher_assignments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get assignments created by the current teacher
-    
-    Returns assignments created by the teacher with class information.
-    
-    Requires authentication and TEACHER role.
-    """
     # Check if current user is a teacher
     if current_user.role != UserRole.TEACHER:
         raise HTTPException(
@@ -2770,14 +2290,10 @@ async def get_teacher_assignments(
         )
     
     try:
-        print(f"📝 Fetching assignments for teacher: {current_user.username}")
-        
         # Get assignments created by the teacher with class information
         assignments = db.query(Assignment).join(Class).filter(
             Assignment.creator_id == current_user.id
         ).all()
-        
-        print(f"✅ Found {len(assignments)} assignments for teacher")
         
         # Convert to response format
         assignment_responses = []
@@ -2801,7 +2317,6 @@ async def get_teacher_assignments(
         return assignment_responses
         
     except Exception as e:
-        print(f"❌ Error fetching teacher assignments: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch teacher assignments: {str(e)}"
@@ -2815,16 +2330,6 @@ async def create_new_submission(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new submission (Student only)
-    
-    - **assignment_id**: ID of the assignment being submitted
-    - **student_id**: ID of the student submitting (ignored - uses authenticated user's ID)
-    - **time_spent_minutes**: Time spent on the assignment (core AI data input)
-    
-    Requires authentication and STUDENT role.
-    The student_id from the request is ignored - the authenticated user's ID is always used.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -2833,46 +2338,29 @@ async def create_new_submission(
         )
     
     try:
-        print(f"API: Creating submission for user {current_user.id} with data: {submission_data}")
-        
-        # Always use the authenticated user's ID, ignoring any student_id from the frontend
+        # Always use the authenticated user's ID
         new_submission = crud.create_submission(db, submission_in=submission_data, student_id=current_user.id)
-        print(f"API: Successfully created submission {new_submission.id}")
         return new_submission
     except HTTPException:
-        # Let HTTPException (like 409 Conflict) pass through unchanged
         raise
     except ValueError as e:
-        print(f"API: ValueError in submission creation: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        print(f"API: Unexpected error in submission creation: {e}")
-        print(f"API: Error type: {type(e).__name__}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while creating the submission. Please try again."
         )
 
-# STUDENT-SPECIFIC ENDPOINTS - ADD THESE MISSING FUNCTIONS
+# STUDENT-SPECIFIC ENDPOINTS
 
 @app.get("/students/me/submissions", response_model=List[SubmissionResponse])
 async def get_student_submissions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all submissions for the current student
-    
-    Returns:
-        List of submissions made by the student
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -2881,19 +2369,15 @@ async def get_student_submissions(
         )
     
     try:
-        print(f"📄 Fetching submissions for student: {current_user.username}")
-        
         # Get all submissions for the student
         submissions = db.query(Submission).filter(
             Submission.student_id == current_user.id
         ).all()
         
-        print(f"✅ Found {len(submissions)} submissions for student")
-        
         # Convert to response format
         submission_responses = []
         for submission in submissions:
-            # FIX: Safely handle submitted_at
+            # Safely handle submitted_at
             submitted_at = getattr(submission, 'submitted_at', None)
             if submitted_at:
                 submitted_at_str = submitted_at.isoformat() if hasattr(submitted_at, 'isoformat') else str(submitted_at)
@@ -2913,7 +2397,6 @@ async def get_student_submissions(
         return submission_responses
         
     except Exception as e:
-        print(f"❌ Error fetching student submissions: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student submissions: {str(e)}"
@@ -2924,14 +2407,6 @@ async def get_student_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get schedule for the current student
-    
-    Returns:
-        List of schedules for the student's enrolled classes
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -2940,8 +2415,6 @@ async def get_student_schedule(
         )
     
     try:
-        print(f"📅 Fetching schedule for student: {current_user.username}")
-        
         # Get classes the student is enrolled in
         enrollments = db.query(Enrollment).filter(Enrollment.student_id == current_user.id).all()
         class_ids = [enrollment.class_id for enrollment in enrollments]
@@ -2966,7 +2439,7 @@ async def get_student_schedule(
                 teacher = class_obj.teacher
                 teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
             
-            # FIX: Safely handle created_at
+            # Safely handle created_at
             created_at = getattr(schedule, 'created_at', None)
             if created_at:
                 created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
@@ -2987,11 +2460,9 @@ async def get_student_schedule(
             }
             schedule_responses.append(schedule_response)
         
-        print(f"✅ Found {len(schedule_responses)} schedule entries for student")
         return schedule_responses
         
     except Exception as e:
-        print(f"❌ Error fetching student schedule: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch student schedule: {str(e)}"
@@ -3005,15 +2476,6 @@ async def get_engagement_insights(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get engagement insights for a specific assignment (Teacher and Admin only)
-    
-    - **assignment_id**: ID of the assignment to get insights for
-    
-    Returns engagement metrics including total submissions, average time spent, and AI-calculated engagement score.
-    
-    Requires authentication and TEACHER or ADMIN role.
-    """
     # Check if current user is a teacher or admin
     if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
         raise HTTPException(
@@ -3058,12 +2520,11 @@ async def get_engagement_insights(
         total_time_spent = sum(sub.time_spent_minutes for sub in submissions)
         average_time_spent = total_time_spent / total_submissions if total_submissions > 0 else 0
         
-        # Calculate AI engagement score (simplified algorithm)
-        # Based on submission rate, time spent, and recency
+        # Calculate AI engagement score
         engagement_score = min(10.0, max(0.0, 
-            (total_submissions * 0.4) +  # Submission rate factor
-            (average_time_spent / 10 * 0.4) +  # Time spent factor
-            (2.0)  # Base score for having submissions
+            (total_submissions * 0.4) +
+            (average_time_spent / 10 * 0.4) +
+            (2.0)
         ))
         
         return {
@@ -3086,11 +2547,6 @@ async def get_engagement_insights(
 
 @app.get("/users/", response_model=list[UserResponse])
 async def get_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """
-    Get all users (Admin only)
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -3107,15 +2563,6 @@ async def create_user_by_admin(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new user (Admin only)
-    
-    - **username**: Unique username (min 3 characters)
-    - **password**: Password (min 6 characters)
-    - **role**: User role ('teacher' or 'student')
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -3155,7 +2602,6 @@ async def create_user_by_admin(
 
 @app.get("/users/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    """Get current user information (protected endpoint)"""
     return current_user
 
 @app.put("/users/me", response_model=UserResponse)
@@ -3164,16 +2610,8 @@ async def update_user_profile_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update current user's profile information (Protected endpoint)
-    
-    - **first_name**: User's first name (optional)
-    - **last_name**: User's last name (optional)
-    
-    Requires authentication. Only the authenticated user can update their own profile.
-    """
     try:
-        # Prepare update data (only include non-None values)
+        # Prepare update data
         update_data = {}
         if user_update.first_name is not None:
             update_data['first_name'] = user_update.first_name
@@ -3202,10 +2640,8 @@ async def update_user_profile_endpoint(
                 detail=error_message
             )
     except HTTPException:
-        # Re-raise HTTP exceptions unchanged
         raise
     except Exception as e:
-        # Handle unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while updating profile. Please try again."
@@ -3217,13 +2653,6 @@ async def upload_profile_photo_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Upload profile photo for current user (Protected endpoint)
-    
-    - **photo**: Image file (JPEG, PNG, GIF, WebP)
-    
-    Requires authentication. Only the authenticated user can upload their own profile photo.
-    """
     try:
         # Validate file type
         if not photo.content_type or not photo.content_type.startswith('image/'):
@@ -3233,7 +2662,7 @@ async def upload_profile_photo_endpoint(
             )
         
         # Validate file size (max 5MB)
-        if photo.size and photo.size > 5 * 1024 * 1024:  # 5MB
+        if photo.size and photo.size > 5 * 1024 * 1024:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File size must be less than 5MB"
@@ -3249,11 +2678,11 @@ async def upload_profile_photo_endpoint(
             content = await photo.read()
             await f.write(content)
         
-        # Generate full accessible URL for the uploaded file
+        # Generate URL
         photo_url = f"/uploads/{unique_filename}"
         full_photo_url = f"http://localhost:8000{photo_url}"
         
-        # Update user's profile picture URL in database (store relative path)
+        # Update user's profile picture URL
         updated_user = crud.update_user_profile_picture(
             db=db,
             user_id=current_user.id,
@@ -3267,7 +2696,6 @@ async def upload_profile_photo_endpoint(
         }
         
     except HTTPException:
-        # Re-raise HTTP exceptions unchanged
         raise
     except ValueError as e:
         error_message = str(e)
@@ -3282,7 +2710,6 @@ async def upload_profile_photo_endpoint(
                 detail=error_message
             )
     except Exception as e:
-        # Handle unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while uploading photo. Please try again."
@@ -3294,14 +2721,6 @@ async def change_password_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Change user password with current password verification (Protected endpoint)
-    
-    - **current_password**: User's current password (must be correct)
-    - **new_password**: New password (min 8 characters)
-    
-    Requires authentication. Only the authenticated user can change their own password.
-    """
     try:
         # Change the user's password
         success = crud.change_user_password(
@@ -3323,7 +2742,6 @@ async def change_password_endpoint(
             )
             
     except ValueError as e:
-        # Handle validation errors (incorrect current password, user not found, etc.)
         error_message = str(e)
         if "Current password is incorrect" in error_message:
             raise HTTPException(
@@ -3341,10 +2759,8 @@ async def change_password_endpoint(
                 detail=error_message
             )
     except HTTPException:
-        # Re-raise HTTP exceptions unchanged
         raise
     except Exception as e:
-        # Handle unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while changing password. Please try again."
@@ -3357,13 +2773,6 @@ async def get_users_count(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get total count of users (Admin only)
-    
-    Returns the total number of users in the system.
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -3385,13 +2794,6 @@ async def get_classes_count(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get total count of classes (Admin only)
-    
-    Returns the total number of classes in the system.
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -3415,13 +2817,6 @@ async def export_all_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Export all users data (Admin only)
-    
-    Returns all users in the system for CSV export purposes.
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -3443,14 +2838,6 @@ async def export_all_classes_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Export all classes data (Admin only)
-    
-    Returns all classes in the system for CSV export purposes.
-    Uses forced dictionary conversion to bypass ORM serialization issues.
-    
-    Requires authentication and ADMIN role.
-    """
     # Check if current user is an admin
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -3458,7 +2845,7 @@ async def export_all_classes_data(
             detail="Not authorized to export class data"
         )
     
-    # Get classes as simple dictionaries (no ORM serialization issues)
+    # Get classes as simple dictionaries
     classes = crud.get_all_classes(db)
     return classes
 
@@ -3469,10 +2856,6 @@ async def create_schedule_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new schedule entry (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3482,7 +2865,6 @@ async def create_schedule_endpoint(
     try:
         return crud.create_schedule(db, schedule)
     except HTTPException:
-        # Re-raise HTTPExceptions (like 404 for invalid class_id)
         raise
     except Exception as e:
         raise HTTPException(
@@ -3497,10 +2879,6 @@ async def get_schedules_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all schedules with pagination (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3517,10 +2895,6 @@ async def get_schedules_endpoint(
 
 @app.get("/schedules/live")
 async def get_schedules_live_endpoint(db: Session = Depends(get_db)):
-    """
-    Get all schedules for live display with enriched teacher and class information (Public endpoint)
-    No authentication required - for student dashboard display.
-    """
     try:
         return crud.get_schedules_live_enriched(db)
     except Exception as e:
@@ -3535,10 +2909,6 @@ async def get_schedule_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get a specific schedule by ID (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3560,10 +2930,6 @@ async def update_schedule_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update a schedule (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3579,7 +2945,6 @@ async def update_schedule_endpoint(
             )
         return updated_schedule
     except HTTPException:
-        # Re-raise HTTPExceptions (like 404 for invalid class_id)
         raise
     except Exception as e:
         raise HTTPException(
@@ -3593,10 +2958,6 @@ async def delete_schedule_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete a schedule (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3617,15 +2978,6 @@ async def get_schedule_cleanliness(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get cleanliness report for a specific schedule
-    
-    Args:
-        schedule_id: ID of the schedule to get cleanliness for
-        
-    Returns:
-        Cleanliness status and latest report
-    """
     try:
         # Get the schedule
         schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
@@ -3687,10 +3039,6 @@ async def create_announcement_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new announcement (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3712,10 +3060,6 @@ async def get_announcements_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all announcements with pagination (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3732,10 +3076,6 @@ async def get_announcements_endpoint(
 
 @app.get("/announcements/live", response_model=list[AnnouncementResponse])
 async def get_announcements_live_endpoint(db: Session = Depends(get_db)):
-    """
-    Get all announcements for live display (Public endpoint)
-    No authentication required - for student dashboard display.
-    """
     try:
         return crud.get_announcements_live(db)
     except Exception as e:
@@ -3750,10 +3090,6 @@ async def get_announcement_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get a specific announcement by ID (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3775,10 +3111,6 @@ async def update_announcement_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update an announcement (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3799,10 +3131,6 @@ async def delete_announcement_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete an announcement (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3828,17 +3156,6 @@ async def create_classroom_report_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new classroom report with optional photo evidence (Students only)
-    
-    - **class_id**: ID of the class/room being reported
-    - **is_clean_before**: Whether the room was clean before use
-    - **is_clean_after**: Whether the room was clean after use
-    - **report_text**: Description of the report
-    - **photo**: Optional photo evidence (jpg, jpeg, png, gif, webp, max 10MB)
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -3876,7 +3193,7 @@ async def create_classroom_report_endpoint(
                 content = await photo.read()
                 await f.write(content)
             
-            # Generate URL (in production, this would be a proper URL)
+            # Generate URL
             photo_url = f"/uploads/{filename}"
             
         except Exception as e:
@@ -3908,13 +3225,9 @@ async def create_classroom_report_endpoint(
                 # Update schedule status based on cleanliness
                 new_status = "Clean" if is_clean_after else "Needs Cleaning"
                 schedule.status = new_status
-                print(f"✅ Updated schedule {schedule.id} status to: {new_status}")
             
             db.commit()
-            print(f"✅ Successfully updated {len(class_schedules)} schedules for class {class_id}")
         except Exception as e:
-            print(f"⚠️ Warning: Could not update schedule statuses: {e}")
-            # Don't fail the report creation if schedule update fails
             db.rollback()
             # Re-query the report to ensure it's still saved
             db.refresh(new_report)
@@ -3938,14 +3251,6 @@ async def get_classroom_reports_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get all classroom reports (Admin and Teacher only)
-    
-    - **skip**: Number of reports to skip (for pagination)
-    - **limit**: Maximum number of reports to return
-    
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3968,14 +3273,6 @@ async def get_my_classroom_reports_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get classroom reports created by the current user (Students only)
-    
-    - **skip**: Number of reports to skip (for pagination)
-    - **limit**: Maximum number of reports to return
-    
-    Requires authentication and STUDENT role.
-    """
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -3999,15 +3296,6 @@ async def get_classroom_reports_by_class_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get classroom reports for a specific class (Admin and Teacher only)
-    
-    - **class_id**: ID of the class
-    - **skip**: Number of reports to skip (for pagination)
-    - **limit**: Maximum number of reports to return
-    
-    Requires authentication and ADMIN or TEACHER role.
-    """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -4023,28 +3311,14 @@ async def get_classroom_reports_by_class_endpoint(
             detail=f"Failed to fetch classroom reports: {str(e)}"
         )
 
-# NEW: Latest reports endpoint - FIX FOR 404 ERROR
+# Latest reports endpoint
 @app.get("/reports/latest")
 async def get_latest_classroom_reports(
     limit: int = 10,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get latest classroom reports for the current user
-    
-    - **limit**: Maximum number of latest reports to return (default: 10)
-    
-    Returns latest reports based on user role:
-    - Students: Their own latest reports
-    - Teachers: Latest reports for their classes
-    - Admins: All latest reports
-    
-    Requires authentication.
-    """
     try:
-        print(f"📊 Fetching latest reports for user: {current_user.username} (role: {current_user.role})")
-        
         if current_user.role == UserRole.STUDENT:
             # Students get their own latest reports
             reports = db.query(ClassroomReport).filter(
@@ -4052,12 +3326,9 @@ async def get_latest_classroom_reports(
             ).order_by(
                 ClassroomReport.created_at.desc()
             ).limit(limit).all()
-            
-            print(f"✅ Found {len(reports)} latest reports for student")
         
         elif current_user.role == UserRole.TEACHER:
             # Teachers get latest reports for their classes
-            # First, get classes taught by this teacher
             teacher_classes = db.query(Class).filter(
                 Class.teacher_id == current_user.id
             ).all()
@@ -4065,25 +3336,19 @@ async def get_latest_classroom_reports(
             class_ids = [cls.id for cls in teacher_classes]
             
             if not class_ids:
-                print("ℹ️ No classes found for teacher")
                 return []
             
-            # Get reports for these classes
             reports = db.query(ClassroomReport).filter(
                 ClassroomReport.class_id.in_(class_ids)
             ).order_by(
                 ClassroomReport.created_at.desc()
             ).limit(limit).all()
-            
-            print(f"✅ Found {len(reports)} latest reports for teacher's classes")
         
         elif current_user.role == UserRole.ADMIN:
             # Admins get all latest reports
             reports = db.query(ClassroomReport).order_by(
                 ClassroomReport.created_at.desc()
             ).limit(limit).all()
-            
-            print(f"✅ Found {len(reports)} latest reports for admin")
         
         else:
             raise HTTPException(
@@ -4111,7 +3376,7 @@ async def get_latest_classroom_reports(
                 teacher = class_obj.teacher
                 teacher_name = teacher.first_name + " " + teacher.last_name if teacher.first_name and teacher.last_name else teacher.username
             
-            # FIX: Safely handle created_at
+            # Safely handle created_at
             created_at = getattr(report, 'created_at', None)
             if created_at:
                 created_at_str = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
@@ -4139,7 +3404,6 @@ async def get_latest_classroom_reports(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error fetching latest reports: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch latest reports: {str(e)}"
@@ -4153,17 +3417,6 @@ async def get_class_by_id(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get a specific class by ID
-    
-    Args:
-        class_id: ID of the class to retrieve
-        
-    Returns:
-        Class data
-        
-    Requires authentication and appropriate role.
-    """
     try:
         # Get class
         class_obj = db.query(Class).filter(Class.id == class_id).first()
@@ -4186,7 +3439,7 @@ async def get_class_by_id(
             "id": class_obj.id,
             "name": class_obj.name,
             "code": class_obj.code,
-            "description": getattr(class_obj, 'description', None),  # FIX: Safe attribute access
+            "description": getattr(class_obj, 'description', None),
             "teacher_id": class_obj.teacher_id,
             "created_at": class_obj.created_at
         }
@@ -4204,15 +3457,6 @@ async def get_teacher_classes_with_metrics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get classes assigned to current teacher with aggregated metrics
-    
-    Returns:
-        - classes: List of classes assigned to the teacher
-        - metrics: Aggregated metrics including total students and classes
-    
-    Requires authentication and TEACHER role.
-    """
     # Check if current user is a teacher
     if current_user.role != UserRole.TEACHER:
         raise HTTPException(
@@ -4243,8 +3487,8 @@ async def get_teacher_classes_with_metrics(
                 'name': class_obj.name,
                 'code': class_obj.code,
                 'teacher_id': class_obj.teacher_id,
-                'description': getattr(class_obj, 'description', None),  # FIX: Safe attribute access
-                'student_count': student_count  # Add student count to response
+                'description': getattr(class_obj, 'description', None),
+                'student_count': student_count
             }
             class_responses.append(class_dict)
         
@@ -4268,17 +3512,6 @@ async def get_class_roster(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get student roster for a specific class (Teacher only)
-    
-    Args:
-        class_id: ID of the class
-        
-    Returns:
-        List of students enrolled in the class
-        
-    Requires authentication and TEACHER role.
-    """
     # Check if current user is a teacher
     if current_user.role != UserRole.TEACHER:
         raise HTTPException(
@@ -4339,18 +3572,6 @@ async def update_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update an existing assignment
-    
-    Args:
-        assignment_id: ID of the assignment to update
-        assignment_update: Dictionary containing fields to update
-        
-    Returns:
-        Updated assignment data
-        
-    Requires authentication and TEACHER or ADMIN role.
-    """
     try:
         # Check if assignment exists
         assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
@@ -4361,7 +3582,6 @@ async def update_assignment(
             )
         
         # Check if user has permission to update this assignment
-        # Allow if user is admin or if user is the creator of the assignment
         if current_user.role != UserRole.ADMIN and assignment.creator_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -4402,27 +3622,13 @@ async def update_assignment(
             detail=f"Failed to update assignment: {str(e)}"
         )
 
-# FIXED: /assignments/{assignment_id} endpoint - NOW ALLOWS STUDENTS TO VIEW ASSIGNMENTS THEY ARE ENROLLED IN
+# Assignment endpoint - ALLOWS STUDENTS TO VIEW ASSIGNMENTS THEY ARE ENROLLED IN
 @app.get("/assignments/{assignment_id}", response_model=AssignmentResponse)
 async def get_assignment(
     assignment_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get a specific assignment by ID
-    
-    Args:
-        assignment_id: ID of the assignment to retrieve
-        
-    Returns:
-        Assignment data
-        
-    Requires authentication.
-    - Admins can see all assignments
-    - Teachers can see assignments they created
-    - Students can see assignments if they are enrolled in the class
-    """
     try:
         # Get assignment
         assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
@@ -4500,14 +3706,6 @@ async def get_student_assignments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get assignments for the current student
-    
-    Returns:
-        List of assignments for the student's enrolled classes
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -4557,14 +3755,6 @@ async def get_student_grades(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get grades for the current student
-    
-    Returns:
-        List of submissions with grades for the student
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -4615,18 +3805,6 @@ async def delete_submission(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete a submission (Student only)
-    
-    Args:
-        submission_id: ID of the submission to delete
-        
-    Returns:
-        Success message
-        
-    Requires authentication and STUDENT role.
-    Students can only delete their own submissions if they are not graded.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -4650,7 +3828,7 @@ async def delete_submission(
                 detail="Not authorized to delete this submission"
             )
         
-        # Check if submission is already graded (can't delete graded submissions)
+        # Check if submission is already graded
         if submission.grade is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -4677,14 +3855,6 @@ async def get_teacher_assignments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get assignments created by the current teacher
-    
-    Returns:
-        List of assignments created by the teacher
-    
-    Requires authentication and TEACHER role.
-    """
     # Check if current user is a teacher
     if current_user.role != UserRole.TEACHER:
         raise HTTPException(
@@ -4727,15 +3897,6 @@ async def get_teacher_reports(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get comprehensive reports for teacher's classes including student performance
-    
-    Returns:
-        - class_performance: Aggregated performance data for each class
-        - student_performance: Individual student performance data
-    
-    Requires authentication and TEACHER role.
-    """
     # Check if current user is a teacher
     if current_user.role != UserRole.TEACHER:
         raise HTTPException(
@@ -4842,20 +4003,12 @@ async def get_teacher_reports(
             detail=f"Failed to fetch teacher reports: {str(e)}"
         )
 
-# NEW: Teacher student count endpoint - ADDED FIX
+# Teacher student count endpoint
 @app.get("/teachers/me/students/count")
 async def get_teacher_students_count(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get total student count for the current teacher (Teacher only)
-    
-    Returns:
-        Total number of students across all teacher's classes
-    
-    Requires authentication and TEACHER role.
-    """
     # Check if current user is a teacher
     if current_user.role != UserRole.TEACHER:
         raise HTTPException(
@@ -4890,24 +4043,13 @@ async def get_teacher_students_count(
 
 # ADDITIONAL ENDPOINTS FOR API CLIENT COMPATIBILITY
 
-# NEW: Get specific class for student (for enrollment checking)
+# Get specific class for student (for enrollment checking)
 @app.get("/classes/student/{class_id}")
 async def get_student_class_by_id(
     class_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get a specific class for a student
-    
-    Args:
-        class_id: ID of the class to retrieve
-        
-    Returns:
-        Class data if student is enrolled
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -4960,20 +4102,12 @@ async def get_student_class_by_id(
             detail=f"Failed to fetch class: {str(e)}"
         )
 
-# NEW: Get student's grades summary
+# Get student's grades summary
 @app.get("/students/me/grades/summary")
 async def get_student_grades_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get grades summary for the current student
-    
-    Returns:
-        Summary of grades including average grade, total submissions, etc.
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -5020,20 +4154,12 @@ async def get_student_grades_summary(
             detail=f"Failed to fetch grades summary: {str(e)}"
         )
 
-# NEW: Get student's upcoming assignments
+# Get student's upcoming assignments
 @app.get("/students/me/assignments/upcoming")
 async def get_student_upcoming_assignments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get upcoming assignments for the current student
-    
-    Returns:
-        List of assignments that don't have submissions yet
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(
@@ -5095,20 +4221,12 @@ async def get_student_upcoming_assignments(
             detail=f"Failed to fetch upcoming assignments: {str(e)}"
         )
 
-# NEW: Get student's completed assignments
+# Get student's completed assignments
 @app.get("/students/me/assignments/completed")
 async def get_student_completed_assignments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get completed assignments for the current student
-    
-    Returns:
-        List of assignments that have submissions
-    
-    Requires authentication and STUDENT role.
-    """
     # Check if current user is a student
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(

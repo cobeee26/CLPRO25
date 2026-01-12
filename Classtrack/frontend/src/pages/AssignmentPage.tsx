@@ -9,6 +9,8 @@ import Swal from 'sweetalert2';
 import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8000';
+
+// Axios instance configuration with interceptors
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -96,6 +98,7 @@ const AssignmentPage: React.FC = () => {
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const classRef = useRef<HTMLSelectElement>(null);
 
+  // IMPORTANT: Alert system configuration for different notification types
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -247,6 +250,7 @@ const AssignmentPage: React.FC = () => {
     setLoadingProgress(progress);
   };
 
+  // IMPORTANT: Secure logout handler with confirmation dialog
   const handleLogout = async () => {
     const result = await showConfirmDialog(
       'Confirm Logout',
@@ -267,6 +271,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Authentication and role-based routing check
   useEffect(() => {
     if (!user) {
       return;
@@ -280,6 +285,7 @@ const AssignmentPage: React.FC = () => {
     loadAssignmentData();
   }, [user, navigate]);
 
+  // IMPORTANT: Real-time updates and periodic refresh mechanism
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'assignments_updated') {
@@ -304,6 +310,7 @@ const AssignmentPage: React.FC = () => {
     };
   }, [user]);
 
+  // IMPORTANT: Load classes with role-specific API endpoints and fallbacks
   const loadClasses = async (): Promise<Class[]> => {
     try {
       console.log('📚 Loading classes from API...');
@@ -311,7 +318,7 @@ const AssignmentPage: React.FC = () => {
       let classesData: Class[] = [];
       
       if (user?.role === 'teacher') {
-      
+        // Teacher-specific class loading with API fallback
         try {
           console.log('👨‍🏫 Loading teacher classes...');
           const response = await apiClient.get('/teachers/me/classes');
@@ -336,7 +343,7 @@ const AssignmentPage: React.FC = () => {
           }
         } catch (teacherError: any) {
           console.warn('⚠️ Teacher classes API failed:', teacherError.message);
-        
+          // Fallback data for teachers
           classesData = [
             {
               id: 1,
@@ -355,7 +362,7 @@ const AssignmentPage: React.FC = () => {
           ];
         }
       } else if (user?.role === 'student') {
-    
+        // Student-specific class loading with multiple fallback strategies
         try {
           console.log('🎓 Loading student classes using getStudentClassesAll...');
           const studentClassesData = await getStudentClassesAll();
@@ -397,6 +404,7 @@ const AssignmentPage: React.FC = () => {
         }
       }
       
+      // IMPORTANT: LocalStorage fallback for offline or failed API calls
       if (classesData.length === 0) {
         const savedClasses = localStorage.getItem('synchronized_classes');
         if (savedClasses) {
@@ -426,6 +434,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Load assignments with role-specific logic and data enrichment
   const loadAssignments = async (loadedClasses: Class[] = []): Promise<Assignment[]> => {
     try {
       console.log('📝 Loading assignments for:', user?.role);
@@ -434,7 +443,7 @@ const AssignmentPage: React.FC = () => {
       
       try {
         if (user?.role === 'teacher') {
-          
+          // Teacher assignments - load from API
           console.log('👨‍🏫 Loading teacher assignments...');
           const response = await apiClient.get('/assignments/');
           console.log('✅ Teacher assignments from database:', response.data);
@@ -457,7 +466,7 @@ const AssignmentPage: React.FC = () => {
             });
           }
         } else if (user?.role === 'student') {
-          
+          // Student assignments - load from service
           console.log('🌐 Calling student assignments endpoint...');
           const response = await authService.getStudentAssignmentsAll();
           console.log('✅ Assignments from database:', response);
@@ -470,6 +479,7 @@ const AssignmentPage: React.FC = () => {
               let classCode = assignment.class_code || `CLASS-${assignment.class_id}`;
               let teacherName = 'Unknown Teacher';
               
+              // IMPORTANT: Multiple teacher name fallback strategies
               if (assignment.teacher_name) {
                 teacherName = assignment.teacher_name;
               } else if (assignment.teacher_full_name) {
@@ -542,6 +552,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Fallback assignment data generator for offline/demo mode
   const getFallbackAssignments = (currentClasses: Class[] = []): Assignment[] => {
     if (currentClasses.length > 0) {
       return currentClasses.map((classItem: Class, index: number) => ({
@@ -592,6 +603,7 @@ const AssignmentPage: React.FC = () => {
     ];
   };
 
+  // IMPORTANT: Load student submissions with multiple API endpoint fallbacks
   const loadStudentSubmissions = async (): Promise<StudentSubmission[]> => {
     try {
       console.log('📥 Loading student submissions...');
@@ -604,23 +616,23 @@ const AssignmentPage: React.FC = () => {
       }
       
       try {
-        
+        // Get assignments first to know which submissions to fetch
         const assignmentsResponse = await authService.getStudentAssignmentsAll();
         console.log('📝 Total assignments found:', assignmentsResponse.length);
         
         for (const assignment of assignmentsResponse) {
           try {
-         
             let submissionData: any = null;
             
             try {
+              // Try primary submission endpoint
               submissionData = await authService.getStudentMySubmission(assignment.id);
               console.log(`✅ Found submission for assignment ${assignment.id}:`, submissionData);
             } catch (firstError: any) {
               console.log(`❌ First endpoint failed for assignment ${assignment.id}:`, firstError.message);
               
               try {
-              
+                // Try alternative submission endpoint
                 submissionData = await authService.getStudentSubmissionForAssignment(assignment.id);
                 console.log(`✅ Found submission (alternative) for assignment ${assignment.id}`);
               } catch (secondError: any) {
@@ -664,7 +676,7 @@ const AssignmentPage: React.FC = () => {
       } catch (error: any) {
         console.warn('⚠️ Could not load assignments for submissions:', error.message);
         
-
+        // Try bulk submissions endpoint as last resort
         try {
           console.log('🔄 Trying bulk submissions endpoint...');
           const allSubmissions = await authService.get('/students/me/submissions');
@@ -698,6 +710,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Main data loading function with progress tracking
   const loadAssignmentData = async () => {
     try {
       console.log('🔄 Loading assignment data for', user?.role + '...');
@@ -711,6 +724,7 @@ const AssignmentPage: React.FC = () => {
       updateLoadingProgress(2, 4);
       const loadedAssignments = await loadAssignments(loadedClasses);
 
+      // IMPORTANT: Student-specific data enrichment with submissions
       if (user?.role === 'student') {
         updateLoadingProgress(3, 4);
         const submissions = await loadStudentSubmissions();
@@ -767,10 +781,12 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Role-based assignment filtering
   const displayAssignments = user?.role === 'teacher' 
     ? assignments.filter(assignment => assignment.creator_id === user.id)
     : assignments;
 
+  // IMPORTANT: Synchronization mechanism for real-time updates across tabs/clients
   const syncAssignmentsAcrossClients = (updatedAssignments: Assignment[]) => {
     setAssignments(updatedAssignments);
     
@@ -816,6 +832,7 @@ const AssignmentPage: React.FC = () => {
     setShowCreateModal(true);
   };
 
+  // IMPORTANT: Edit assignment handler with permission check
   const handleEditAssignment = (assignment: Assignment) => {
     if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
       showErrorAlert('Permission Denied', 'You can only edit assignments that you created.', true, 3000);
@@ -832,6 +849,7 @@ const AssignmentPage: React.FC = () => {
     }, 0);
   };
 
+  // IMPORTANT: Delete assignment handler with confirmation dialog
   const handleDeleteAssignment = (assignment: Assignment) => {
     if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
       showErrorAlert('Permission Denied', 'You can only delete assignments that you created.', true, 3000);
@@ -873,6 +891,7 @@ const AssignmentPage: React.FC = () => {
     navigate(`/student/assignments/${assignment.id}`);
   };
 
+  // IMPORTANT: Delete assignment implementation with API and local state sync
   const deleteAssignmentConfirmed = async (assignment: Assignment) => {
     try {
       console.log('🗑️  Deleting assignment:', assignment.id);
@@ -910,6 +929,7 @@ const AssignmentPage: React.FC = () => {
     if (classRef.current) classRef.current.value = '';
   };
 
+  // IMPORTANT: Form validation for assignment creation/editing
   const validateForm = (): boolean => {
     const errors: {[key: string]: string} = {};
     
@@ -934,6 +954,7 @@ const AssignmentPage: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // IMPORTANT: Assignment submission handler with API and local state sync
   const handleSubmitAssignment = async () => {
     if (!validateForm()) {
       return;
@@ -1045,6 +1066,7 @@ const AssignmentPage: React.FC = () => {
       
       let errorMessage = 'Failed to save assignment. Please try again.';
       
+      // IMPORTANT: API error handling for different status codes
       if (error.response?.status === 422 && error.response?.data?.detail) {
         const apiErrors: {[key: string]: string} = {};
         error.response.data.detail.forEach((err: any) => {

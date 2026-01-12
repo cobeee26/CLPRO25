@@ -99,6 +99,7 @@ const StudentClassesPage: React.FC = () => {
     setLoadingProgress(progress);
   };
 
+  // Main data fetching effect
   useEffect(() => {
     if (!user || user.role !== 'student') return;
 
@@ -115,6 +116,7 @@ const StudentClassesPage: React.FC = () => {
         const classesData = await getStudentClassesAll();
         console.log('✅ Student classes loaded:', classesData);
         
+        // Transform API data to match Class interface
         const transformedClasses: Class[] = classesData.map((classItem: any) => ({
           id: classItem.id,
           name: classItem.name || `Class ${classItem.id}`,
@@ -137,6 +139,7 @@ const StudentClassesPage: React.FC = () => {
         console.log('📊 Student metrics:', metrics);
         setLoadingProgress(90);
 
+        // Cache data in localStorage
         localStorage.setItem('student_classes', JSON.stringify(transformedClasses));
         
         setLoadingProgress(100);
@@ -151,6 +154,7 @@ const StudentClassesPage: React.FC = () => {
         setError(errorMessage);
         setHasInitialLoadError(true);
         
+        // Try to load from cache on error
         try {
           const savedClasses = localStorage.getItem('student_classes');
           
@@ -173,12 +177,14 @@ const StudentClassesPage: React.FC = () => {
     fetchStudentData();
   }, [user]);
 
+  // Filter classes based on search term
   const filteredClasses = classes.filter(classItem =>
     classItem.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     classItem.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
     classItem.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Refresh data manually
   const refreshData = async () => {
     if (!user || user.role !== 'student') return;
 
@@ -251,6 +257,7 @@ const StudentClassesPage: React.FC = () => {
     });
   };
 
+  // Loading state
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -340,6 +347,7 @@ const StudentClassesPage: React.FC = () => {
     );
   }
 
+  // Error state for initial load
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -411,6 +419,7 @@ const StudentClassesPage: React.FC = () => {
     );
   }
 
+  // User verification state
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
@@ -427,6 +436,7 @@ const StudentClassesPage: React.FC = () => {
 
   return (
     <div className="h-screen w-full bg-white overflow-hidden relative flex">
+      {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -488,7 +498,10 @@ const StudentClassesPage: React.FC = () => {
       </header>
 
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-0 h-screen pt-16 lg:pt-0">
+        {/* Desktop Header */}
         <div className="hidden lg:block relative z-30 flex-shrink-0">
           <DynamicHeader 
             title="My Classes"
@@ -496,6 +509,7 @@ const StudentClassesPage: React.FC = () => {
           />
         </div>
 
+        {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8 relative z-20">
           <div className="dashboard-content w-full max-w-7xl mx-auto">
             {/* Search and Stats Section */}
@@ -505,7 +519,7 @@ const StudentClassesPage: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl shadow-lg">
                       <svg className="h-5 w-5 lg:h-6 lg:w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 a7 7 0 0114 0z" />
                       </svg>
                     </div>
                     <div>
@@ -535,6 +549,7 @@ const StudentClassesPage: React.FC = () => {
                   </div>
                 </div>
                 
+                {/* Search Input */}
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-gray-700">
                     Search Classes
@@ -550,7 +565,7 @@ const StudentClassesPage: React.FC = () => {
                     />
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <svg className="h-5 w-5 lg:h-6 lg:w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 a7 7 0 0114 0z" />
                       </svg>
                     </div>
                     {searchTerm && (
@@ -571,6 +586,7 @@ const StudentClassesPage: React.FC = () => {
               
               {/* Stats Cards */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Enrolled Classes Card */}
                 <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-4 lg:p-5 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-default">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -590,6 +606,7 @@ const StudentClassesPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Different Teachers Card */}
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 lg:p-5 border-2 border-green-200 hover:border-green-300 hover:bg-green-100 transition-all duration-300 group cursor-default">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -609,6 +626,7 @@ const StudentClassesPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Recent Enrollment Card */}
                 <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 lg:p-5 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-100 transition-all duration-300 group cursor-default">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -630,6 +648,7 @@ const StudentClassesPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Error Display */}
             {error && (
               <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 lg:px-6 py-3 lg:py-4 rounded-xl mb-6 lg:mb-8">
                 <div className="flex items-center space-x-3">
@@ -682,6 +701,7 @@ const StudentClassesPage: React.FC = () => {
                 </div>
               </div>
               
+              {/* No Classes Found */}
               {filteredClasses.length === 0 ? (
                 <div className="p-6 lg:p-12 text-center">
                   <div className="inline-flex flex-col items-center space-y-4 lg:space-y-6">
@@ -798,6 +818,7 @@ const StudentClassesPage: React.FC = () => {
                       );
                     })}
                     
+                    {/* No Search Results */}
                     {searchTerm && filteredClasses.length === 0 && (
                       <div className="col-span-full">
                         <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 group cursor-pointer">

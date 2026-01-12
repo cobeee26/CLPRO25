@@ -22,7 +22,6 @@ class User(Base):
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     profile_picture_url = Column(String, nullable=True)
-    # WALA NG EMAIL FIELD DITO! (removed email column)
 
     # Relationships with cascading deletion
     classes_taught = relationship("Class", back_populates="teacher", cascade="all, delete-orphan")
@@ -77,13 +76,13 @@ class Submission(Base):
     id = Column(Integer, primary_key=True, index=True)
     assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=False)
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    content = Column(Text, nullable=True)  # ADDED: For text-based submissions
-    file_path = Column(String, nullable=True)  # ADDED: For file uploads
-    file_name = Column(String, nullable=True)  # ADDED: Original filename
-    link_url = Column(String, nullable=True)  # ADDED: For link submissions
-    grade = Column(Float, nullable=True)  # For teacher to fill
-    feedback = Column(Text, nullable=True)  # ADDED: Teacher feedback
-    time_spent_minutes = Column(Float, nullable=False, default=0)  # Changed to Float
+    content = Column(Text, nullable=True)
+    file_path = Column(String, nullable=True)
+    file_name = Column(String, nullable=True)
+    link_url = Column(String, nullable=True)
+    grade = Column(Float, nullable=True)
+    feedback = Column(Text, nullable=True)
+    time_spent_minutes = Column(Float, nullable=False, default=0)
     submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -96,14 +95,14 @@ class Violation(Base):
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=False)
-    violation_type = Column(String, nullable=False)  # e.g., "tab_switch", "ai_detected", "plagiarism"
+    violation_type = Column(String, nullable=False)
     description = Column(Text, nullable=False)
     detected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     time_away_seconds = Column(Integer, nullable=False)
-    severity = Column(String, nullable=False)  # 'low', 'medium', 'high'
-    content_added_during_absence = Column(Integer, nullable=True)  # Characters added during absence
-    ai_similarity_score = Column(Float, nullable=True)  # AI detection similarity score
-    paste_content_length = Column(Integer, nullable=True)  # Length of pasted content
+    severity = Column(String, nullable=False)
+    content_added_during_absence = Column(Integer, nullable=True)
+    ai_similarity_score = Column(Float, nullable=True)
+    paste_content_length = Column(Integer, nullable=True)
 
     # Relationships
     student = relationship("User")
@@ -117,7 +116,7 @@ class Schedule(Base):
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
     room_number = Column(String, nullable=False)
-    status = Column(String, nullable=False, default="Occupied")  # 'Occupied', 'Clean', 'Needs Cleaning'
+    status = Column(String, nullable=False, default="Occupied")
 
     # Relationships
     class_ = relationship("Class", back_populates="schedules")
@@ -140,7 +139,7 @@ class ClassroomReport(Base):
     is_clean_before = Column(Boolean, nullable=False)
     is_clean_after = Column(Boolean, nullable=False)
     report_text = Column(Text, nullable=False)
-    photo_url = Column(String, nullable=True)  # URL to uploaded photo evidence
+    photo_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -164,7 +163,7 @@ class ClassCreate(ClassBase):
     def validate_code(cls, v):
         if len(v) < 3:
             raise ValueError('Class code must be at least 3 characters long')
-        return v.upper()  # Convert to uppercase
+        return v.upper()
 
 class ClassResponse(ClassBase):
     id: int

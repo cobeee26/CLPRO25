@@ -77,6 +77,16 @@ const swalConfig = {
   background: '#ffffff'
 };
 
+// Days of the week for dropdown (Monday to Saturday)
+const DAYS_OF_WEEK = [
+  { value: 'Monday', label: 'Monday' },
+  { value: 'Tuesday', label: 'Tuesday' },
+  { value: 'Wednesday', label: 'Wednesday' },
+  { value: 'Thursday', label: 'Thursday' },
+  { value: 'Friday', label: 'Friday' },
+  { value: 'Saturday', label: 'Saturday' }
+];
+
 const SchedulePage: React.FC = () => {
   const { user } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -95,28 +105,30 @@ const SchedulePage: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleEnrichedResponse | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState<ScheduleEnrichedResponse | null>(null);
+  
+  // Updated form state to use day_of_week instead of date
   const [formData, setFormData] = useState({
     class_id: 0,
-    start_date: '',
+    day_of_week: '',
     start_time: '',
     start_period: 'AM',
-    end_date: '',
     end_time: '',
     end_period: 'AM',
     room_number: '',
     status: 'Occupied'
   });
+  
   const [editFormData, setEditFormData] = useState({
     class_id: 0,
-    start_date: '',
+    day_of_week: '',
     start_time: '',
     start_period: 'AM',
-    end_date: '',
     end_time: '',
     end_period: 'AM',
     room_number: '',
     status: 'Occupied'
   });
+  
   const [formLoading, setFormLoading] = useState(false);
   const [editFormLoading, setEditFormLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -141,10 +153,12 @@ const SchedulePage: React.FC = () => {
     { bg: 'bg-gradient-to-br from-red-500 to-red-600', text: 'text-white', icon: 'text-red-100' },
   ];
 
+  // Get color based on index for consistent coloring
   const getScheduleColor = (index: number) => {
     return scheduleColors[index % scheduleColors.length];
   };
 
+  // Show success alert with configurable type
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -186,6 +200,7 @@ const SchedulePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Show error alert
   const showErrorAlert = (
     title: string, 
     text: string = '',
@@ -215,6 +230,7 @@ const SchedulePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Show confirmation dialog
   const showConfirmDialog = (
     title: string, 
     text: string, 
@@ -243,6 +259,7 @@ const SchedulePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Show loading alert
   const showLoadingAlert = (
     title: string = 'Processing...',
     autoDismiss: boolean = false
@@ -267,10 +284,12 @@ const SchedulePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Close active alert
   const closeAlert = () => {
     Swal.close();
   };
 
+  // Show info alert
   const showInfoAlert = (
     title: string,
     text: string = '',
@@ -300,11 +319,13 @@ const SchedulePage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Update loading progress for visual feedback
   const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
     const progress = Math.floor((step / totalSteps) * 100);
     setLoadingProgress(progress);
   };
 
+  // Convert API class to local class format
   const convertApiClassToLocalClass = (apiClass: any): Class => {
     return {
       id: apiClass.id || apiClass.class_id || 0,
@@ -318,6 +339,7 @@ const SchedulePage: React.FC = () => {
     };
   };
 
+  // Main function to load schedule data based on user role
   const loadScheduleData = async () => {
     try {
       console.log('🔄 Loading schedule data...');
@@ -338,9 +360,11 @@ const SchedulePage: React.FC = () => {
 
       let schedulesData: any[] = [];
 
-      // BASED ON USER ROLE: Different logic for different users
+      // ROLE-BASED SCHEDULE LOADING:
+      // Admin: Get ALL schedules
+      // Teacher: Get only assigned class schedules  
+      // Student: Get ALL schedules 
       if (user?.role === 'admin') {
-        // ADMIN: Get ALL schedules
         console.log('👑 Admin: Loading ALL schedules...');
         try {
           schedulesData = await authService.getSchedulesLive();
@@ -351,17 +375,16 @@ const SchedulePage: React.FC = () => {
         }
       } 
       else if (user?.role === 'teacher') {
-        // TEACHER: Get only their assigned class schedules
         console.log('👨‍🏫 Teacher: Loading assigned class schedules...');
         try {
-          // First get teacher's classes
+          // Get teacher's classes first
           const teacherData = await getTeacherClasses();
           const teacherDataObj = teacherData as any;
           const teacherClasses = teacherDataObj.classes || [];
           
           console.log(`👨‍🏫 Teacher has ${teacherClasses.length} classes:`, teacherClasses);
           
-          // Get ALL schedules first
+          // Get all schedules
           let allSchedules = [];
           try {
             allSchedules = await authService.getSchedulesLive();
@@ -369,7 +392,7 @@ const SchedulePage: React.FC = () => {
             allSchedules = await authService.getAllSchedules();
           }
           
-          // Filter schedules to only show teacher's classes
+          // Filter to show only teacher's classes
           const teacherClassIds = teacherClasses.map((cls: any) => cls.id);
           console.log('👨‍🏫 Teacher class IDs:', teacherClassIds);
           
@@ -384,14 +407,11 @@ const SchedulePage: React.FC = () => {
         }
       } 
       else if (user?.role === 'student') {
-        // STUDENT: Get ALL schedules (not just their own)
         console.log('🎓 Student: Loading ALL schedules (for all classes)...');
         try {
-          // Try to get all schedules
           schedulesData = await authService.getSchedulesLive();
           console.log('✅ Student got ALL schedules:', schedulesData.length);
           
-          // If empty, try alternative
           if (!schedulesData || schedulesData.length === 0) {
             console.log('⚠️ Student schedules empty, trying getAllSchedules...');
             schedulesData = await authService.getAllSchedules();
@@ -414,26 +434,23 @@ const SchedulePage: React.FC = () => {
 
       updateLoadingProgress(2, 3);
       
-      // Load classes only for admin and teacher (for form dropdown)
-      if (user?.role !== 'student') {
+      // Load classes only for admin (for form dropdowns)
+      // Teacher should NOT see classes for creating/editing schedules
+      if (user?.role === 'admin') {
         try {
           let classesData: any[] = [];
-          if (user?.role === 'admin') {
-            const apiClasses = await getAllClasses();
-            classesData = Array.isArray(apiClasses) 
-              ? apiClasses.map(convertApiClassToLocalClass)
-              : [];
-          } else if (user?.role === 'teacher') {
-            const teacherData = await getTeacherClasses();
-            const teacherDataObj = teacherData as any;
-            const rawClasses = Array.isArray(teacherDataObj) ? teacherDataObj : teacherDataObj?.classes || [];
-            classesData = rawClasses.map(convertApiClassToLocalClass);
-          }
+          const apiClasses = await getAllClasses();
+          classesData = Array.isArray(apiClasses) 
+            ? apiClasses.map(convertApiClassToLocalClass)
+            : [];
           setClasses(classesData);
-          console.log(`📚 Loaded ${classesData.length} classes for ${user?.role}`);
+          console.log(`📚 Loaded ${classesData.length} classes for admin`);
         } catch (error) {
           console.warn('⚠️ Could not load classes for form');
         }
+      } else {
+        // Clear classes for non-admin users
+        setClasses([]);
       }
 
       updateLoadingProgress(3, 3);
@@ -463,6 +480,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Generate time options for time picker (30-minute intervals)
   const generateTimeOptions = () => {
     const times = [];
     for (let hour = 0; hour < 24; hour++) {
@@ -483,38 +501,52 @@ const SchedulePage: React.FC = () => {
 
   const timeOptions = generateTimeOptions();
 
+  // Convert 24-hour time to 12-hour format
   const convertTo12Hour = (time24: string) => {
-    if (!time24) return { time: '', period: 'AM' };
+    if (!time24 || time24 === '00:00') return { time: '12:00', period: 'AM' };
     
-    const [hours, minutes] = time24.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return {
-      time: `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
-      period
-    };
-  };
-
-  const convertTo24Hour = (time12: string, period: string) => {
-    if (!time12) return '';
-    
-    let [hours, minutes] = time12.split(':').map(Number);
-    
-    if (period === 'PM' && hours !== 12) {
-      hours += 12;
-    } else if (period === 'AM' && hours === 12) {
-      hours = 0;
+    try {
+      // Extract just the time part if there's a T (ISO format)
+      const timePart = time24.includes('T') ? time24.split('T')[1].substring(0, 5) : time24.substring(0, 5);
+      const [hours, minutes] = timePart.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return {
+        time: `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
+        period
+      };
+    } catch (error) {
+      return { time: '12:00', period: 'AM' };
     }
+  };
+
+  // Convert 12-hour time to 24-hour format
+  const convertTo24Hour = (time12: string, period: string) => {
+    if (!time12 || time12 === 'Select time') return '00:00';
     
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    try {
+      let [hours, minutes] = time12.split(':').map(Number);
+      
+      if (period === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    } catch (error) {
+      return '00:00';
+    }
   };
 
+  // Get display time for time picker
   const getDisplayTime = (time24: string, period: string) => {
-    if (!time24) return 'Select time';
+    if (!time24 || time24 === '00:00') return 'Select time';
     const time12 = convertTo12Hour(time24);
-    return `${time12.time} ${period}`;
+    return `${time12.time} ${time12.period}`;
   };
 
+  // Load data on component mount
   useEffect(() => {
     loadScheduleData();
     
@@ -532,13 +564,15 @@ const SchedulePage: React.FC = () => {
     };
   }, []);
 
+  // Load classes when modal opens (if admin)
   useEffect(() => {
-    if (isModalOpen && classes.length === 0 && user?.role !== 'student') {
+    if (isModalOpen && classes.length === 0 && user?.role === 'admin') {
       console.log('🔄 Modal opened with no classes, reloading data...');
       loadScheduleData();
     }
   }, [isModalOpen]);
 
+  // Convert API schedule to enriched schedule format
   const convertToEnrichedSchedule = (schedule: any): ScheduleEnrichedResponse => {
     console.log('🔄 Converting schedule with full data:', schedule);
     
@@ -607,16 +641,49 @@ const SchedulePage: React.FC = () => {
       class_code = 'N/A';
     }
 
-    // Parse dates correctly
+    // Parse dates correctly and extract day_of_week
     let start_time = schedule.start_time;
     let end_time = schedule.end_time;
     
-    // If dates are in string format, ensure they're proper ISO strings
-    if (start_time && typeof start_time === 'string' && !start_time.includes('T')) {
-      start_time = new Date(start_time).toISOString();
+    if (start_time && typeof start_time === 'string') {
+      // Extract day of week from date string
+      try {
+        const startDate = new Date(start_time);
+        if (!isNaN(startDate.getTime())) {
+          // If it doesn't have day_of_week, extract it from date
+          if (!schedule.day_of_week) {
+            schedule.day_of_week = startDate.toLocaleDateString('en-US', { weekday: 'long' });
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing start time:', error);
+      }
     }
-    if (end_time && typeof end_time === 'string' && !end_time.includes('T')) {
-      end_time = new Date(end_time).toISOString();
+    
+    if (end_time && typeof end_time === 'string') {
+      // Ensure it's in ISO format if needed
+      try {
+        const endDate = new Date(end_time);
+        if (!isNaN(endDate.getTime())) {
+          // Already good
+        }
+      } catch (error) {
+        console.error('Error parsing end time:', error);
+      }
+    }
+
+    // Format time range
+    const time_slot = formatTimeRange(start_time, end_time);
+    
+    // Ensure day_of_week is properly extracted
+    let day_of_week = schedule.day_of_week;
+    if (!day_of_week && start_time) {
+      try {
+        const startDate = new Date(start_time);
+        day_of_week = startDate.toLocaleDateString('en-US', { weekday: 'long' });
+      } catch (error) {
+        day_of_week = 'Monday'; // Default
+      }
     }
 
     return {
@@ -635,36 +702,45 @@ const SchedulePage: React.FC = () => {
       cleanliness_after: schedule.cleanliness_after || schedule.is_clean_after || 'Unknown',
       last_report_time: schedule.last_report_time || schedule.report_time || null,
       semester: schedule.semester || schedule.term || schedule.academic_term || '2025-2026_4th',
-      day_of_week: schedule.day_of_week || formatDayOfWeek(start_time),
-      time_slot: schedule.time_slot || formatTimeRange(start_time, end_time)
+      day_of_week: day_of_week,
+      time_slot: time_slot
     };
   };
 
-  const handleRefreshCleanliness = async (scheduleId: number) => {
-    console.log(`🔄 Manual refresh requested for schedule ${scheduleId}`);
-    await loadScheduleData();
-    return false;
+  // IMPORTANT FIX: Create proper ISO date for day of week
+  const createDateForDayOfWeek = (dayOfWeek: string, time24: string): string => {
+    const daysMap: { [key: string]: number } = {
+      'Sunday': 0,
+      'Monday': 1,
+      'Tuesday': 2,
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5,
+      'Saturday': 6
+    };
+    
+    const targetDay = daysMap[dayOfWeek] || 1; // Default to Monday
+    const today = new Date();
+    const currentDay = today.getDay();
+    
+    // Calculate days to add to get to the target day
+    let daysToAdd = targetDay - currentDay;
+    if (daysToAdd < 0) daysToAdd += 7;
+    
+    // Create date for the target day
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + daysToAdd);
+    
+    // Format as YYYY-MM-DD
+    const year = targetDate.getFullYear();
+    const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const day = String(targetDate.getDate()).padStart(2, '0');
+    
+    // Combine with time
+    return `${year}-${month}-${day}T${time24}:00`;
   };
 
-  const refreshAllCleanliness = async () => {
-    try {
-      console.log('🔄 Refreshing cleanliness for all schedules...');
-      showLoadingAlert('Refreshing cleanliness status...');
-      await loadScheduleData();
-      closeAlert();
-      showSuccessAlert('Cleanliness Refreshed!', 'All schedule cleanliness status has been refreshed successfully.', 'cleanliness', true, 3000);
-    } catch (error) {
-      console.error('❌ Error refreshing all cleanliness:', error);
-      closeAlert();
-      showErrorAlert('Refresh Failed', 'Failed to refresh cleanliness status', true, 3000);
-    }
-  };
-
-  const combineDateTime = (date: string, time: string): string => {
-    if (!date || !time) return '';
-    return new Date(`${date}T${time}`).toISOString();
-  };
-
+  // Handle time selection for create form
   const handleTimeSelect = (time: string, period: string, type: 'start' | 'end') => {
     const time24 = convertTo24Hour(time, period);
     setFormData(prev => ({
@@ -676,6 +752,7 @@ const SchedulePage: React.FC = () => {
     if (type === 'end') setShowEndTimePicker(false);
   };
 
+  // Handle time selection for edit form
   const handleEditTimeSelect = (time: string, period: string, type: 'start' | 'end') => {
     const time24 = convertTo24Hour(time, period);
     setEditFormData(prev => ({
@@ -687,12 +764,43 @@ const SchedulePage: React.FC = () => {
     if (type === 'end') setShowEditEndTimePicker(false);
   };
 
+  // Handle creating new schedule - ADMIN ONLY
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const startDateTime = combineDateTime(formData.start_date, formData.start_time);
-    const endDateTime = combineDateTime(formData.end_date, formData.end_time);
+    // Check if user is admin
+    if (user?.role !== 'admin') {
+      showErrorAlert('Permission Denied', 'Only administrators can create schedules.', true, 3000);
+      return;
+    }
     
+    // Validation
+    if (!formData.class_id || formData.class_id === 0) {
+      setFormError('Please select a valid class');
+      showErrorAlert('Validation Error', 'Please select a valid class', true, 3000);
+      return;
+    }
+
+    if (!formData.day_of_week || !formData.start_time || !formData.end_time || !formData.room_number) {
+      setFormError('Please fill in all required fields');
+      showErrorAlert('Validation Error', 'Please fill in all required fields', true, 3000);
+      return;
+    }
+
+    // Validate time logic
+    const startTime24 = formData.start_time;
+    const endTime24 = formData.end_time;
+    
+    if (startTime24 >= endTime24) {
+      setFormError('End time must be after start time');
+      showErrorAlert('Validation Error', 'End time must be after start time', true, 3000);
+      return;
+    }
+
+    // Create proper ISO dates
+    const startDateTime = createDateForDayOfWeek(formData.day_of_week, startTime24);
+    const endDateTime = createDateForDayOfWeek(formData.day_of_week, endTime24);
+
     const scheduleData: ScheduleCreate = {
       class_id: formData.class_id,
       start_time: startDateTime,
@@ -702,25 +810,6 @@ const SchedulePage: React.FC = () => {
     };
 
     console.log('📝 Creating schedule with data:', scheduleData);
-
-    if (!formData.class_id || formData.class_id === 0) {
-      setFormError('Please select a valid class');
-      showErrorAlert('Validation Error', 'Please select a valid class', true, 3000);
-      return;
-    }
-
-    if (!formData.start_date || !formData.start_time || !formData.end_date || !formData.end_time || !formData.room_number) {
-      setFormError('Please fill in all required fields');
-      showErrorAlert('Validation Error', 'Please fill in all required fields', true, 3000);
-      return;
-    }
-
-    const selectedClass = classes.find(c => c.id === formData.class_id);
-    if (!selectedClass) {
-      setFormError(`Selected class is no longer valid. Please refresh the page and try again.`);
-      showErrorAlert('Validation Error', 'Selected class is no longer valid. Please refresh the page and try again.', true, 3000);
-      return;
-    }
 
     try {
       setFormLoading(true);
@@ -732,18 +821,20 @@ const SchedulePage: React.FC = () => {
       closeAlert();
       showSuccessAlert('Schedule Created!', 'New schedule has been created successfully.', 'create', true, 3000);
       
+      // Reset form and close modal
       setIsModalOpen(false);
       setFormData({
         class_id: 0,
-        start_date: '',
+        day_of_week: '',
         start_time: '',
         start_period: 'AM',
-        end_date: '',
         end_time: '',
         end_period: 'AM',
         room_number: '',
         status: 'Occupied'
       });
+      
+      // Reload data
       await loadScheduleData();
     } catch (err: any) {
       console.error('❌ Error creating schedule:', err);
@@ -756,42 +847,89 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Handle opening edit modal with schedule data
   const handleEditSchedule = (schedule: ScheduleEnrichedResponse) => {
+    // Check if user is admin
+    if (user?.role !== 'admin') {
+      showErrorAlert('Permission Denied', 'Only administrators can edit schedules.', true, 3000);
+      return;
+    }
+    
     setEditingSchedule(schedule);
     
-    const startDate = new Date(schedule.start_time);
-    const endDate = new Date(schedule.end_time);
+    // Extract times from schedule
+    const startTime12 = convertTo12Hour(schedule.start_time);
+    const endTime12 = convertTo12Hour(schedule.end_time);
     
-    const startTime12 = convertTo12Hour(startDate.toTimeString().slice(0, 5));
-    const endTime12 = convertTo12Hour(endDate.toTimeString().slice(0, 5));
+    // Get day of week from schedule
+    const existingDayOfWeek = schedule.day_of_week || 
+      new Date(schedule.start_time).toLocaleDateString('en-US', { weekday: 'long' });
     
+    console.log('📅 Editing schedule:', {
+      existingDayOfWeek,
+      startTime: startTime12,
+      endTime: endTime12
+    });
+    
+    // Set edit form data
     setEditFormData({
       class_id: schedule.class_id,
-      start_date: startDate.toISOString().split('T')[0],
+      day_of_week: existingDayOfWeek,
       start_time: startTime12.time,
       start_period: startTime12.period,
-      end_date: endDate.toISOString().split('T')[0],
       end_time: endTime12.time,
       end_period: endTime12.period,
       room_number: schedule.room_number,
       status: schedule.status
     });
+    
     setIsEditModalOpen(true);
     setEditFormError(null);
   };
 
+  // Handle updating schedule - ADMIN ONLY
   const handleUpdateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const startDateTime = combineDateTime(editFormData.start_date, editFormData.start_time);
-    const endDateTime = combineDateTime(editFormData.end_date, editFormData.end_time);
+    // Check if user is admin
+    if (user?.role !== 'admin') {
+      showErrorAlert('Permission Denied', 'Only administrators can update schedules.', true, 3000);
+      return;
+    }
     
-    if (!editingSchedule || !editFormData.class_id || !editFormData.start_date || !editFormData.start_time || !editFormData.end_date || !editFormData.end_time || !editFormData.room_number) {
+    if (!editingSchedule) {
+      setEditFormError('No schedule selected for editing');
+      showErrorAlert('Validation Error', 'No schedule selected for editing', true, 3000);
+      return;
+    }
+    
+    // Validation
+    if (!editFormData.class_id || !editFormData.day_of_week || !editFormData.start_time || !editFormData.end_time || !editFormData.room_number) {
       setEditFormError('Please fill in all required fields');
       showErrorAlert('Validation Error', 'Please fill in all required fields', true, 3000);
       return;
     }
 
+    // Validate time logic
+    const startTime24 = editFormData.start_time;
+    const endTime24 = editFormData.end_time;
+    
+    if (startTime24 >= endTime24) {
+      setEditFormError('End time must be after start time');
+      showErrorAlert('Validation Error', 'End time must be after start time', true, 3000);
+      return;
+    }
+
+    // Create proper ISO dates
+    const startDateTime = createDateForDayOfWeek(editFormData.day_of_week, startTime24);
+    const endDateTime = createDateForDayOfWeek(editFormData.day_of_week, endTime24);
+
+    console.log('📝 Updating schedule with:', {
+      dayOfWeek: editFormData.day_of_week,
+      startDateTime,
+      endDateTime
+    });
+    
     const scheduleData: ScheduleCreate = {
       class_id: editFormData.class_id,
       start_time: startDateTime,
@@ -824,7 +962,14 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Handle schedule deletion
   const handleDeleteSchedule = async (schedule: ScheduleEnrichedResponse) => {
+    // Check if user is admin
+    if (user?.role !== 'admin') {
+      showErrorAlert('Permission Denied', 'Only administrators can delete schedules.', true, 3000);
+      return;
+    }
+    
     const result = await showConfirmDialog(
       'Delete Schedule?',
       `Are you sure you want to delete the schedule for "${schedule.class_name}" in ${schedule.room_number}? This action cannot be undone.`,
@@ -838,6 +983,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Confirm and execute schedule deletion
   const confirmDeleteSchedule = async () => {
     if (!deletingSchedule) return;
 
@@ -865,6 +1011,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Format time from ISO string
   const formatTime = (dateTimeString: string) => {
     try {
       return new Date(dateTimeString).toLocaleTimeString('en-US', {
@@ -878,6 +1025,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Format time range
   const formatTimeRange = (startDateTime: string, endDateTime: string) => {
     try {
       const startTime = formatTime(startDateTime);
@@ -889,6 +1037,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Format date only
   const formatDateOnly = (dateTimeString: string) => {
     try {
       return new Date(dateTimeString).toLocaleDateString('en-US', {
@@ -903,6 +1052,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Format day of week
   const formatDayOfWeek = (dateTimeString: string) => {
     try {
       return new Date(dateTimeString).toLocaleDateString('en-US', {
@@ -914,6 +1064,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Format short day of week
   const formatDayOfWeekShort = (dateTimeString: string) => {
     try {
       return new Date(dateTimeString).toLocaleDateString('en-US', {
@@ -925,6 +1076,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
+  // Get status color based on schedule status
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Clean':
@@ -945,11 +1097,21 @@ const SchedulePage: React.FC = () => {
     schedule.teacher_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Sort schedules by start time
+  // Sort schedules by day of week and time
   const sortedSchedules = [...filteredSchedules].sort((a, b) => {
+    // First sort by day of week
+    const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayA = a.day_of_week || formatDayOfWeek(a.start_time);
+    const dayB = b.day_of_week || formatDayOfWeek(b.start_time);
+    const dayCompare = daysOrder.indexOf(dayA) - daysOrder.indexOf(dayB);
+    
+    if (dayCompare !== 0) return dayCompare;
+    
+    // Then by start time
     return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
   });
 
+  // Initial loading screen
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1031,6 +1193,7 @@ const SchedulePage: React.FC = () => {
     );
   }
 
+  // Error state screen
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1103,6 +1266,7 @@ const SchedulePage: React.FC = () => {
     );
   }
 
+  // Main component render
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex relative">
       <header className="fixed top-0 left-0 right-0 z-50 bg-white backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16 shadow-sm">
@@ -1329,7 +1493,7 @@ const SchedulePage: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                     </button>
-                    {user?.role !== 'student' && (
+                    {user?.role === 'admin' && (
                       <button
                         onClick={() => setIsModalOpen(true)}
                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm cursor-pointer"
@@ -1386,7 +1550,7 @@ const SchedulePage: React.FC = () => {
                        user?.role === 'student' ? 'No schedules available in the system.' : 
                        'Get started by creating your first schedule.'}
                     </p>
-                    {!searchTerm && user?.role !== 'student' && (
+                    {!searchTerm && user?.role === 'admin' && (
                       <button
                         onClick={() => setIsModalOpen(true)}
                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm cursor-pointer"
@@ -1401,7 +1565,6 @@ const SchedulePage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* All Schedules - Responsive Grid 4 cards per row */}
                     <div className="flex flex-col">
                       <div className="flex items-center space-x-3 mb-4">
                         <h3 className="text-xl font-bold text-gray-900">
@@ -1425,11 +1588,11 @@ const SchedulePage: React.FC = () => {
                               key={schedule.id} 
                               className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-default flex flex-col h-full"
                             >
-                              {/* Schedule Header with Color - Similar to Google Classroom */}
+                              {/* Schedule Header with Color */}
                               <div className={`${scheduleColor.bg} h-40 relative overflow-hidden`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
                                 
-                                {/* Course Title Section - Top Left */}
+                                {/* Course Title Section */}
                                 <div className="absolute top-4 left-4 right-4">
                                   <h3 className={`${scheduleColor.text} font-bold text-xl leading-tight line-clamp-2`}>
                                     {schedule.class_code || schedule.class_name}
@@ -1439,7 +1602,7 @@ const SchedulePage: React.FC = () => {
                                   </p>
                                 </div>
                                 
-                                {/* Time Slot - Middle */}
+                                {/* Time Slot */}
                                 <div className="absolute top-20 left-4 right-4">
                                   <div className="flex items-center space-x-2">
                                     <div className={`w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center ${scheduleColor.icon}`}>
@@ -1449,26 +1612,26 @@ const SchedulePage: React.FC = () => {
                                     </div>
                                     <div>
                                       <p className={`${scheduleColor.text} font-medium text-sm`}>
-                                        {dayShort} {timeRange}
+                                        {schedule.day_of_week || dayShort} {timeRange}
                                       </p>
                                     </div>
                                   </div>
                                 </div>
                                 
-                                {/* Semester/Term - Bottom */}
+                                {/* Semester/Term */}
                                 <div className="absolute bottom-4 left-4 right-4">
                                   <p className={`${scheduleColor.icon} text-xs opacity-80 truncate`}>
                                     {semester}
                                   </p>
                                 </div>
                                 
-                                {/* Status Badge - Top Right */}
+                                {/* Status Badge */}
                                 <span className={`absolute top-4 right-4 inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(schedule.status)}`}>
                                   {schedule.status}
                                 </span>
                               </div>
                               
-                              {/* Schedule Content - Flexible Height */}
+                              {/* Schedule Content */}
                               <div className="flex-1 p-4 flex flex-col">
                                 <div className="space-y-3 flex-1">
                                   {/* Teacher Info */}
@@ -1501,8 +1664,8 @@ const SchedulePage: React.FC = () => {
                                     </div>
                                   </div>
                                   
-                                  {/* Action Buttons */}
-                                  {user?.role !== 'student' && (
+                                  {/* Action Buttons (Admin only) */}
+                                  {user?.role === 'admin' && (
                                     <div className="pt-3 border-t border-gray-100 mt-auto">
                                       <div className="flex items-center space-x-2">
                                         <button
@@ -1534,8 +1697,8 @@ const SchedulePage: React.FC = () => {
                           );
                         })}
                         
-                        {/* Add New Schedule Card (Admin/Teacher only) */}
-                        {user?.role !== 'student' && (
+                        {/* Add New Schedule Card (Admin only) */}
+                        {user?.role === 'admin' && (
                           <div 
                             className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 group cursor-pointer flex flex-col items-center justify-center p-6 min-h-[380px]"
                             onClick={() => setIsModalOpen(true)}
@@ -1564,7 +1727,8 @@ const SchedulePage: React.FC = () => {
         </main>
       </div>
 
-      {isModalOpen && (
+      {/* Create Schedule Modal - ADMIN ONLY */}
+      {isModalOpen && user?.role === 'admin' && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto border border-gray-300 cursor-auto">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
@@ -1618,113 +1782,113 @@ const SchedulePage: React.FC = () => {
                   )}
                 </div>
 
+                {/* Day of Week Dropdown */}
+                <div>
+                  <label htmlFor="day-select" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
+                    Day <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="day-select"
+                    value={formData.day_of_week}
+                    onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
+                    required
+                    title="Select day of week"
+                  >
+                    <option value="" className="text-gray-500">Select a day</option>
+                    {DAYS_OF_WEEK.map((day) => (
+                      <option key={day.value} value={day.value} className="text-gray-900">
+                        {day.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Start Time */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
-                    Start Date & Time <span className="text-red-500">*</span>
+                    Start Time <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2">
-                      <input
-                        type="date"
-                        value={formData.start_date}
-                        onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
-                        required
-                        title="Select start date"
-                      />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={getDisplayTime(formData.start_time, formData.start_period)}
+                      onClick={() => setShowStartTimePicker(!showStartTimePicker)}
+                      readOnly
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
+                      required
+                      title="Select start time"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={getDisplayTime(formData.start_time, formData.start_period)}
-                        onClick={() => setShowStartTimePicker(!showStartTimePicker)}
-                        readOnly
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
-                        required
-                        title="Select start time"
-                      />
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      
-                      {showStartTimePicker && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          <div className="p-2">
-                            {timeOptions.map((timeObj) => (
-                              <button
-                                key={`${timeObj.value24}-${timeObj.period}`}
-                                type="button"
-                                onClick={() => handleTimeSelect(timeObj.value, timeObj.period, 'start')}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
-                                  formData.start_time === timeObj.value24 && formData.start_period === timeObj.period 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'text-gray-700'
-                                }`}
-                              >
-                                {timeObj.display} {timeObj.period}
-                              </button>
-                            ))}
-                          </div>
+                    
+                    {showStartTimePicker && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <div className="p-2">
+                          {timeOptions.map((timeObj) => (
+                            <button
+                              key={`${timeObj.value24}-${timeObj.period}`}
+                              type="button"
+                              onClick={() => handleTimeSelect(timeObj.value, timeObj.period, 'start')}
+                              className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
+                                formData.start_time === timeObj.value24 && formData.start_period === timeObj.period 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'text-gray-700'
+                              }`}
+                            >
+                              {timeObj.display} {timeObj.period}
+                            </button>
+                          ))}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
+                {/* End Time */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
-                    End Date & Time <span className="text-red-500">*</span>
+                    End Time <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2">
-                      <input
-                        type="date"
-                        value={formData.end_date}
-                        onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
-                        required
-                        title="Select end date"
-                      />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={getDisplayTime(formData.end_time, formData.end_period)}
+                      onClick={() => setShowEndTimePicker(!showEndTimePicker)}
+                      readOnly
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
+                      required
+                      title="Select end time"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={getDisplayTime(formData.end_time, formData.end_period)}
-                        onClick={() => setShowEndTimePicker(!showEndTimePicker)}
-                        readOnly
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
-                        required
-                        title="Select end time"
-                      />
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      
-                      {showEndTimePicker && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          <div className="p-2">
-                            {timeOptions.map((timeObj) => (
-                              <button
-                                key={`${timeObj.value24}-${timeObj.period}`}
-                                type="button"
-                                onClick={() => handleTimeSelect(timeObj.value, timeObj.period, 'end')}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
-                                  formData.end_time === timeObj.value24 && formData.end_period === timeObj.period 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'text-gray-700'
-                                }`}
-                              >
-                                {timeObj.display} {timeObj.period}
-                              </button>
-                            ))}
-                          </div>
+                    
+                    {showEndTimePicker && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <div className="p-2">
+                          {timeOptions.map((timeObj) => (
+                            <button
+                              key={`${timeObj.value24}-${timeObj.period}`}
+                              type="button"
+                              onClick={() => handleTimeSelect(timeObj.value, timeObj.period, 'end')}
+                              className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
+                                formData.end_time === timeObj.value24 && formData.end_period === timeObj.period 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'text-gray-700'
+                              }`}
+                            >
+                              {timeObj.display} {timeObj.period}
+                            </button>
+                          ))}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1788,11 +1952,15 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {isEditModalOpen && editingSchedule && (
+      {/* Edit Schedule Modal - ADMIN ONLY */}
+      {isEditModalOpen && editingSchedule && user?.role === 'admin' && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto border border-gray-300 cursor-auto">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
               <h3 className="text-lg font-semibold text-gray-900">Edit Schedule</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Editing schedule for {editingSchedule.class_name} in {editingSchedule.room_number}
+              </p>
             </div>
             <div className="p-6">
               {editFormError && (
@@ -1821,113 +1989,113 @@ const SchedulePage: React.FC = () => {
                   </select>
                 </div>
 
+                {/* Day of Week Dropdown */}
+                <div>
+                  <label htmlFor="edit-day-select" className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
+                    Day <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="edit-day-select"
+                    value={editFormData.day_of_week}
+                    onChange={(e) => setEditFormData({ ...editFormData, day_of_week: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
+                    required
+                    title="Select day of week"
+                  >
+                    {DAYS_OF_WEEK.map((day) => (
+                      <option key={day.value} value={day.value} className="text-gray-900">
+                        {day.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Current schedule is on {editingSchedule.day_of_week || formatDayOfWeek(editingSchedule.start_time)}
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
-                    Start Date & Time <span className="text-red-500">*</span>
+                    Start Time <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2">
-                      <input
-                        type="date"
-                        value={editFormData.start_date}
-                        onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
-                        required
-                        title="Select start date"
-                      />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={getDisplayTime(editFormData.start_time, editFormData.start_period)}
+                      onClick={() => setShowEditStartTimePicker(!showEditStartTimePicker)}
+                      readOnly
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
+                      required
+                      title="Select start time"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={getDisplayTime(editFormData.start_time, editFormData.start_period)}
-                        onClick={() => setShowEditStartTimePicker(!showEditStartTimePicker)}
-                        readOnly
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
-                        required
-                        title="Select start time"
-                      />
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      
-                      {showEditStartTimePicker && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          <div className="p-2">
-                            {timeOptions.map((timeObj) => (
-                              <button
-                                key={`${timeObj.value24}-${timeObj.period}`}
-                                type="button"
-                                onClick={() => handleEditTimeSelect(timeObj.value, timeObj.period, 'start')}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
-                                  editFormData.start_time === timeObj.value24 && editFormData.start_period === timeObj.period 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'text-gray-700'
-                                }`}
-                              >
-                                {timeObj.display} {timeObj.period}
-                              </button>
-                            ))}
-                          </div>
+                    
+                    {showEditStartTimePicker && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <div className="p-2">
+                          {timeOptions.map((timeObj) => (
+                            <button
+                              key={`${timeObj.value24}-${timeObj.period}`}
+                              type="button"
+                              onClick={() => handleEditTimeSelect(timeObj.value, timeObj.period, 'start')}
+                              className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
+                                editFormData.start_time === timeObj.value24 && editFormData.start_period === timeObj.period 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'text-gray-700'
+                              }`}
+                            >
+                              {timeObj.display} {timeObj.period}
+                            </button>
+                          ))}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer">
-                    End Date & Time <span className="text-red-500">*</span>
+                    End Time <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2">
-                      <input
-                        type="date"
-                        value={editFormData.end_date}
-                        onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer"
-                        required
-                        title="Select end date"
-                      />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={getDisplayTime(editFormData.end_time, editFormData.end_period)}
+                      onClick={() => setShowEditEndTimePicker(!showEditEndTimePicker)}
+                      readOnly
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
+                      required
+                      title="Select end time"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={getDisplayTime(editFormData.end_time, editFormData.end_period)}
-                        onClick={() => setShowEditEndTimePicker(!showEditEndTimePicker)}
-                        readOnly
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900 cursor-pointer truncate"
-                        required
-                        title="Select end time"
-                      />
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      
-                      {showEditEndTimePicker && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          <div className="p-2">
-                            {timeOptions.map((timeObj) => (
-                              <button
-                                key={`${timeObj.value24}-${timeObj.period}`}
-                                type="button"
-                                onClick={() => handleEditTimeSelect(timeObj.value, timeObj.period, 'end')}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
-                                  editFormData.end_time === timeObj.value24 && editFormData.end_period === timeObj.period 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'text-gray-700'
-                                }`}
-                              >
-                                {timeObj.display} {timeObj.period}
-                              </button>
-                            ))}
-                          </div>
+                    
+                    {showEditEndTimePicker && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <div className="p-2">
+                          {timeOptions.map((timeObj) => (
+                            <button
+                              key={`${timeObj.value24}-${timeObj.period}`}
+                              type="button"
+                              onClick={() => handleEditTimeSelect(timeObj.value, timeObj.period, 'end')}
+                              className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
+                                editFormData.end_time === timeObj.value24 && editFormData.end_period === timeObj.period 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'text-gray-700'
+                              }`}
+                            >
+                              {timeObj.display} {timeObj.period}
+                            </button>
+                          ))}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1990,7 +2158,8 @@ const SchedulePage: React.FC = () => {
         </div>
       )}
 
-      {isDeleteModalOpen && deletingSchedule && (
+      {/* Delete Schedule Confirmation Modal */}
+      {isDeleteModalOpen && deletingSchedule && user?.role === 'admin' && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto border border-gray-300 cursor-auto">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
