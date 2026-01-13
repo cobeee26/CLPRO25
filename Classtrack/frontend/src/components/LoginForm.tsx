@@ -21,7 +21,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    
+
     if (!email.trim() || !password.trim()) {
       setLoginError('Please fill in all required fields.');
       return;
@@ -32,31 +32,53 @@ const LoginForm: React.FC<LoginFormProps> = () => {
 
     try {
       console.log('Attempting login with:', { email, role });
-    
+
       const token = await loginUser(email, password);
-      
+
       console.log('Login successful, token received:', token ? 'Yes' : 'No');
-      
+
       localStorage.setItem('authToken', token);
       localStorage.setItem('userRole', role.toLowerCase());
-      
-      const userId = role.toLowerCase() === 'student' ? '2' : 
-                    role.toLowerCase() === 'teacher' ? '1' : '3';
+
+      const userId = role.toLowerCase() === 'student' ? '2' :
+        role.toLowerCase() === 'teacher' ? '1' : '3';
       localStorage.setItem('userId', userId);
-      
+
       console.log('Stored auth data, fetching user profile...');
-      
+
+      console.log('Stored auth data, fetching user profile...');
+
+      let fetchedUser = null;
       try {
-        await fetchCurrentUser();
-        console.log('User profile refreshed successfully');
+        fetchedUser = await fetchCurrentUser();
+        if (fetchedUser) {
+          console.log('User profile refreshed successfully:', fetchedUser.role);
+        } else {
+          throw new Error('Failed to fetch user profile');
+        }
       } catch (error) {
         console.error('Failed to fetch user profile after login:', error);
+        setShowLoginLoading(false);
+        // If 401 happened, the token is gone. If other error, token might be there.
+        // We should stop here to prevent redirect loop.
+        if (!localStorage.getItem('authToken')) {
+          setLoginError('Authentication failed. Please try again.');
+        } else {
+          setLoginError('Failed to load user profile. Please check your connection.');
+        }
+        setIsLoading(false);
+        return;
       }
-      
+
       console.log('Redirecting to dashboard...');
-      
+
       setTimeout(() => {
-        switch (role.toLowerCase()) {
+        // Use the REAL role from the backend, fallback to selected role if somehow missing
+        const targetRole = fetchedUser?.role || role;
+
+        console.log(`Routing based on role: ${targetRole}`);
+
+        switch (targetRole.toLowerCase()) {
           case 'admin':
             navigate('/admin/dashboard');
             break;
@@ -69,8 +91,10 @@ const LoginForm: React.FC<LoginFormProps> = () => {
           default:
             navigate('/dashboard');
         }
+        // We don't turn off showLoginLoading here because unmounting handles it,
+        // and we want to hide the "flash" of the form before redirect.
       }, 1500);
-      
+
     } catch (error: any) {
       console.error('Login failed:', error);
       console.error('Error details:', {
@@ -106,8 +130,8 @@ const LoginForm: React.FC<LoginFormProps> = () => {
                 <div className="relative w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-2xl">
                   <div className="absolute inset-4 border-4 border-white/30 rounded-full animate-ping"></div>
                   <div className="relative text-4xl">
-                    {role === 'Student' ? '🎓' : 
-                    role === 'Teacher' ? '👨‍🏫' : '⚙️'}
+                    {role === 'Student' ? '🎓' :
+                      role === 'Teacher' ? '👨‍🏫' : '⚙️'}
                   </div>
                 </div>
               </div>
@@ -127,7 +151,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
                     <div
                       key={i}
                       className="w-3 h-3 bg-green-500 rounded-full animate-bounce"
-                      style={{ 
+                      style={{
                         animationDelay: `${i * 150}ms`,
                         animationDuration: '1s',
                         animationIterationCount: 'infinite'
@@ -136,7 +160,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
                   ))}
                 </div>
                 <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-3">
-                  <div 
+                  <div
                     className="h-full rounded-full"
                     style={{
                       background: 'linear-gradient(90deg, #10B981 0%, #059669 50%, #10B981 100%)',
@@ -153,18 +177,18 @@ const LoginForm: React.FC<LoginFormProps> = () => {
               </div>
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {[
-                  { 
-                    text: "Validation", 
+                  {
+                    text: "Validation",
                     icon: "✓",
                     desc: "Checking"
                   },
-                  { 
-                    text: "Security", 
+                  {
+                    text: "Security",
                     icon: "🔒",
                     desc: "Verifying"
                   },
-                  { 
-                    text: "Access", 
+                  {
+                    text: "Access",
                     icon: "🚪",
                     desc: "Granting"
                   },
@@ -187,19 +211,19 @@ const LoginForm: React.FC<LoginFormProps> = () => {
                     Preparing your {role.toLowerCase()} dashboard...
                   </p>
                   <div className="flex space-x-1">
-                    <span 
+                    <span
                       className="text-gray-500"
                       style={{
                         animation: 'pulse 1s ease-in-out infinite'
                       }}
                     >.</span>
-                    <span 
+                    <span
                       className="text-gray-500"
                       style={{
                         animation: 'pulse 1s ease-in-out infinite 0.3s'
                       }}
                     >.</span>
-                    <span 
+                    <span
                       className="text-gray-500"
                       style={{
                         animation: 'pulse 1s ease-in-out infinite 0.6s'
@@ -287,6 +311,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={role === 'Student' ? 'Enter your email address' : 'Enter your email address'}
+          autoComplete="email"
           leftIcon={
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={role === 'Student' ? "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" : "M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"} />
@@ -305,6 +330,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={role === 'Student' ? 'Enter your password' : 'Enter your password'}
+          autoComplete="current-password"
           leftIcon={
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -316,8 +342,8 @@ const LoginForm: React.FC<LoginFormProps> = () => {
           size="lg"
         />
         <div className="pt-4">
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             variant="success"
             size="xl"
             fullWidth

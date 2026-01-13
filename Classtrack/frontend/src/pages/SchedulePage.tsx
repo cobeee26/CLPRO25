@@ -123,7 +123,7 @@ const SchedulePage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [editFormError, setEditFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  
+
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [showEditStartTimePicker, setShowEditStartTimePicker] = useState(false);
@@ -146,15 +146,15 @@ const SchedulePage: React.FC = () => {
   };
 
   const showSuccessAlert = (
-    title: string, 
-    text: string = '', 
+    title: string,
+    text: string = '',
     type: 'create' | 'update' | 'delete' | 'refresh' | 'cleanliness' | 'logout' = 'create',
     autoDismiss: boolean = true,
     dismissTime: number = 3000
   ) => {
     const iconColor = type === 'delete' || type === 'logout' ? 'warning' : 'success';
     const confirmButtonColor = type === 'delete' || type === 'logout' ? '#F59E0B' : '#10B981';
-    
+
     const alertConfig: any = {
       title,
       text,
@@ -164,16 +164,14 @@ const SchedulePage: React.FC = () => {
       ...swalConfig,
       customClass: {
         ...swalConfig.customClass,
-        title: `text-lg font-bold ${
-          type === 'delete' || type === 'logout' ? 'text-yellow-900' : 
-          type === 'refresh' || type === 'cleanliness' ? 'text-blue-900' : 
-          'text-green-900'
-        }`,
-        confirmButton: `px-4 py-2 rounded-lg font-medium ${
-          type === 'delete' || type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+        title: `text-lg font-bold ${type === 'delete' || type === 'logout' ? 'text-yellow-900' :
+          type === 'refresh' || type === 'cleanliness' ? 'text-blue-900' :
+            'text-green-900'
+          }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${type === 'delete' || type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
           type === 'refresh' || type === 'cleanliness' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
-          'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
-        }`
+            'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+          }`
       }
     };
 
@@ -187,7 +185,7 @@ const SchedulePage: React.FC = () => {
   };
 
   const showErrorAlert = (
-    title: string, 
+    title: string,
     text: string = '',
     autoDismiss: boolean = true,
     dismissTime: number = 4000
@@ -216,8 +214,8 @@ const SchedulePage: React.FC = () => {
   };
 
   const showConfirmDialog = (
-    title: string, 
-    text: string, 
+    title: string,
+    text: string,
     confirmText: string = 'Yes, proceed',
     autoDismiss: boolean = false
   ) => {
@@ -326,7 +324,7 @@ const SchedulePage: React.FC = () => {
       setLoadingProgress(10);
 
       updateLoadingProgress(1, 3);
-      
+
       if (!user) {
         showErrorAlert("Session Expired", "Please login again", true, 2000);
         setTimeout(() => window.location.href = "/login", 2000);
@@ -344,7 +342,7 @@ const SchedulePage: React.FC = () => {
         console.log('✅ Unified schedules loaded:', schedulesData);
       } catch (error) {
         console.error('❌ Unified schedules failed, trying role-specific endpoints:', error);
-        
+
         if (user?.role === 'admin') {
           schedulesData = await authService.getSchedulesLive();
         } else if (user?.role === 'teacher') {
@@ -359,10 +357,10 @@ const SchedulePage: React.FC = () => {
 
       console.log('📅 Final schedules data:', schedulesData);
 
-      const enrichedSchedules = Array.isArray(schedulesData) 
+      const enrichedSchedules = Array.isArray(schedulesData)
         ? schedulesData.map(schedule => convertToEnrichedSchedule(schedule))
         : [];
-      
+
       console.log('📅 Enriched schedules:', enrichedSchedules);
 
       let finalSchedules = enrichedSchedules;
@@ -370,7 +368,7 @@ const SchedulePage: React.FC = () => {
         try {
           const studentScheduleData = await getStudentSchedule();
           console.log('🎓 Student schedule data:', studentScheduleData);
-          
+
           if (studentScheduleData.length > 0) {
             finalSchedules = studentScheduleData.map(schedule => convertToEnrichedSchedule(schedule));
             console.log('🎯 Using enhanced student schedule:', finalSchedules);
@@ -383,13 +381,13 @@ const SchedulePage: React.FC = () => {
       setSchedules(finalSchedules);
 
       updateLoadingProgress(2, 3);
-      
+
       if (user?.role !== 'student') {
         try {
           let classesData: any[] = [];
           if (user?.role === 'admin') {
             const apiClasses = await getAllClasses();
-            classesData = Array.isArray(apiClasses) 
+            classesData = Array.isArray(apiClasses)
               ? apiClasses.map(convertApiClassToLocalClass)
               : [];
           } else if (user?.role === 'teacher') {
@@ -417,9 +415,9 @@ const SchedulePage: React.FC = () => {
         setLoading(false);
         setLoadingProgress(100);
       }, 500);
-      
+
       console.log('✅ Schedule data loaded successfully');
-      
+
     } catch (err: any) {
       console.error('❌ Error loading schedule data:', err);
       setHasInitialLoadError(true);
@@ -434,15 +432,15 @@ const SchedulePage: React.FC = () => {
   const generateTimeOptions = () => {
     const times = [];
     for (let hour = 0; hour < 24; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) { 
-        const displayHour = hour % 12 || 12; 
+      for (let minute = 0; minute < 60; minute += 30) {
+        const displayHour = hour % 12 || 12;
         const period = hour < 12 ? 'AM' : 'PM';
         const timeString = `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        times.push({ 
-          display: timeString, 
-          value: timeString, 
+        times.push({
+          display: timeString,
+          value: timeString,
           period,
-          value24: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}` 
+          value24: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
         });
       }
     }
@@ -453,7 +451,7 @@ const SchedulePage: React.FC = () => {
 
   const convertTo12Hour = (time24: string) => {
     if (!time24) return { time: '', period: 'AM' };
-    
+
     const [hours, minutes] = time24.split(':').map(Number);
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
@@ -465,15 +463,15 @@ const SchedulePage: React.FC = () => {
 
   const convertTo24Hour = (time12: string, period: string) => {
     if (!time12) return '';
-    
+
     let [hours, minutes] = time12.split(':').map(Number);
-    
+
     if (period === 'PM' && hours !== 12) {
       hours += 12;
     } else if (period === 'AM' && hours === 12) {
       hours = 0;
     }
-    
+
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
@@ -485,16 +483,16 @@ const SchedulePage: React.FC = () => {
 
   useEffect(() => {
     loadScheduleData();
-    
+
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'room_report_submitted') {
         console.log('🔄 Room report submitted, reloading schedules...');
         loadScheduleData();
       }
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
@@ -509,9 +507,9 @@ const SchedulePage: React.FC = () => {
 
   const convertToEnrichedSchedule = (schedule: any): ScheduleEnrichedResponse => {
     console.log('🔄 Converting schedule with full data:', schedule);
-    
+
     let teacher_name = '';
-    
+
     if (schedule.teacher_full_name && schedule.teacher_full_name !== 'Unknown Teacher') {
       teacher_name = schedule.teacher_full_name;
     } else if (schedule.teacher_name && schedule.teacher_name !== 'Unknown Teacher') {
@@ -536,19 +534,19 @@ const SchedulePage: React.FC = () => {
         teacher_name = teacherInfo.username;
       }
     }
-    
+
     if (!teacher_name && schedule.class_info && schedule.class_info.teacher) {
       teacher_name = schedule.class_info.teacher;
     }
-    
+
     if (!teacher_name) {
       teacher_name = 'Unknown Teacher';
       console.log('⚠️ Could not find teacher name in schedule:', schedule);
     }
-    
+
     let class_name = '';
     let class_code = '';
-    
+
     if (schedule.class_name && schedule.class_name !== 'Class Name') {
       class_name = schedule.class_name;
     } else if (schedule.className) {
@@ -562,7 +560,7 @@ const SchedulePage: React.FC = () => {
     } else {
       class_name = `Class ${schedule.class_id || schedule.id || ''}`;
     }
-    
+
     if (schedule.class_code && schedule.class_code !== 'N/A') {
       class_code = schedule.class_code;
     } else if (schedule.code) {
@@ -593,7 +591,8 @@ const SchedulePage: React.FC = () => {
       // Extract semester/term information
       semester: schedule.semester || schedule.term || schedule.academic_term || '2025-2026_4th',
       day_of_week: schedule.day_of_week || formatDayOfWeek(schedule.start_time || schedule.start_date),
-      time_slot: schedule.time_slot || formatTimeRange(schedule.start_time || schedule.start_date, schedule.end_time || schedule.end_date)
+      time_slot: schedule.time_slot || formatTimeRange(schedule.start_time || schedule.start_date, schedule.end_time || schedule.end_date),
+      join_code: schedule.join_code || 'N/A'
     };
   };
 
@@ -606,11 +605,11 @@ const SchedulePage: React.FC = () => {
       console.log('📊 Student schedule response:', response);
       console.log('📊 Student schedule response TYPE:', typeof response);
       console.log('📊 Student schedule response IS ARRAY:', Array.isArray(response));
-      
+
       if (Array.isArray(response)) {
         schedulesData = response;
         console.log('✅ Student schedule is array with', schedulesData.length, 'items');
-        
+
         schedulesData.forEach((schedule, index) => {
           console.log(`📊 Schedule ${index}:`, {
             id: schedule.id,
@@ -626,7 +625,7 @@ const SchedulePage: React.FC = () => {
       } else if (response && typeof response === 'object') {
         const responseObj = response as any;
         console.log('📊 Response object keys:', Object.keys(responseObj));
-        
+
         if (Array.isArray(responseObj.schedules)) {
           schedulesData = responseObj.schedules;
           console.log('✅ Found schedules in responseObj.schedules:', schedulesData.length);
@@ -650,16 +649,16 @@ const SchedulePage: React.FC = () => {
               break;
             }
           }
-          
+
           if (schedulesData.length === 0) {
             schedulesData = [responseObj];
             console.log('✅ Using entire response object as schedule');
           }
         }
       }
-      
+
       console.log('✅ Final student-specific schedules:', schedulesData);
-      
+
     } catch (error) {
       console.warn('⚠️ All student endpoints failed, using empty data');
     }
@@ -716,10 +715,10 @@ const SchedulePage: React.FC = () => {
 
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const startDateTime = combineDateTime(formData.start_date, formData.start_time);
     const endDateTime = combineDateTime(formData.end_date, formData.end_time);
-    
+
     const scheduleData: ScheduleCreate = {
       class_id: formData.class_id,
       start_time: startDateTime,
@@ -753,12 +752,12 @@ const SchedulePage: React.FC = () => {
       setFormLoading(true);
       setFormError(null);
       showLoadingAlert('Creating schedule...', false);
-      
+
       await authService.createSchedule(scheduleData);
-      
+
       closeAlert();
       showSuccessAlert('Schedule Created!', 'New schedule has been created successfully.', 'create', true, 3000);
-      
+
       setIsModalOpen(false);
       setFormData({
         class_id: 0,
@@ -785,13 +784,13 @@ const SchedulePage: React.FC = () => {
 
   const handleEditSchedule = (schedule: ScheduleEnrichedResponse) => {
     setEditingSchedule(schedule);
-    
+
     const startDate = new Date(schedule.start_time);
     const endDate = new Date(schedule.end_time);
-    
+
     const startTime12 = convertTo12Hour(startDate.toTimeString().slice(0, 5));
     const endTime12 = convertTo12Hour(endDate.toTimeString().slice(0, 5));
-    
+
     setEditFormData({
       class_id: schedule.class_id,
       start_date: startDate.toISOString().split('T')[0],
@@ -809,10 +808,10 @@ const SchedulePage: React.FC = () => {
 
   const handleUpdateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const startDateTime = combineDateTime(editFormData.start_date, editFormData.start_time);
     const endDateTime = combineDateTime(editFormData.end_date, editFormData.end_time);
-    
+
     if (!editingSchedule || !editFormData.class_id || !editFormData.start_date || !editFormData.start_time || !editFormData.end_date || !editFormData.end_time || !editFormData.room_number) {
       setEditFormError('Please fill in all required fields');
       showErrorAlert('Validation Error', 'Please fill in all required fields', true, 3000);
@@ -831,12 +830,12 @@ const SchedulePage: React.FC = () => {
       setEditFormLoading(true);
       setEditFormError(null);
       showLoadingAlert('Updating schedule...', false);
-      
+
       await authService.updateSchedule(editingSchedule.id, scheduleData);
-      
+
       closeAlert();
       showSuccessAlert('Schedule Updated!', 'Schedule has been updated successfully.', 'update', true, 3000);
-      
+
       setIsEditModalOpen(false);
       setEditingSchedule(null);
       await loadScheduleData();
@@ -857,7 +856,7 @@ const SchedulePage: React.FC = () => {
       `Are you sure you want to delete the schedule for "${schedule.class_name}" in ${schedule.room_number}? This action cannot be undone.`,
       'Yes, delete it'
     );
-    
+
     if (result.isConfirmed) {
       setDeletingSchedule(schedule);
       setIsDeleteModalOpen(true);
@@ -872,12 +871,12 @@ const SchedulePage: React.FC = () => {
       setDeleteLoading(true);
       setDeleteError(null);
       showLoadingAlert('Deleting schedule...', false);
-      
+
       await authService.deleteSchedule(deletingSchedule.id);
-      
+
       closeAlert();
       showSuccessAlert('Schedule Deleted!', 'Schedule has been deleted successfully.', 'delete', true, 3000);
-      
+
       setIsDeleteModalOpen(false);
       setDeletingSchedule(null);
       await loadScheduleData();
@@ -1030,7 +1029,7 @@ const SchedulePage: React.FC = () => {
             <span>{loadingProgress}%</span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
               style={{ width: `${loadingProgress}%` }}
             ></div>
@@ -1045,11 +1044,10 @@ const SchedulePage: React.FC = () => {
           ].map((step, index) => (
             <div
               key={index}
-              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
-                loadingProgress >= ((index + 1) * 33)
-                  ? `${step.color} shadow-sm`
-                  : "bg-gray-100 text-gray-400"
-              }`}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${loadingProgress >= ((index + 1) * 33)
+                ? `${step.color} shadow-sm`
+                : "bg-gray-100 text-gray-400"
+                }`}
             >
               {step.text}
             </div>
@@ -1090,15 +1088,15 @@ const SchedulePage: React.FC = () => {
               />
             </svg>
           </div>
-          
+
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
             Unable to Load Schedules
           </h2>
-          
+
           <p className="text-gray-600 mb-6">
             We encountered an issue while loading your schedule data. This could be due to network issues or server problems.
           </p>
-          
+
           <div className="space-y-3">
             <button
               onClick={loadScheduleData}
@@ -1119,7 +1117,7 @@ const SchedulePage: React.FC = () => {
               </svg>
               Retry Loading Schedules
             </button>
-            
+
             <button
               onClick={() => window.location.href = "/login"}
               className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
@@ -1127,7 +1125,7 @@ const SchedulePage: React.FC = () => {
               Return to Login
             </button>
           </div>
-          
+
           <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
             <ul className="text-sm text-gray-500 text-left space-y-1">
@@ -1165,7 +1163,7 @@ const SchedulePage: React.FC = () => {
                     'Are you sure you want to logout? You will need to log in again to access your schedule.',
                     'Yes, logout'
                   );
-                  
+
                   if (result.isConfirmed) {
                     try {
                       localStorage.removeItem('authToken');
@@ -1180,7 +1178,7 @@ const SchedulePage: React.FC = () => {
                     }
                   }
                 };
-                
+
                 handleLogout();
               }}
               className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
@@ -1262,7 +1260,7 @@ const SchedulePage: React.FC = () => {
                   </svg>
                 </div>
               </div>
-            </div>        
+            </div>
           </div>
         </div>
 
@@ -1357,14 +1355,14 @@ const SchedulePage: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <p className="text-blue-700 text-sm">
-                        {filteredSchedules.length > 2 
-                          ? `Showing ${filteredSchedules.length} of your class schedules` 
+                        {filteredSchedules.length > 2
+                          ? `Showing ${filteredSchedules.length} of your class schedules`
                           : 'Showing your class schedule for the current semester'}
                       </p>
                     </div>
                   </div>
                 )}
-                
+
                 {filteredSchedules.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12">
                     <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mb-4">
@@ -1374,9 +1372,9 @@ const SchedulePage: React.FC = () => {
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No schedules found</h3>
                     <p className="text-gray-500 text-center max-w-md mb-4">
-                      {searchTerm ? 'No schedules match your search criteria.' : 
-                       user?.role === 'student' ? 'No schedules assigned to you yet. Please check back later.' : 
-                       'Get started by creating your first schedule.'}
+                      {searchTerm ? 'No schedules match your search criteria.' :
+                        user?.role === 'student' ? 'No schedules assigned to you yet. Please check back later.' :
+                          'Get started by creating your first schedule.'}
                     </p>
                     {!searchTerm && user?.role !== 'student' && (
                       <button
@@ -1401,7 +1399,7 @@ const SchedulePage: React.FC = () => {
                           {sortedSchedules.length} total
                         </span>
                       </div>
-                      
+
                       {/* Responsive Grid - 4 cards per row */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {sortedSchedules.map((schedule, index) => {
@@ -1409,16 +1407,16 @@ const SchedulePage: React.FC = () => {
                           const dayShort = formatDayOfWeekShort(schedule.start_time);
                           const timeRange = formatTimeRange(schedule.start_time, schedule.end_time);
                           const semester = schedule.semester || '2025-2026_4th';
-                          
+
                           return (
-                            <div 
-                              key={schedule.id} 
+                            <div
+                              key={schedule.id}
                               className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-default flex flex-col h-full"
                             >
                               {/* Schedule Header with Color - Similar to Google Classroom */}
                               <div className={`${scheduleColor.bg} h-40 relative overflow-hidden`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-                                
+
                                 {/* Course Title Section - Top Left */}
                                 <div className="absolute top-4 left-4 right-4">
                                   <h3 className={`${scheduleColor.text} font-bold text-xl leading-tight line-clamp-2`}>
@@ -1428,7 +1426,7 @@ const SchedulePage: React.FC = () => {
                                     {schedule.class_name}
                                   </p>
                                 </div>
-                                
+
                                 {/* Time Slot - Middle */}
                                 <div className="absolute top-20 left-4 right-4">
                                   <div className="flex items-center space-x-2">
@@ -1444,23 +1442,53 @@ const SchedulePage: React.FC = () => {
                                     </div>
                                   </div>
                                 </div>
-                                
+
                                 {/* Semester/Term - Bottom */}
                                 <div className="absolute bottom-4 left-4 right-4">
                                   <p className={`${scheduleColor.icon} text-xs opacity-80 truncate`}>
                                     {semester}
                                   </p>
                                 </div>
-                                
+
                                 {/* Status Badge - Top Right */}
                                 <span className={`absolute top-4 right-4 inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(schedule.status)}`}>
                                   {schedule.status}
                                 </span>
                               </div>
-                              
+
                               {/* Schedule Content - Flexible Height */}
                               <div className="flex-1 p-4 flex flex-col">
                                 <div className="space-y-3 flex-1">
+                                  {/* Join Code Display */}
+                                  {user?.role !== 'student' && schedule.join_code && (
+                                    <div className="flex items-center space-x-3 mb-3 pb-3 border-b border-gray-100">
+                                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                        </svg>
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-xs text-gray-500 font-medium">Join Code</p>
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-sm font-mono font-bold text-gray-900 tracking-wider">
+                                            {schedule.join_code}
+                                          </p>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              navigator.clipboard.writeText(schedule.join_code || '');
+                                              showSuccessAlert('Copied!', 'Class code copied to clipboard', 'create', true, 1500);
+                                            }}
+                                            className="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
+                                            title="Copy code"
+                                          >
+                                            Copy
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Teacher Info */}
                                   <div className="flex items-center space-x-3">
                                     <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1475,7 +1503,7 @@ const SchedulePage: React.FC = () => {
                                       </p>
                                     </div>
                                   </div>
-                                  
+
                                   {/* Room Info */}
                                   <div className="flex items-center space-x-3">
                                     <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1490,7 +1518,7 @@ const SchedulePage: React.FC = () => {
                                       </p>
                                     </div>
                                   </div>
-                                  
+
                                   {/* Action Buttons */}
                                   {user?.role !== 'student' && (
                                     <div className="pt-3 border-t border-gray-100 mt-auto">
@@ -1523,10 +1551,10 @@ const SchedulePage: React.FC = () => {
                             </div>
                           );
                         })}
-                        
+
                         {/* Add New Schedule Card (Admin/Teacher only) */}
                         {user?.role !== 'student' && (
-                          <div 
+                          <div
                             className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 group cursor-pointer flex flex-col items-center justify-center p-6 min-h-[380px]"
                             onClick={() => setIsModalOpen(true)}
                           >
@@ -1638,7 +1666,7 @@ const SchedulePage: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      
+
                       {showStartTimePicker && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           <div className="p-2">
@@ -1647,11 +1675,10 @@ const SchedulePage: React.FC = () => {
                                 key={`${timeObj.value24}-${timeObj.period}`}
                                 type="button"
                                 onClick={() => handleTimeSelect(timeObj.value, timeObj.period, 'start')}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
-                                  formData.start_time === timeObj.value24 && formData.start_period === timeObj.period 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'text-gray-700'
-                                }`}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${formData.start_time === timeObj.value24 && formData.start_period === timeObj.period
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'text-gray-700'
+                                  }`}
                               >
                                 {timeObj.display} {timeObj.period}
                               </button>
@@ -1693,7 +1720,7 @@ const SchedulePage: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      
+
                       {showEndTimePicker && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           <div className="p-2">
@@ -1702,11 +1729,10 @@ const SchedulePage: React.FC = () => {
                                 key={`${timeObj.value24}-${timeObj.period}`}
                                 type="button"
                                 onClick={() => handleTimeSelect(timeObj.value, timeObj.period, 'end')}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
-                                  formData.end_time === timeObj.value24 && formData.end_period === timeObj.period 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'text-gray-700'
-                                }`}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${formData.end_time === timeObj.value24 && formData.end_period === timeObj.period
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'text-gray-700'
+                                  }`}
                               >
                                 {timeObj.display} {timeObj.period}
                               </button>
@@ -1841,7 +1867,7 @@ const SchedulePage: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      
+
                       {showEditStartTimePicker && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           <div className="p-2">
@@ -1850,11 +1876,10 @@ const SchedulePage: React.FC = () => {
                                 key={`${timeObj.value24}-${timeObj.period}`}
                                 type="button"
                                 onClick={() => handleEditTimeSelect(timeObj.value, timeObj.period, 'start')}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
-                                  editFormData.start_time === timeObj.value24 && editFormData.start_period === timeObj.period 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'text-gray-700'
-                                }`}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${editFormData.start_time === timeObj.value24 && editFormData.start_period === timeObj.period
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'text-gray-700'
+                                  }`}
                               >
                                 {timeObj.display} {timeObj.period}
                               </button>
@@ -1896,7 +1921,7 @@ const SchedulePage: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      
+
                       {showEditEndTimePicker && (
                         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           <div className="p-2">
@@ -1905,11 +1930,10 @@ const SchedulePage: React.FC = () => {
                                 key={`${timeObj.value24}-${timeObj.period}`}
                                 type="button"
                                 onClick={() => handleEditTimeSelect(timeObj.value, timeObj.period, 'end')}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${
-                                  editFormData.end_time === timeObj.value24 && editFormData.end_period === timeObj.period 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'text-gray-700'
-                                }`}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-blue-50 cursor-pointer ${editFormData.end_time === timeObj.value24 && editFormData.end_period === timeObj.period
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'text-gray-700'
+                                  }`}
                               >
                                 {timeObj.display} {timeObj.period}
                               </button>

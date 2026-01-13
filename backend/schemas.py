@@ -233,3 +233,9 @@ class TeacherAssignmentSubmission(BaseModel):
     link_url: Optional[str] = None
     
     model_config = {"from_attributes": True}
+
+# NEW: QR Scan Schema
+class AttendanceScan(BaseModel):
+    qr_content: str
+    schedule_id: int
+    teacher_id: Optional[int] = None # Optional verify

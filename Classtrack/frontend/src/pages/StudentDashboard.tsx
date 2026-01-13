@@ -121,7 +121,7 @@ const StudentDashboard: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
-  
+
   const [studentSubmissions, setStudentSubmissions] = useState<any[]>([]);
 
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -134,7 +134,7 @@ const StudentDashboard: React.FC = () => {
     [key: string]: string;
   }>({});
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
-  
+
   const [reportFormData, setReportFormData] = useState<RoomReportData>({
     class_id: "",
     is_clean_before: "",
@@ -174,15 +174,15 @@ const StudentDashboard: React.FC = () => {
   };
 
   const showSuccessAlert = (
-    title: string, 
-    text: string = '', 
+    title: string,
+    text: string = '',
     type: 'room_report' | 'logout' | 'refresh' | 'assignment' = 'room_report',
     autoDismiss: boolean = true,
     dismissTime: number = 3000
   ) => {
     const iconColor = type === 'logout' ? 'warning' : 'success';
     const confirmButtonColor = type === 'logout' ? '#F59E0B' : '#10B981';
-    
+
     const alertConfig: any = {
       title,
       text,
@@ -192,16 +192,14 @@ const StudentDashboard: React.FC = () => {
       ...swalConfig,
       customClass: {
         ...swalConfig.customClass,
-        title: `text-lg font-bold ${
-          type === 'logout' ? 'text-yellow-900' : 
-          type === 'refresh' ? 'text-blue-900' : 
-          'text-green-900'
-        }`,
-        confirmButton: `px-4 py-2 rounded-lg font-medium ${
-          type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+        title: `text-lg font-bold ${type === 'logout' ? 'text-yellow-900' :
+          type === 'refresh' ? 'text-blue-900' :
+            'text-green-900'
+          }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
           type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
-          'bg-green-500 hover:bg-green-600 text-white'
-        }`
+            'bg-green-500 hover:bg-green-600 text-white'
+          }`
       }
     };
 
@@ -215,7 +213,7 @@ const StudentDashboard: React.FC = () => {
   };
 
   const showErrorAlert = (
-    title: string, 
+    title: string,
     text: string = '',
     autoDismiss: boolean = true,
     dismissTime: number = 4000
@@ -244,8 +242,8 @@ const StudentDashboard: React.FC = () => {
   };
 
   const showConfirmDialog = (
-    title: string, 
-    text: string, 
+    title: string,
+    text: string,
     confirmText: string = 'Yes, proceed',
     autoDismiss: boolean = false
   ) => {
@@ -300,7 +298,7 @@ const StudentDashboard: React.FC = () => {
   };
 
   const showDraggableAlert = (
-    title: string, 
+    title: string,
     text: string = '',
     autoDismiss: boolean = true,
     dismissTime: number = 2500
@@ -500,7 +498,7 @@ const StudentDashboard: React.FC = () => {
       'Are you sure you want to logout? You will need to log in again to access your dashboard.',
       'Yes, logout'
     );
-    
+
     if (result.isConfirmed) {
       try {
         localStorage.clear();
@@ -520,6 +518,39 @@ const StudentDashboard: React.FC = () => {
 
   const handleViewClasses = () => {
     navigate("/student/classes");
+  };
+
+  const handleJoinClass = async () => {
+    const { value: response } = await Swal.fire({
+      title: 'Join a Class',
+      input: 'text',
+      inputLabel: 'Enter the 6-character Join Code (from Teacher)',
+      inputPlaceholder: 'e.g. QDD88D',
+      showCancelButton: true,
+      confirmButtonText: 'Join',
+      showLoaderOnConfirm: true,
+      confirmButtonColor: '#3B82F6',
+      preConfirm: async (code) => {
+        if (!code) {
+          Swal.showValidationMessage('Please enter a code');
+          return false;
+        }
+        try {
+          const response = await apiClient.post('/api/enroll/join-by-code', { code });
+          return response.data;
+        } catch (error: any) {
+          Swal.showValidationMessage(
+            `Request failed: ${error.response?.data?.detail || error.message}`
+          );
+        }
+      },
+      allowOutsideClick: () => !Swal.isLoading()
+    });
+
+    if (response) {
+      await showSuccessAlert('Enrolled!', response.message || `You have successfully joined the class.`);
+      loadStudentData();
+    }
   };
 
   useEffect(() => {
@@ -544,23 +575,23 @@ const StudentDashboard: React.FC = () => {
   const loadStudentSubmissions = async () => {
     try {
       console.log("📥 Loading student submissions...");
-      
+
       const submissions: any[] = [];
-      
+
       if (!user) {
         console.log('❌ No user found');
         return [];
       }
-      
+
       try {
-     
+
         const assignmentsResponse = await apiClient.get("/assignments/student/");
         const assignmentsData = assignmentsResponse.data || [];
         console.log('📝 Total assignments found:', assignmentsData.length);
-        
+
         for (const assignment of assignmentsData) {
           try {
-          
+
             try {
               const response = await apiClient.get(`/assignments/${assignment.id}/submissions/my`);
               console.log(`✅ Found submission for assignment ${assignment.id}:`, response.data);
@@ -578,9 +609,9 @@ const StudentDashboard: React.FC = () => {
               }
             } catch (firstError: any) {
               console.log(`❌ First endpoint failed for assignment ${assignment.id}:`, firstError.message);
-              
+
               try {
-               
+
                 const response = await apiClient.get(`/assignments/${assignment.id}/submissions`);
                 console.log(`✅ Found submission (alternative) for assignment ${assignment.id}`);
                 if (response.data && Array.isArray(response.data)) {
@@ -600,7 +631,7 @@ const StudentDashboard: React.FC = () => {
                 }
               } catch (secondError: any) {
                 console.log(`❌ Both endpoints failed for assignment ${assignment.id}:`, secondError.message);
-                
+
                 if (secondError.response?.status === 404 || firstError.response?.status === 404) {
                   console.log(`ℹ️ No submission found for assignment ${assignment.id} (404)`);
                   continue;
@@ -611,7 +642,7 @@ const StudentDashboard: React.FC = () => {
             console.warn(`⚠️ Error loading submission for assignment ${assignment.id}:`, submissionError.message);
           }
         }
-        
+
         console.log(`✅ Total loaded submissions: ${submissions.length}`);
         console.log('📋 Submission details:', submissions.map(s => ({
           id: s.id,
@@ -619,11 +650,11 @@ const StudentDashboard: React.FC = () => {
           grade: s.grade,
           submitted_at: s.submitted_at
         })));
-        
+
       } catch (error: any) {
         console.warn('⚠️ Could not load assignments for submissions:', error.message);
       }
-      
+
       setStudentSubmissions(submissions);
       return submissions;
     } catch (error) {
@@ -637,13 +668,13 @@ const StudentDashboard: React.FC = () => {
       console.log("🔄 Loading student data...");
       setIsInitialLoading(true);
       setHasInitialLoadError(false);
-      setLoadingProgress(10); 
+      setLoadingProgress(10);
 
       updateLoadingProgress(1, 5);
       await loadStudentClasses();
 
       updateLoadingProgress(2, 5);
-     
+
       const submissions = await loadStudentSubmissions();
       console.log("📥 Loaded submissions:", submissions);
       setStudentSubmissions(submissions);
@@ -665,7 +696,7 @@ const StudentDashboard: React.FC = () => {
       console.error("❌ Error loading student data:", error);
       setHasInitialLoadError(true);
       setIsInitialLoading(false);
-      
+
       showErrorAlert("Load Error", "Failed to load dashboard data. Please refresh the page.", true, 4000);
     }
   };
@@ -725,7 +756,7 @@ const StudentDashboard: React.FC = () => {
     } catch (error: any) {
       console.error("❌ Error loading classes:", error);
       setClasses([]);
-      throw error; 
+      throw error;
     }
   };
 
@@ -741,17 +772,17 @@ const StudentDashboard: React.FC = () => {
 
         if (response.status === 200 && Array.isArray(response.data)) {
           assignmentsData = response.data.map((assignment: any) => {
-        
+
             const submission = studentSubmissions.find(sub => sub.assignment_id === assignment.id);
-            
+
             let submissionStatus: 'not_started' | 'submitted' | 'graded' | 'late' = 'not_started';
             let grade = null;
             let feedback = null;
             let submittedAt = undefined;
-            
+
             if (submission) {
               submittedAt = submission.submitted_at;
-              
+
               if (submission.grade !== null && submission.grade !== undefined) {
                 submissionStatus = 'graded';
                 grade = submission.grade;
@@ -839,7 +870,7 @@ const StudentDashboard: React.FC = () => {
     } catch (error: any) {
       console.error("❌ Error loading assignments:", error);
       setAssignments([]);
-      throw error; 
+      throw error;
     }
   };
 
@@ -891,9 +922,9 @@ const StudentDashboard: React.FC = () => {
                 );
                 const endTime = new Date(
                   item.end_time ||
-                    item.endTime ||
-                    new Date(startTime.getTime() + 2 * 60 * 60 * 1000)
-                ); 
+                  item.endTime ||
+                  new Date(startTime.getTime() + 2 * 60 * 60 * 1000)
+                );
 
                 const now = new Date();
                 let status: "Occupied" | "Clean" | "Needs Cleaning" = "Clean";
@@ -1010,7 +1041,7 @@ const StudentDashboard: React.FC = () => {
     } catch (error) {
       console.error("❌ Error loading schedules:", error);
       setSchedule([]);
-      throw error; 
+      throw error;
     }
   };
 
@@ -1047,7 +1078,7 @@ const StudentDashboard: React.FC = () => {
     } catch (error) {
       console.error("❌ Error loading announcements:", error);
       setAnnouncements([]);
-      throw error; 
+      throw error;
     }
   };
 
@@ -1056,19 +1087,19 @@ const StudentDashboard: React.FC = () => {
       console.log("🔄 Updating assignments with submission status...");
       console.log("📥 Student submissions:", studentSubmissions);
       console.log("📝 Current assignments:", assignments);
-      
+
       const updatedAssignments = assignments.map(assignment => {
         const submission = studentSubmissions.find(sub => sub.assignment_id === assignment.id);
-        
+
         if (submission) {
           console.log(`✅ Found submission for assignment ${assignment.id}:`, submission);
-          
+
           let submissionStatus: 'not_started' | 'submitted' | 'graded' | 'late' = 'submitted';
-          
+
           if (submission.grade !== null && submission.grade !== undefined) {
             submissionStatus = 'graded';
           }
-          
+
           return {
             ...assignment,
             submission_status: submissionStatus,
@@ -1077,10 +1108,10 @@ const StudentDashboard: React.FC = () => {
             submitted_at: submission.submitted_at
           };
         }
-        
+
         return assignment;
       });
-      
+
       console.log("✅ Updated assignments:", updatedAssignments);
       setAssignments(updatedAssignments);
     }
@@ -1340,12 +1371,12 @@ const StudentDashboard: React.FC = () => {
     }
 
     setReportFormErrors(errors);
-    
+
     if (Object.keys(errors).length > 0) {
       const firstError = Object.values(errors)[0];
       showErrorAlert("Validation Error", firstError, true, 3000);
     }
-    
+
     return Object.keys(errors).length === 0;
   };
 
@@ -1357,7 +1388,7 @@ const StudentDashboard: React.FC = () => {
     try {
       setIsSubmittingReport(true);
       setReportFormErrors({});
-      
+
       showLoadingAlert("Submitting room report...", false);
 
       console.log("📤 Submitting room report with data:", reportFormData);
@@ -1394,7 +1425,7 @@ const StudentDashboard: React.FC = () => {
         true,
         3000
       );
-      
+
       setTimeout(() => {
         showDraggableAlert("Successful!", "Room report submitted successfully!", true, 2000);
       }, 100);
@@ -1424,7 +1455,7 @@ const StudentDashboard: React.FC = () => {
         }
 
         setReportFormErrors(apiErrors);
-        
+
         if (apiErrors.general) {
           showErrorAlert("Submission Error", apiErrors.general, true, 4000);
         } else if (Object.keys(apiErrors).length > 0) {
@@ -1499,7 +1530,7 @@ const StudentDashboard: React.FC = () => {
             <span>{loadingProgress}%</span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
               style={{ width: `${loadingProgress}%` }}
             ></div>
@@ -1515,11 +1546,10 @@ const StudentDashboard: React.FC = () => {
           ].map((step, index) => (
             <div
               key={index}
-              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
-                loadingProgress >= ((index + 1) * 25)
-                  ? `${step.color} shadow-sm`
-                  : "bg-gray-100 text-gray-400"
-              }`}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${loadingProgress >= ((index + 1) * 25)
+                ? `${step.color} shadow-sm`
+                : "bg-gray-100 text-gray-400"
+                }`}
             >
               {step.text}
             </div>
@@ -1561,15 +1591,15 @@ const StudentDashboard: React.FC = () => {
               />
             </svg>
           </div>
-          
+
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
             Unable to Load Dashboard
           </h2>
-          
+
           <p className="text-gray-600 mb-6">
             We encountered an issue while loading your dashboard data. This could be due to network issues or server problems.
           </p>
-          
+
           <div className="space-y-3">
             <button
               onClick={loadStudentData}
@@ -1590,7 +1620,7 @@ const StudentDashboard: React.FC = () => {
               </svg>
               Retry Loading Dashboard
             </button>
-            
+
             <button
               onClick={() => navigate("/login")}
               className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
@@ -1598,7 +1628,7 @@ const StudentDashboard: React.FC = () => {
               Return to Login
             </button>
           </div>
-          
+
           <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
             <ul className="text-sm text-gray-500 text-left space-y-1">
@@ -1784,7 +1814,7 @@ const StudentDashboard: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-sm">
                     {user?.profile_picture_url &&
-                    user.profile_picture_url.trim() !== "" ? (
+                      user.profile_picture_url.trim() !== "" ? (
                       <img
                         src={getProfileImageUrl(user.profile_picture_url)}
                         alt="Profile"
@@ -1800,12 +1830,11 @@ const StudentDashboard: React.FC = () => {
                     ) : null}
 
                     <div
-                      className={`w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-2xl ${
-                        !user?.profile_picture_url ||
+                      className={`w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-2xl ${!user?.profile_picture_url ||
                         user.profile_picture_url.trim() === ""
-                          ? ""
-                          : "hidden"
-                      }`}
+                        ? ""
+                        : "hidden"
+                        }`}
                     >
                       {getRoleIcon(user?.role || "student")}
                     </div>
@@ -1826,7 +1855,16 @@ const StudentDashboard: React.FC = () => {
                     </span>
                   </div>
                 </div>
-          
+
+                <button
+                  onClick={handleJoinClass}
+                  className="px-4 py-2 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow border border-green-400 flex items-center gap-2 cursor-pointer mr-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Join Class
+                </button>
                 <button
                   onClick={handleViewProfile}
                   className="px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow border border-gray-300 flex items-center gap-2 cursor-pointer"
@@ -2069,19 +2107,17 @@ const StudentDashboard: React.FC = () => {
                         announcements.map((announcement) => (
                           <div
                             key={announcement.id}
-                            className={`bg-gray-50 rounded-xl p-4 border transition-all duration-200 hover:bg-gray-100 shadow-sm cursor-pointer ${
-                              announcement.is_urgent
-                                ? "border-orange-300 ring-1 ring-orange-100"
-                                : "border-gray-200"
-                            }`}
+                            className={`bg-gray-50 rounded-xl p-4 border transition-all duration-200 hover:bg-gray-100 shadow-sm cursor-pointer ${announcement.is_urgent
+                              ? "border-orange-300 ring-1 ring-orange-100"
+                              : "border-gray-200"
+                              }`}
                           >
                             <div className="flex items-start space-x-3">
                               <div
-                                className={`w-3 h-3 rounded-full mt-2 ${
-                                  announcement.is_urgent
-                                    ? "bg-orange-500"
-                                    : "bg-blue-500"
-                                }`}
+                                className={`w-3 h-3 rounded-full mt-2 ${announcement.is_urgent
+                                  ? "bg-orange-500"
+                                  : "bg-blue-500"
+                                  }`}
                               ></div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between mb-2">
@@ -2209,7 +2245,7 @@ const StudentDashboard: React.FC = () => {
                               ? assignment.teacher_name.substring(0, 12) + "..."
                               : assignment.teacher_name
                             : "Teacher";
-                          
+
                           const isSubmitted = assignment.submission_status === 'submitted' || assignment.submission_status === 'graded';
                           const isGraded = assignment.submission_status === 'graded';
                           const hasGrade = assignment.grade !== null && assignment.grade !== undefined;
@@ -2255,34 +2291,32 @@ const StudentDashboard: React.FC = () => {
                                       </span>
                                       {assignment.due_date && (
                                         <span
-                                          className={`font-medium whitespace-nowrap ${
-                                            new Date(assignment.due_date) <
+                                          className={`font-medium whitespace-nowrap ${new Date(assignment.due_date) <
                                             new Date()
-                                              ? "text-red-600"
-                                              : "text-green-600"
-                                          }`}
+                                            ? "text-red-600"
+                                            : "text-green-600"
+                                            }`}
                                         >
                                           {formatDueDate(assignment.due_date)}
                                         </span>
                                       )}
                                     </div>
                                     <span
-                                      className={`px-2 py-1 text-xs rounded-full border whitespace-nowrap ${
-                                        isGraded 
-                                          ? 'bg-green-100 text-green-700 border-green-200'
-                                          : isSubmitted
+                                      className={`px-2 py-1 text-xs rounded-full border whitespace-nowrap ${isGraded
+                                        ? 'bg-green-100 text-green-700 border-green-200'
+                                        : isSubmitted
                                           ? 'bg-blue-100 text-blue-700 border-blue-200'
                                           : 'bg-gray-100 text-gray-700 border-gray-200'
-                                      }`}
+                                        }`}
                                     >
                                       {isGraded
                                         ? '✓ Graded'
                                         : isSubmitted
-                                        ? '✓ Submitted'
-                                        : 'Active'}
+                                          ? '✓ Submitted'
+                                          : 'Active'}
                                     </span>
                                   </div>
-                                  
+
                                   {hasGrade && (
                                     <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
                                       <div className="flex items-center justify-between">
@@ -2303,11 +2337,10 @@ const StudentDashboard: React.FC = () => {
                                 onClick={() =>
                                   handleSubmitAssignment(assignment)
                                 }
-                                className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer ${
-                                  isSubmitted
-                                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg'
-                                }`}
+                                className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm cursor-pointer ${isSubmitted
+                                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                                  : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:shadow-lg'
+                                  }`}
                               >
                                 {isSubmitted ? 'View Submission' : 'Submit Assignment'}
                               </button>
@@ -2593,11 +2626,10 @@ const StudentDashboard: React.FC = () => {
                         class_id: e.target.value,
                       }))
                     }
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer ${
-                      reportFormErrors.class_id
-                        ? "border-red-500"
-                        : "border-gray-300"
-                    }`}
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer ${reportFormErrors.class_id
+                      ? "border-red-500"
+                      : "border-gray-300"
+                      }`}
                     aria-label="Select class or room for report"
                     aria-required="true"
                   >
@@ -2722,11 +2754,10 @@ const StudentDashboard: React.FC = () => {
                       }))
                     }
                     rows={4}
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-text ${
-                      reportFormErrors.report_text
-                        ? "border-red-500"
-                        : "border-gray-300"
-                    }`}
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-text ${reportFormErrors.report_text
+                      ? "border-red-500"
+                      : "border-gray-300"
+                      }`}
                     placeholder="Describe the classroom condition, any issues found, or observations..."
                   />
                   {reportFormErrors.report_text && (

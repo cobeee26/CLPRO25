@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
-from models import Class, ClassCreate, User, Assignment, AssignmentCreate, Submission, Enrollment, Schedule, ScheduleCreate, Announcement, AnnouncementCreate, ClassroomReport, ClassroomReportCreate, Violation, ViolationCreate
+from models import Class, ClassCreate, User, Assignment, AssignmentCreate, Submission, Enrollment, Schedule, ScheduleCreate, Announcement, AnnouncementCreate, ClassroomReport, ClassroomReportCreate, Violation, ViolationCreate, Attendance
+import schemas
 from schemas import SubmissionCreate
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def create_class(db: Session, class_in: ClassCreate) -> Class:
@@ -47,6 +48,38 @@ def create_class(db: Session, class_in: ClassCreate) -> Class:
     db.add(db_class)
     db.commit()
     db.refresh(db_class)
+    
+    # Auto-generate a default schedule if teacher is assigned (so a Join Code exists immediately)
+    if db_class.teacher_id:
+        try:
+            import random
+            import string
+            
+            # Generate unique Class Code
+            def generate_code():
+                return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                
+            join_code = generate_code()
+            while db.query(Schedule).filter(Schedule.join_code == join_code).first():
+                join_code = generate_code()
+            
+            # Create default schedule (To Be Announced)
+            default_schedule = Schedule(
+                class_id=db_class.id,
+                start_time=datetime.utcnow() + timedelta(days=1), # Default to tomorrow
+                end_time=datetime.utcnow() + timedelta(days=1, hours=1),
+                room_number="TBA",
+                status="Occupied", # Active by default
+                join_code=join_code
+            )
+            db.add(default_schedule)
+            db.commit()
+            print(f"✅ Auto-generated schedule for Class {db_class.name} with Join Code: {join_code}")
+        except Exception as e:
+            print(f"⚠️ Failed to auto-generate schedule: {e}")
+            # Don't fail the class creation
+            pass
+            
     return db_class
 
 
@@ -498,10 +531,25 @@ def create_submission(db: Session, submission_in: SubmissionCreate, student_id: 
             raise ValueError(f"Student with ID {actual_student_id} is not enrolled in the class for assignment {submission_in.assignment_id}")
         
         # Check if student has already submitted this assignment
-        existing_submission = db.query(Submission).filter(
-            Submission.assignment_id == submission_in.assignment_id,
-            Submission.student_id == actual_student_id
-        ).first()
+        # FIXED: Handle case where content column might not exist in database
+        try:
+            existing_submission = db.query(Submission).filter(
+                Submission.assignment_id == submission_in.assignment_id,
+                Submission.student_id == actual_student_id
+            ).first()
+        except Exception as e:
+            # If query fails due to missing column, try to run migrations and retry
+            if "column" in str(e).lower() and ("does not exist" in str(e).lower() or "undefined" in str(e).lower()):
+                print(f"⚠️  Database column missing, attempting to run migrations...")
+                from database import check_and_run_migrations
+                check_and_run_migrations()
+                # Retry the query
+                existing_submission = db.query(Submission).filter(
+                    Submission.assignment_id == submission_in.assignment_id,
+                    Submission.student_id == actual_student_id
+                ).first()
+            else:
+                raise
         
         if existing_submission:
             from fastapi import HTTPException, status
@@ -673,7 +721,20 @@ def create_schedule(db: Session, schedule_in: ScheduleCreate) -> Schedule:
             detail=f"Class with ID {schedule_in.class_id} not found. Please ensure the class exists before creating a schedule."
         )
     
-    schedule = Schedule(**schedule_in.dict())
+    # Generate Join Code (unique/alphanumeric)
+    import random
+    import string
+    
+    def generate_code():
+        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+    join_code = generate_code()
+    # Check uniqueness collision
+    while db.query(Schedule).filter(Schedule.join_code == join_code).first():
+        join_code = generate_code()
+
+    # Pass join_code explicitly
+    schedule = Schedule(**schedule_in.dict(), join_code=join_code)
     db.add(schedule)
     db.commit()
     db.refresh(schedule)
@@ -758,6 +819,75 @@ def get_schedules_live_enriched(db: Session) -> List[dict]:
             "status": schedule.status,
             "class_name": class_name,
             "class_code": class_code,
+            "join_code": schedule.join_code,
+            "teacher_name": teacher_name,
+            "teacher_full_name": teacher_full_name
+        }
+        enriched_schedules.append(enriched_schedule)
+    
+    return enriched_schedules
+
+
+def get_student_schedules_live_enriched(db: Session, student_id: int) -> List[dict]:
+    """
+    Get schedules for a specific student for live display with enriched class and teacher information.
+    Filters to only show schedules the student is enrolled in.
+    
+    Args:
+        db: Database session
+        student_id: ID of the student
+        
+    Returns:
+        List[dict]: List of enriched schedule dictionaries
+    """
+    from sqlalchemy.orm import joinedload
+    
+    # Get enrollments for this student (finding which schedules they belong to)
+    # Note: Enrollments now link to Schedule via schedule_id
+    enrollments = db.query(Enrollment).filter(Enrollment.student_id == student_id).all()
+    schedule_ids = [e.schedule_id for e in enrollments if e.schedule_id is not None]
+    
+    if not schedule_ids:
+        # Fallback for old enrollments that might rely on class_id only (if any)
+        # But per requirements we should rely on Schesule link.
+        # If empty, return empty list.
+        return []
+    
+    schedules = db.query(Schedule).options(
+        joinedload(Schedule.class_).joinedload(Class.teacher)
+    ).filter(Schedule.id.in_(schedule_ids)).all()
+    
+    enriched_schedules = []
+    for schedule in schedules:
+        # Get teacher information
+        teacher_name = "Unknown Teacher"
+        teacher_full_name = "Unknown Teacher"
+        
+        if schedule.class_ and schedule.class_.teacher:
+            teacher = schedule.class_.teacher
+            if teacher.first_name and teacher.last_name:
+                teacher_full_name = f"{teacher.first_name} {teacher.last_name}"
+                teacher_name = f"{teacher.first_name} {teacher.last_name}"
+            elif teacher.first_name:
+                teacher_name = teacher.first_name
+                teacher_full_name = teacher.first_name
+            elif teacher.username:
+                teacher_name = teacher.username
+                teacher_full_name = teacher.username
+        # Get class information
+        class_name = schedule.class_.name if schedule.class_ else "Unknown Class"
+        class_code = schedule.class_.code if schedule.class_ else "UNKNOWN"
+        
+        enriched_schedule = {
+            "id": schedule.id,
+            "class_id": schedule.class_id,
+            "start_time": schedule.start_time,
+            "end_time": schedule.end_time,
+            "room_number": schedule.room_number,
+            "status": schedule.status,
+            "class_name": class_name,
+            "class_code": class_code,
+            "join_code": schedule.join_code,
             "teacher_name": teacher_name,
             "teacher_full_name": teacher_full_name
         }
@@ -1292,7 +1422,19 @@ def get_violation_summary_for_assignment(db: Session, assignment_id: int) -> dic
     violations = get_violations_by_assignment(db, assignment_id, skip=0, limit=1000)
     
     # Get all submissions for this assignment
-    submissions = db.query(Submission).filter(Submission.assignment_id == assignment_id).all()
+    # FIXED: Handle case where content column might not exist in database
+    try:
+        submissions = db.query(Submission).filter(Submission.assignment_id == assignment_id).all()
+    except Exception as e:
+        # If query fails due to missing column, try to run migrations and retry
+        if "column" in str(e).lower() and "does not exist" in str(e).lower():
+            print(f"⚠️  Database column missing, attempting to run migrations...")
+            from database import check_and_run_migrations
+            check_and_run_migrations()
+            # Retry the query
+            submissions = db.query(Submission).filter(Submission.assignment_id == assignment_id).all()
+        else:
+            raise
     
     # Count violations by type
     violation_types = {}
@@ -1605,3 +1747,536 @@ def update_user_profile_picture(db: Session, user_id: int, profile_picture_url: 
     except Exception as e:
         db.rollback()
         raise ValueError(f"Failed to update profile picture: {str(e)}")
+
+# ==========================================
+# CHATBOT DATA ACCESS TOOLS
+# ==========================================
+
+from typing import Dict, Any, List
+
+def get_vacant_rooms(db: Session) -> Dict[str, Any]:
+    """
+    Identify vacant rooms based on current schedule.
+    Since we don't have a Rooms table, we infer from Schedule.
+    """
+    now = datetime.utcnow()
+    
+    # Get all rooms mentioned in schedules
+    all_rooms_query = db.query(Schedule.room_number).distinct()
+    all_rooms = [r[0] for r in all_rooms_query.all()]
+    
+    # Get rooms currently occupied
+    occupied_query = db.query(Schedule.room_number).filter(
+        Schedule.start_time <= now,
+        Schedule.end_time >= now
+    )
+    occupied_rooms = [r[0] for r in occupied_query.all()]
+    
+    vacant_rooms = list(set(all_rooms) - set(occupied_rooms))
+    
+    return {
+        "vacant": vacant_rooms,
+        "occupied": occupied_rooms,
+        "total_rooms_known": len(all_rooms)
+    }
+
+def get_school_stats(db: Session) -> Dict[str, Any]:
+    """
+    Count total students, teachers, and active classes.
+    """
+    # Re-import UserRole to be safe
+    from models import UserRole
+    
+    total_students = db.query(User).filter(User.role == UserRole.STUDENT).count()
+    total_teachers = db.query(User).filter(User.role == UserRole.TEACHER).count()
+    total_classes = db.query(Class).count()
+    
+    return {
+        "total_students": total_students,
+        "total_teachers": total_teachers,
+        "total_classes": total_classes
+    }
+
+def get_user_masterlist(db: Session) -> List[Dict[str, str]]:
+    """
+    Fetch all users (Admin only helper).
+    """
+    users = db.query(User).all()
+    # Handle role.value if authentication loads it as Enum, or string if raw
+    # We use safe retrieval
+    result = []
+    for u in users:
+        role_str = u.role.value if hasattr(u.role, 'value') else str(u.role)
+        result.append({
+            "id": str(u.id), 
+            "username": u.username, 
+            "role": role_str, 
+            "name": f"{u.first_name} {u.last_name}"
+        })
+    return result
+
+def get_class_masterlist(db: Session, class_name_query: str) -> List[str]:
+    """
+    Get list of students in a class.
+    """
+    # Find class first
+    # Case insensitive search
+    class_obj = db.query(Class).filter(Class.name.ilike(f"%{class_name_query}%")).first()
+    if not class_obj:
+        return []
+    
+    # Get enrollments with Schedule info
+    # We join Enrollment, User, and optionally Schedule
+    results = db.query(User, Schedule).join(Enrollment, Enrollment.student_id == User.id)\
+        .outerjoin(Schedule, Enrollment.schedule_id == Schedule.id)\
+        .filter(Enrollment.class_id == class_obj.id)\
+        .all()
+    
+    output = []
+    for user, schedule in results:
+        sched_info = ""
+        if schedule:
+            day = schedule.start_time.strftime("%A")
+            time = schedule.start_time.strftime("%I:%M %p")
+            sched_info = f" [{day} {time}]"
+        
+        output.append(f"{user.first_name} {user.last_name} ({user.username}){sched_info}")
+        
+    return output
+
+def get_student_enrollments(db: Session, student_id: int) -> List[str]:
+    """
+    Get list of classes a student is enrolled in.
+    """
+    classes = db.query(Class).join(Enrollment).filter(Enrollment.student_id == student_id).all()
+    return [c.name for c in classes]
+
+from models import Attendance, Announcement
+
+def get_teacher_attendance(db: Session, teacher_id: int, date_limit: datetime = None) -> List[Dict[str, Any]]:
+    """
+    Get absentees for classes taught by this teacher.
+    """
+    query = db.query(Attendance).join(Class).filter(Class.teacher_id == teacher_id, Attendance.status == "Absent")
+    # Limit to recent if needed, for now get all absentees
+    absentees = query.all()
+    
+    results = []
+    for a in absentees:
+        student = db.query(User).filter(User.id == a.student_id).first()
+        results.append({
+            "student": f"{student.first_name} {student.last_name}",
+            "class": a.class_.name,
+            "date": str(a.date)
+        })
+    return results
+
+def get_student_attendance(db: Session, student_id: int) -> List[Dict[str, Any]]:
+    """
+    Get attendance record for a student
+    """
+    records = db.query(Attendance).filter(Attendance.student_id == student_id).all()
+    results = []
+    for r in records:
+        c = db.query(Class).filter(Class.id == r.class_id).first()
+        results.append({
+            "class": c.name if c else "Unknown",
+            "date": str(r.date),
+            "status": r.status
+        })
+    return results
+
+def create_announcement(db: Session, title: str, content: str) -> Announcement:
+    announcement = Announcement(title=title, content=content, date_posted=datetime.utcnow())
+    db.add(announcement)
+    db.commit()
+    db.refresh(announcement)
+    return announcement
+
+    return [{"title": a.title, "content": a.content, "date": str(a.date_posted)} for a in anns]
+
+# ====================================================
+# EDUCATOR MODULE TOOLS
+# ====================================================
+
+def get_class_attendance_by_date(db: Session, class_id: int, date_str: str = None) -> List[str]:
+    """
+    Get attendance for a specific class on a specific date.
+    Defaut date is Today.
+    """
+    query = db.query(Attendance).filter(Attendance.class_id == class_id)
+    
+    if date_str:
+        try:
+            # Simple date match (assuming YYYY-MM-DD)
+            # This is a naive filter, ideally use proper date range for the day
+            pass # Pending proper date implementation, implies exact string match if stored as such, or date filtering
+            # For this prototype, we'll fetch all and filter in python or just return recent
+        except:
+            pass
+            
+    # For now, return list of status pairs
+    records = query.all()
+    # If date_str is provided, filter:
+    if date_str:
+        records = [r for r in records if str(r.date.date()) == date_str]
+    else:
+        # Default to today
+        today = datetime.utcnow().date()
+        records = [r for r in records if r.date.date() == today]
+        
+    return [f"Student {r.student_id}: {r.status}" for r in records]
+
+def get_student_scores(db: Session, student_name_query: str, class_name_query: str = None) -> List[str]:
+    """
+    Get all graded submissions for a student, optionally filtered by class.
+    """
+    # Find student
+    student = db.query(User).filter(
+        (User.first_name + " " + User.last_name).ilike(f"%{student_name_query}%")
+    ).first()
+    
+    if not student:
+        return ["Student not found."]
+        
+    query = db.query(Submission).filter(Submission.student_id == student.id)
+    
+    if class_name_query:
+        class_obj = db.query(Class).filter(Class.name.ilike(f"%{class_name_query}%")).first()
+        if class_obj:
+            # Filter submissions by assignments in this class
+            # This requires a join: Submission -> Assignment -> Class
+            query = query.join(Assignment).filter(Assignment.class_id == class_obj.id)
+            
+    submissions = query.all()
+    return [f"{s.assignment.name}: {s.grade} (Feedback: {s.feedback})" for s in submissions if s.grade is not None]
+
+def compute_student_grade(db: Session, student_id: int, class_id: int = None) -> str:
+    """
+    Compute grade based on 30% Quizzes, 30% Exams, 40% Projects.
+    Infers type from Assignment Name.
+    """
+    query = db.query(Submission).join(Assignment).filter(Submission.student_id == student_id)
+    
+    if class_id:
+        query = query.filter(Assignment.class_id == class_id)
+        
+    submissions = query.all()
+    
+    quizzes = []
+    exams = []
+    projects = []
+    
+    for sub in submissions:
+        if sub.grade is None:
+            continue
+            
+        name = sub.assignment.name.lower()
+        if "quiz" in name:
+            quizzes.append(sub.grade)
+        elif "exam" in name or "test" in name:
+            exams.append(sub.grade)
+        else:
+            projects.append(sub.grade)
+            
+    # Compute Averages
+    avg_quiz = sum(quizzes) / len(quizzes) if quizzes else 0
+    avg_exam = sum(exams) / len(exams) if exams else 0
+    avg_project = sum(projects) / len(projects) if projects else 0
+    
+    final_grade = (avg_quiz * 0.30) + (avg_exam * 0.30) + (avg_project * 0.40)
+    
+    return f"Calculated Grade: {final_grade:.2f} (Quizzes: {avg_quiz:.1f}, Exams: {avg_exam:.1f}, Projects: {avg_project:.1f})"
+
+def get_teacher_schedule(db: Session, teacher_id: int, subject_query: str = None) -> List[str]:
+    """
+    Get schedule for a teacher. 
+    If subject_query is provided, search for that specific class (All dates).
+    Otherwise, return upcoming classes (Next 30 days).
+    """
+    now = datetime.utcnow()
+    query = db.query(Schedule).join(Class).filter(Class.teacher_id == teacher_id)
+    
+    if subject_query:
+        # Search by name or code
+        print(f"DEBUG: Searching schedule for subject: {subject_query}")
+        query = query.filter(
+            (Class.name.ilike(f"%{subject_query}%")) | 
+            (Class.code.ilike(f"%{subject_query}%"))
+        )
+        # return all dates for this specific class
+    else:
+        # No subject specified, default to upcoming
+        print(f"DEBUG: Fetching upcoming schedule for teacher {teacher_id}")
+        query = query.filter(Schedule.end_time >= now).order_by(Schedule.start_time).limit(20)
+        
+    schedules = query.all()
+    print(f"DEBUG: Found {len(schedules)} schedules.")
+    
+    results = []
+    for s in schedules:
+        # Determine status
+        status_time = "Upcoming"
+        if s.start_time <= now <= s.end_time:
+            status_time = "ONGOING NOW"
+        elif s.end_time < now:
+            status_time = "Past"
+            
+        results.append(f"[{status_time}] {s.class_.name} ({s.room_number}) on {s.start_time.strftime('%A, %b %d at %I:%M %p')} to {s.end_time.strftime('%I:%M %p')}")
+        
+    return results if results else ["No meeting times found in schedule."]
+
+def get_student_data(db: Session, student_id: int) -> str:
+    """
+    Get student profile data: Enrolled classes and Weekly Schedule.
+    """
+    # 1. Get Enrollments
+    enrollments = db.query(Class).join(Enrollment).filter(Enrollment.student_id == student_id).all()
+    if not enrollments:
+        return "You are not enrolled in any classes yet."
+        
+    class_names = [c.name for c in enrollments]
+    
+    # 2. Get Schedule for these classes
+    class_ids = [c.id for c in enrollments]
+    schedules = db.query(Schedule).filter(Schedule.class_id.in_(class_ids)).order_by(Schedule.start_time).all()
+    
+    sched_strs = []
+    for s in schedules:
+        sched_strs.append(f"{s.class_.name}: {s.start_time.strftime('%A %I:%M %p')} - {s.end_time.strftime('%I:%M %p')} ({s.room_number})")
+        
+    sched_output = "\n".join(sched_strs) if sched_strs else "No schedule set."
+    
+    return f"Enrolled Subjects: {', '.join(class_names)}\n\nWeekly Schedule:\n{sched_output}"
+
+
+# ==========================================
+# CHATBOT HELPER FUNCTIONS
+# ==========================================
+
+def get_join_code_for_class(db: Session, teacher_id: int, class_query: str) -> Optional[dict]:
+    """
+    Find a class by name for a teacher and return its Name, Subject Code, and Join Code.
+    """
+    # 1. Find the class
+    class_obj = db.query(Class).filter(
+        Class.teacher_id == teacher_id,
+        (Class.name.ilike(f"%{class_query}%")) | (Class.code.ilike(f"%{class_query}%"))
+    ).first()
+    
+    if not class_obj:
+        return None
+        
+    # 2. Find the schedule (where join_code lives)
+    schedule = db.query(Schedule).filter(Schedule.class_id == class_obj.id).first()
+    
+    join_code = schedule.join_code if schedule else "No Schedule/Code"
+    
+    return {
+        "class_name": class_obj.name,
+        "subject_code": class_obj.code,
+        "join_code": join_code
+    }
+
+def get_student_enrollments_enriched(db: Session, student_id: int) -> List[dict]:
+    """
+    Get list of classes a student joined (enriched with code info).
+    """
+    enrollments = db.query(Enrollment).filter(Enrollment.student_id == student_id).all()
+    
+    results = []
+    for enroll in enrollments:
+        class_obj = db.query(Class).filter(Class.id == enroll.class_id).first()
+        if class_obj:
+            # Try to get the specific schedule they joined
+            join_code = "N/A"
+            if enroll.schedule_id:
+                schedule = db.query(Schedule).filter(Schedule.id == enroll.schedule_id).first()
+                if schedule:
+                    join_code = schedule.join_code
+            else:
+                 # Fallback to general class schedule if any
+                schedule = db.query(Schedule).filter(Schedule.class_id == class_obj.id).first()
+                if schedule:
+                    join_code = schedule.join_code
+
+            results.append({
+                "class_name": class_obj.name,
+                "subject_code": class_obj.code,
+                "join_code": join_code
+            })
+    return results
+
+def get_students_in_class_for_teacher(db: Session, teacher_id: int, class_query: str) -> str:
+    """
+    Get list of students enrolled in a specific class taught by the teacher.
+    """
+    # 1. Find the class owned by this teacher
+    class_obj = db.query(Class).filter(
+        Class.teacher_id == teacher_id,
+        (Class.name.ilike(f"%{class_query}%")) | (Class.code.ilike(f"%{class_query}%"))
+    ).first()
+    
+    if not class_obj:
+        return f"Could not find a class named '{class_query}' assigned to you."
+        
+    # 2. Get enrollments for this class
+    # Join with User to get names
+    enrollments = db.query(Enrollment, User).join(User, Enrollment.student_id == User.id)\
+        .filter(Enrollment.class_id == class_obj.id).all()
+        
+    # Get join code for context
+    schedule = db.query(Schedule).filter(Schedule.class_id == class_obj.id).first()
+    join_code = schedule.join_code if schedule else "No Code"
+
+    if not enrollments:
+        return f"Teacher, wala pang gumagamit ng Join Code ({join_code}) para sa klase mong '{class_obj.name}'. Siguraduhing naibigay mo ang 6-character code sa kanila."
+        
+    student_list = []
+    for enroll, user in enrollments:
+        name = f"{user.first_name} {user.last_name}" if user.first_name and user.last_name else user.username
+        # Actually in this system all enrollments are via code or manual, but for now we just list them.
+        student_list.append(f"- {name}")
+        
+    count = len(student_list)
+    return f"Students in '{class_obj.name}' ({count} total):\n" + "\n".join(student_list)
+
+
+def get_student_enrollment_details_for_teacher(db: Session, teacher_id: int, student_name_query: str) -> str:
+    """
+    Find a student by name in any of the teacher's classes and return when they enrolled.
+    """
+    # 1. Get all classes for this teacher
+    teacher_classes = db.query(Class).filter(Class.teacher_id == teacher_id).all()
+    class_ids = [c.id for c in teacher_classes]
+    
+    if not class_ids:
+        return "You don't have any classes created yet."
+        
+    # 2. Search for student in these classes
+    # We join Enrollment -> User
+    # And filter by class_id IN teacher's classes AND user name matches query
+    enrollment = db.query(Enrollment, User, Class).join(User, Enrollment.student_id == User.id)\
+        .join(Class, Enrollment.class_id == Class.id)\
+        .filter(
+            Enrollment.class_id.in_(class_ids),
+            (User.first_name.ilike(f"%{student_name_query}%")) | 
+            (User.last_name.ilike(f"%{student_name_query}%")) |
+            (User.username.ilike(f"%{student_name_query}%"))
+        ).first()
+        
+    if not enrollment:
+        return f"Could not find a student matching '{student_name_query}' in any of your classes."
+        
+    enroll_obj, user_obj, class_obj = enrollment
+    
+    # Format date
+    joined_at = enroll_obj.enrolled_at.strftime("%B %d, %Y at %I:%M %p") if enroll_obj.enrolled_at else "Date unknown"
+    
+    return f"Student {user_obj.first_name} {user_obj.last_name} ({user_obj.username}) joined '{class_obj.name}' on {joined_at}."
+
+
+
+
+def verify_and_record_attendance(db: Session, scan_data: schemas.AttendanceScan) -> Attendance:
+    """
+    Strict validation for QR code attendance.
+    Steps:
+    1. Identify Student from QR string (email/username).
+    2. Check Enrollment in the class for the schedule.
+    3. Check Session Time (now vs schedule).
+    4. Check Duplicate (today).
+    """
+    from datetime import datetime, time
+    
+    # 1. Identify Student
+    # Expected format: "chaney@classtrack.edu" or "username:chaney" or just "chaney"
+    # We'll try to match by email first, then username.
+    qr = scan_data.qr_content.strip()
+    student = db.query(User).filter((User.email == qr) | (User.username == qr)).first()
+    
+    # Try cleaner "email:" prefix removal if exists
+    if not student and ":" in qr:
+        clean_qr = qr.split(":")[-1].strip()
+        student = db.query(User).filter((User.email == clean_qr) | (User.username == clean_qr)).first()
+        
+    if not student:
+        raise ValueError(f"Student identity not found for QR code: {qr}")
+        
+    if student.role != UserRole.STUDENT:
+        raise ValueError("Scanned user is not a student.")
+
+    # 2. Get Schedule & Class
+    schedule = db.query(Schedule).filter(Schedule.id == scan_data.schedule_id).first()
+    if not schedule:
+        raise ValueError("Invalid Schedule ID.")
+        
+    # 3. Check Enrollment
+    # Check if student is enrolled in the class linked to this schedule
+    enrollment = db.query(Enrollment).filter(
+        Enrollment.class_id == schedule.class_id,
+        Enrollment.student_id == student.id
+    ).first()
+    
+    if not enrollment:
+        raise ValueError("Unauthorized: Student is not enrolled in this class.")
+        
+    # 4. Check Session Time
+    # Strict check: Current time must be within start_time and end_time (ignoring date for weekly recurring assumption? 
+    # Actually Schedule has full DateTime. If it's recurring, we might need logic.
+    # Assuming Schedule is a specific session with Date/Time for now or we check time of day)
+    
+    # For now, let's assume strict DateTime check if the schedule implies a specific date. 
+    # BUT usually class schedules are recurring. If Schedule model has Date+Time, we check if today is the day.
+    
+    now = datetime.utcnow()
+    # If schedule dates are way in past, this might fail. Let's assume we check TIME only if date matches or if it's generic.
+    # User requirement: "Verify that the current system time is within the scheduled time for that class today."
+    
+    # Let's check if the schedule.date matches today? Or just time?
+    # Based on models, Schedule has start_time (DateTime). 
+    # If the system generates a schedule for every session, then we check absolute time.
+    # If it's a template, we check time-of-day.
+    # Looking at `create_class` default schedule is "tomorrow". It seems specific.
+    # We will check if "today" matches the schedule date, OR if we treat it as recurring.
+    # Let's be lenient on DATE but strict on TIME for "Recurring" style behavior if desired, 
+    # BUT strict validation usually implies strict DateTime. 
+    # Let's enforce Time-of-Day match.
+    
+    sch_start = schedule.start_time.time()
+    sch_end = schedule.end_time.time()
+    current_time = now.time()
+    
+    # Simple check: Is current time between start and end?
+    # Also considering UTC vs Local. System uses datetime.utcnow(). Ideally schedules are in UTC too.
+    
+    if not (sch_start <= current_time <= sch_end):
+        # Strict time validation as requested
+        raise ValueError("Class session not active (Time mismatch).")
+
+    # 5. Duplicate Check
+    # Check attendance for this specific schedule_id OR (class_id + today)
+    # Since we added schedule_id to Attendance, we can check that.
+    
+    start_of_day = datetime(now.year, now.month, now.day)
+    existing = db.query(Attendance).filter(
+        Attendance.student_id == student.id,
+        Attendance.class_id == schedule.class_id,
+        Attendance.date >= start_of_day
+    ).first()
+    
+    if existing:
+        raise ValueError(f"Attendance already recorded for {student.username} today.")
+
+    # 6. Record Attendance
+    new_record = Attendance(
+        class_id=schedule.class_id,
+        schedule_id=schedule.id,
+        student_id=student.id,
+        status="Present",
+        date=now
+    )
+    db.add(new_record)
+    db.commit()
+    db.refresh(new_record)
+    return new_record

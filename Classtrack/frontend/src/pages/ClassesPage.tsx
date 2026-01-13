@@ -36,15 +36,15 @@ const ClassesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [classes, setClasses] = useState<Class[]>([]);
   const [teachers, setTeachers] = useState<AppUser[]>([]);
-  
+
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -55,7 +55,7 @@ const ClassesPage: React.FC = () => {
     code: '',
     teacher_id: undefined as number | undefined
   });
-  
+
   const [formLoading, setFormLoading] = useState(false);
   const [editFormLoading, setEditFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -90,15 +90,15 @@ const ClassesPage: React.FC = () => {
   };
 
   const showSuccessAlert = (
-    title: string, 
-    text: string = '', 
+    title: string,
+    text: string = '',
     type: 'create' | 'update' | 'delete' | 'refresh' = 'create',
     autoDismiss: boolean = true,
     dismissTime: number = 3000
   ) => {
     const iconColor = type === 'delete' ? 'warning' : 'success';
     const confirmButtonColor = type === 'delete' ? '#d33' : '#10B981';
-    
+
     const alertConfig: any = {
       title,
       text,
@@ -108,16 +108,14 @@ const ClassesPage: React.FC = () => {
       ...swalConfig,
       customClass: {
         ...swalConfig.customClass,
-        title: `text-lg font-bold ${
-          type === 'delete' ? 'text-yellow-900' : 
-          type === 'refresh' ? 'text-blue-900' : 
-          'text-green-900'
-        }`,
-        confirmButton: `px-4 py-2 rounded-lg font-medium ${
-          type === 'delete' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+        title: `text-lg font-bold ${type === 'delete' ? 'text-yellow-900' :
+          type === 'refresh' ? 'text-blue-900' :
+            'text-green-900'
+          }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${type === 'delete' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
           type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
-          'bg-green-500 hover:bg-green-600 text-white'
-        }`
+            'bg-green-500 hover:bg-green-600 text-white'
+          }`
       }
     };
 
@@ -131,7 +129,7 @@ const ClassesPage: React.FC = () => {
   };
 
   const showErrorAlert = (
-    title: string, 
+    title: string,
     text: string = '',
     autoDismiss: boolean = true,
     dismissTime: number = 4000
@@ -160,8 +158,8 @@ const ClassesPage: React.FC = () => {
   };
 
   const showConfirmDialog = (
-    title: string, 
-    text: string, 
+    title: string,
+    text: string,
     confirmText: string = 'Yes, proceed',
     autoDismiss: boolean = false
   ) => {
@@ -195,7 +193,7 @@ const ClassesPage: React.FC = () => {
       title,
       allowOutsideClick: false,
       allowEscapeKey: false,
-      allowEnterKey: false,
+      // allowEnterKey is deprecated/removed in recent SWAL versions or defaults to true/false depending on context. removing to be safe.
       showConfirmButton: false,
       didOpen: () => {
         Swal.showLoading();
@@ -251,7 +249,7 @@ const ClassesPage: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    
+
     const loadTeachers = async () => {
       try {
         if (currentUser.role === 'admin') {
@@ -269,7 +267,7 @@ const ClassesPage: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    
+
     const fetchClasses = async () => {
       try {
         setIsInitialLoading(true);
@@ -277,9 +275,9 @@ const ClassesPage: React.FC = () => {
         setLoadingProgress(10);
 
         updateLoadingProgress(1, 2);
-        
+
         let apiClasses: any[] = [];
-        
+
         if (currentUser.role === 'admin') {
           apiClasses = await getAllClasses();
           console.log('📋 Admin fetched classes:', apiClasses);
@@ -290,12 +288,12 @@ const ClassesPage: React.FC = () => {
         } else {
           apiClasses = [];
         }
-        
+
         updateLoadingProgress(2, 2);
-        
+
         const transformedClasses: Class[] = apiClasses.map(apiClass => {
           const teacherName = getTeacherName(apiClass.teacher_id);
-          
+
           return {
             id: apiClass.id,
             name: apiClass.name,
@@ -304,18 +302,18 @@ const ClassesPage: React.FC = () => {
             assignedTeacher: teacherName,
             teacher_name: teacherName,
             status: 'Active' as const,
-            student_count: 0
+            student_count: apiClass.student_count || 0
           };
         });
-        
+
         setClasses(transformedClasses);
         console.log('📋 Transformed classes:', transformedClasses);
-        
+
         setTimeout(() => {
           setIsInitialLoading(false);
           setLoadingProgress(100);
         }, 500);
-        
+
       } catch (err) {
         console.error('Failed to fetch classes:', err);
         setHasInitialLoadError(true);
@@ -325,6 +323,45 @@ const ClassesPage: React.FC = () => {
     };
 
     fetchClasses();
+    fetchClasses();
+  }, [currentUser, teachers]);
+
+  // Auto-refresh for Teacher Dashboard
+  useEffect(() => {
+    if (currentUser?.role !== 'teacher') return;
+
+    const intervalId = setInterval(() => {
+      // Silent refresh
+      const refresh = async () => {
+        try {
+          const teacherData = await getTeacherClasses();
+          const apiClasses = teacherData.classes || [];
+
+          setClasses(prevClasses => {
+            // Update only if data changed to avoid re-renders if distinct? 
+            // For now simple replacement is fine as React handles diffing
+            return apiClasses.map(apiClass => {
+              const teacherName = getTeacherName(apiClass.teacher_id);
+              return {
+                id: apiClass.id,
+                name: apiClass.name,
+                code: apiClass.code,
+                teacher_id: apiClass.teacher_id,
+                assignedTeacher: teacherName,
+                teacher_name: teacherName,
+                status: 'Active' as const,
+                student_count: apiClass.student_count || 0
+              };
+            });
+          });
+        } catch (e) {
+          console.error("Auto-refresh failed", e);
+        }
+      };
+      refresh();
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(intervalId);
   }, [currentUser, teachers]);
 
   const getDisplayName = (user: AppUser | any): string => {
@@ -340,9 +377,9 @@ const ClassesPage: React.FC = () => {
     if (currentUser?.role === 'teacher') {
       return getDisplayName(currentUser) || 'Teacher';
     }
-    
+
     if (!teacherId) return 'Unassigned';
-    
+
     const teacher = teachers.find(t => t.id === teacherId);
     return teacher ? getDisplayName(teacher) : `Teacher ${teacherId}`;
   };
@@ -359,12 +396,12 @@ const ClassesPage: React.FC = () => {
       console.warn('⚠️  No user context available for refresh');
       return;
     }
-    
+
     try {
       setIsInitialLoading(true);
-      
+
       let apiClasses: any[] = [];
-      
+
       if (currentUser.role === 'admin') {
         apiClasses = await getAllClasses();
       } else if (currentUser.role === 'teacher') {
@@ -373,10 +410,10 @@ const ClassesPage: React.FC = () => {
       } else {
         apiClasses = [];
       }
-      
+
       const transformedClasses: Class[] = apiClasses.map(apiClass => {
         const teacherName = getTeacherName(apiClass.teacher_id);
-        
+
         return {
           id: apiClass.id,
           name: apiClass.name,
@@ -385,12 +422,12 @@ const ClassesPage: React.FC = () => {
           assignedTeacher: teacherName,
           teacher_name: teacherName,
           status: 'Active' as const,
-          student_count: 0
+          student_count: apiClass.student_count || 0
         };
       });
-      
+
       setClasses(transformedClasses);
-      
+
     } catch (err) {
       console.error('Failed to refresh class list:', err);
       showErrorAlert("Refresh Error", "Failed to refresh classes. Please try again.", true, 3000);
@@ -418,24 +455,24 @@ const ClassesPage: React.FC = () => {
       }
 
       showLoadingAlert('Creating class...', false);
-      
+
       await createClass(classData);
-      
+
       closeAlert();
       showSuccessAlert(`Class Created!`, `"${classData.name}" has been created successfully.`, 'create', true, 3000);
-      
+
       setFormData({ name: '', code: '', teacher_id: undefined });
-      
+
       setTimeout(() => {
         setIsModalOpen(false);
       }, 1000);
-      
+
       await refreshClassList();
-      
+
     } catch (err) {
       console.error('Failed to create class:', err);
       closeAlert();
-      
+
       const errorMessage = err instanceof Error ? err.message : 'Failed to create class. Please try again.';
       setFormError(errorMessage);
       showErrorAlert('Creation Error', errorMessage, true, 4000);
@@ -465,23 +502,23 @@ const ClassesPage: React.FC = () => {
       }
 
       showLoadingAlert('Updating class...', false);
-      
+
       await updateClass(editingClass.id, updateData);
-      
+
       closeAlert();
       showSuccessAlert(`Class Updated!`, `"${updateData.name}" has been updated successfully.`, 'update', true, 3000);
-      
+
       setTimeout(() => {
         setIsEditModalOpen(false);
         setEditingClass(null);
       }, 1000);
-      
+
       await refreshClassList();
-      
+
     } catch (err) {
       console.error('Failed to update class:', err);
       closeAlert();
-      
+
       const errorMessage = err instanceof Error ? err.message : 'Failed to update class. Please try again.';
       setEditFormError(errorMessage);
       showErrorAlert('Update Error', errorMessage, true, 4000);
@@ -496,25 +533,25 @@ const ClassesPage: React.FC = () => {
       `Are you sure you want to delete "${classItem.name}"? This action cannot be undone.`,
       'Yes, delete it'
     );
-    
+
     if (!confirmed) {
       return;
     }
 
     try {
       showLoadingAlert('Deleting class...', false);
-      
+
       await deleteClass(classItem.id);
-      
+
       closeAlert();
       showSuccessAlert(`Class Deleted!`, `"${classItem.name}" has been deleted successfully.`, 'delete', true, 3000);
-      
+
       await refreshClassList();
-      
+
     } catch (err) {
       console.error('Failed to delete class:', err);
       closeAlert();
-      
+
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete class. Please try again.';
       showErrorAlert('Delete Error', errorMessage, true, 4000);
     }
@@ -588,7 +625,7 @@ const ClassesPage: React.FC = () => {
             <span>{loadingProgress}%</span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 transition-all duration-300 ease-out"
               style={{ width: `${loadingProgress}%` }}
             ></div>
@@ -602,11 +639,10 @@ const ClassesPage: React.FC = () => {
           ].map((step, index) => (
             <div
               key={index}
-              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
-                loadingProgress >= ((index + 1) * 50)
-                  ? `${step.color} shadow-sm`
-                  : "bg-gray-100 text-gray-400"
-              }`}
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${loadingProgress >= ((index + 1) * 50)
+                ? `${step.color} shadow-sm`
+                : "bg-gray-100 text-gray-400"
+                }`}
             >
               {step.text}
             </div>
@@ -646,15 +682,15 @@ const ClassesPage: React.FC = () => {
               />
             </svg>
           </div>
-          
+
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
             Unable to Load Classes
           </h2>
-          
+
           <p className="text-gray-600 mb-6">
             We encountered an issue while loading your class data. This could be due to network issues or server problems.
           </p>
-          
+
           <div className="space-y-3">
             <button
               onClick={refreshClassList}
@@ -675,7 +711,7 @@ const ClassesPage: React.FC = () => {
               </svg>
               Retry Loading Classes
             </button>
-            
+
             <button
               onClick={() => window.location.href = "/login"}
               className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
@@ -683,7 +719,7 @@ const ClassesPage: React.FC = () => {
               Return to Login
             </button>
           </div>
-          
+
           <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
             <ul className="text-sm text-gray-500 text-left space-y-1">
@@ -719,9 +755,9 @@ const ClassesPage: React.FC = () => {
           <div className="flex items-center space-x-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg"></div>
-              <img 
-                src={plmunLogo} 
-                alt="PLMun Logo" 
+              <img
+                src={plmunLogo}
+                alt="PLMun Logo"
                 className="relative w-8 h-8 object-contain"
               />
             </div>
@@ -730,7 +766,7 @@ const ClassesPage: React.FC = () => {
               <p className="text-xs text-gray-600">View and manage all system classes</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Toggle menu"
@@ -747,7 +783,7 @@ const ClassesPage: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-0 h-screen pt-16 lg:pt-0">
         <div className="hidden lg:block relative z-30 flex-shrink-0">
-          <DynamicHeader 
+          <DynamicHeader
             title={currentUser?.role === 'admin' ? "Manage Classes" : "My Classes"}
             subtitle={currentUser?.role === 'admin' ? "View and manage all system classes" : `View your assigned classes - ${getDisplayName(currentUser || {})}`}
           />
@@ -800,7 +836,7 @@ const ClassesPage: React.FC = () => {
                     <span className="font-medium">Real-time</span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-gray-700">
                     Search Classes
@@ -833,7 +869,7 @@ const ClassesPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                
+
                 {currentUser?.role === 'admin' && (
                   <div className="pt-2">
                     <button
@@ -853,7 +889,7 @@ const ClassesPage: React.FC = () => {
                   </div>
                 )}
               </div>
-              
+
               <div className="mt-6 grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                 {currentUser?.role === 'admin' && (
                   <>
@@ -870,7 +906,7 @@ const ClassesPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-xl p-3 lg:p-4 border-2 border-green-200 hover:border-green-300 hover:bg-green-100 transition-all duration-300 group cursor-default">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-green-500 to-lime-500 rounded-lg shadow-lg group-hover:shadow-green-500/25 transition-all duration-300">
@@ -886,7 +922,7 @@ const ClassesPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 lg:p-4 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-100 transition-all duration-300 group cursor-default">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300">
@@ -904,7 +940,7 @@ const ClassesPage: React.FC = () => {
                     </div>
                   </>
                 )}
-                
+
                 {currentUser?.role === 'teacher' && (
                   <>
                     <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-default">
@@ -922,7 +958,7 @@ const ClassesPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-xl p-3 lg:p-4 border-2 border-green-200 hover:border-green-300 hover:bg-green-100 transition-all duration-300 group cursor-default">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 lg:p-2.5 bg-gradient-to-br from-green-500 to-lime-500 rounded-lg shadow-lg group-hover:shadow-green-500/25 transition-all duration-300">
@@ -937,7 +973,7 @@ const ClassesPage: React.FC = () => {
                           <p className="text-xs lg:text-sm text-gray-600 font-medium">Active Classes</p>
                         </div>
                       </div>
-                    </div>  
+                    </div>
                   </>
                 )}
               </div>
@@ -968,7 +1004,7 @@ const ClassesPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               {filteredClasses.length === 0 ? (
                 <div className="p-6 lg:p-12 text-center">
                   <div className="inline-flex flex-col items-center space-y-4 lg:space-y-6">
@@ -984,7 +1020,7 @@ const ClassesPage: React.FC = () => {
                         {searchTerm ? 'No classes found' : 'No classes available'}
                       </h3>
                       <p className="text-gray-600 max-w-md text-xs lg:text-base">
-                        {searchTerm 
+                        {searchTerm
                           ? `No classes match your search for "${searchTerm}". Try adjusting your search terms.`
                           : 'Get started by creating your first class. Click the "Create New Class" button above.'
                         }
@@ -1011,8 +1047,8 @@ const ClassesPage: React.FC = () => {
                     {filteredClasses.map((classItem, index) => {
                       const color = getClassColor(index);
                       return (
-                        <div 
-                          key={classItem.id} 
+                        <div
+                          key={classItem.id}
                           className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-default"
                         >
                           {/* Class Header with Color */}
@@ -1056,7 +1092,7 @@ const ClassesPage: React.FC = () => {
                               </div>
                             )}
                           </div>
-                          
+
                           {/* Class Details */}
                           <div className="p-4">
                             <div className="space-y-3">
@@ -1074,15 +1110,21 @@ const ClassesPage: React.FC = () => {
                                   </p>
                                 </div>
                               </div>
-                              
-                              {/* Status Badge */}
+
+                              {/* Status Badge and Student Count */}
                               <div className="flex items-center justify-between">
                                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
                                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                                   <span className="text-xs font-medium">{classItem.status}</span>
-                                </div>          
+                                </div>
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200" title="Enrolled Students">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                  </svg>
+                                  <span className="text-xs font-medium">{classItem.student_count || 0} Students</span>
+                                </div>
                               </div>
-                              
+
                               {/* Action Buttons */}
                               <div className="pt-3 border-t border-gray-100">
                                 <div className="flex items-center justify-between">
@@ -1098,7 +1140,7 @@ const ClassesPage: React.FC = () => {
                                     </svg>
                                     View Details
                                   </button>
-                                  
+
                                   {currentUser?.role === 'admin' && (
                                     <button
                                       onClick={() => handleDeleteClass(classItem)}
@@ -1119,10 +1161,10 @@ const ClassesPage: React.FC = () => {
                         </div>
                       );
                     })}
-                    
+
                     {/* Add New Class Card (Admin only) */}
                     {currentUser?.role === 'admin' && (
-                      <div 
+                      <div
                         className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-300 group cursor-pointer"
                         onClick={openCreateModal}
                       >
@@ -1174,7 +1216,7 @@ const ClassesPage: React.FC = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-6">
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl cursor-default">
@@ -1235,7 +1277,7 @@ const ClassesPage: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                
+
                 <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                   <button
                     type="button"
@@ -1286,7 +1328,7 @@ const ClassesPage: React.FC = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-6">
               {editFormError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl cursor-default">
@@ -1347,7 +1389,7 @@ const ClassesPage: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                
+
                 <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                   <button
                     type="button"

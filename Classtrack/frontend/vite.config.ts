@@ -16,19 +16,10 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
-    // mas simple CSP para di mag‑conflict sa dev
+    // Very permissive CSP for development - allows all necessary functionality
+    // Vite requires eval for HMR (Hot Module Replacement)
     headers: {
-      'Content-Security-Policy': `
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 http://localhost:3000;
-        style-src 'self' 'unsafe-inline' http://localhost:5173;
-        img-src 'self' data: blob: http://localhost:8000 http://localhost:5173;
-        connect-src 'self' http://localhost:8000 http://localhost:5173 ws://localhost:5173;
-        worker-src 'self' blob:;
-        frame-src 'self';
-        object-src 'none';
-        base-uri 'self';
-      `.replace(/\s+/g, ' ')
+      'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://localhost:* ws://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* ws://localhost:*; style-src 'self' 'unsafe-inline' http://localhost:*; img-src 'self' data: blob: http://localhost:*; connect-src 'self' http://localhost:* ws://localhost:*; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
     },
   },
   build: {

@@ -15,10 +15,12 @@ import SubmissionsViewPage from '../pages/SubmissionsViewPage';
 import SchedulePage from '../pages/SchedulePage';
 import ProfilePage from '../pages/ProfilePage';
 import ProtectedRoute from '../components/ProtectedRoute';
+import ChatBot from '../components/ChatBot';
 
 const AppRouter: React.FC = () => {
   return (
-    <Routes>
+    <>
+      <Routes>
       {/* Public Routes */}
       <Route path="/" element={<LoginPage />} />
       <Route path="/login" element={<LoginPage />} />
@@ -196,7 +198,10 @@ const AppRouter: React.FC = () => {
 
       {/* Catch-all route for 404 */}
       <Route path="*" element={<div>Page Not Found</div>} />
-    </Routes>
+      </Routes>
+      {/* ChatBot appears on all pages */}
+      <ChatBot />
+    </>
   );
 };
 

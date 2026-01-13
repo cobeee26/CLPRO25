@@ -15,7 +15,7 @@ interface UserContextType {
   loading: boolean;
   error: string | null;
   refreshUser: () => Promise<void>;
-  fetchCurrentUser: () => Promise<void>;
+  fetchCurrentUser: () => Promise<User | null>;
   updateUser: (updatedUser: User) => void;
 }
 
@@ -38,22 +38,22 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUser = async () => {
+  const fetchUser = async (): Promise<User | null> => {
     try {
       setLoading(true);
       setError(null);
-    
+
       const token = localStorage.getItem('authToken');
       if (!token) {
         console.log('❌ No auth token found in localStorage');
         setUser(null);
         setLoading(false);
-        return;
+        return null;
       }
 
       console.log('🔄 Fetching user profile from backend...');
       console.log('🔑 Token present:', !!token);
-      
+
       const userData = await authService.getCurrentUserProfile();
       console.log('✅ User profile fetched successfully:', {
         id: userData.id,
@@ -64,6 +64,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         profile_picture_url: userData.profile_picture_url
       });
       setUser(userData);
+      return userData;
     } catch (err: any) {
       console.error('❌ Failed to fetch user profile:', err);
       console.error('Error details:', {
@@ -72,7 +73,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         data: err.response?.data,
         message: err.message
       });
-      
+
       if (err.response?.status === 401) {
         console.log('🔑 Token is invalid (401), clearing and redirecting to login');
         localStorage.removeItem('authToken');
@@ -88,6 +89,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setError(err.message || 'Failed to load user profile');
         setUser(null);
       }
+      return null;
     } finally {
       setLoading(false);
     }
@@ -97,9 +99,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     await fetchUser();
   };
 
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = async (): Promise<User | null> => {
     console.log('🔄 Manual fetchCurrentUser called');
-    await fetchUser();
+    return await fetchUser();
   };
 
   const updateUser = (updatedUser: User) => {
@@ -126,11 +128,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     window.addEventListener('storage', handleStorageChange);
 
-    const token = localStorage.getItem('authToken');
-    if (token && !user) {
-      console.log('🔑 Token exists but no user data, refreshing...');
-      fetchUser();
-    }
+
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);

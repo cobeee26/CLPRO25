@@ -2,15 +2,18 @@
 
 /* Global scrollbar removal */
 * {
-  -ms-overflow-style: none !important; /* IE and Edge */
+  -ms-overflow-style: none !important;
+  /* IE and Edge */
 }
 
 *::-webkit-scrollbar {
-  display: none !important; /* Chrome, Safari, Opera */
+  display: none !important;
+  /* Chrome, Safari, Opera */
 }
 
 /* Ensure full viewport coverage and proper body styling */
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -19,7 +22,8 @@ html, body {
   -ms-overflow-style: none !important;
 }
 
-html::-webkit-scrollbar, body::-webkit-scrollbar {
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
   display: none !important;
 }
 
@@ -36,3 +40,31 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   display: none !important;
 }
 
+
+
+/* Custom Animations */
+@keyframes scan {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  90% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.animate-scan {
+  animation: scan 2s linear infinite;
+  position: absolute;
+  /* Ensure it moves relative to container */
+}

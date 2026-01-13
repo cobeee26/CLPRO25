@@ -50,10 +50,12 @@ class Enrollment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    schedule_id = Column(Integer, ForeignKey("schedules.id"), nullable=True) # Added for schedule-specific enrollment
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Relationships
     class_ = relationship("Class", back_populates="enrollments")
+    schedule = relationship("Schedule", back_populates="enrollments")
     student = relationship("User", back_populates="enrollments")
 
 class Assignment(Base):
@@ -118,9 +120,11 @@ class Schedule(Base):
     end_time = Column(DateTime, nullable=False)
     room_number = Column(String, nullable=False)
     status = Column(String, nullable=False, default="Occupied")  # 'Occupied', 'Clean', 'Needs Cleaning'
-
+    join_code = Column("class_code", String, unique=True, nullable=True) # Map to actual DB column class_code
+    
     # Relationships
     class_ = relationship("Class", back_populates="schedules")
+    enrollments = relationship("Enrollment", back_populates="schedule", cascade="all, delete-orphan")
 
 class Announcement(Base):
     __tablename__ = "announcements"
@@ -143,9 +147,23 @@ class ClassroomReport(Base):
     photo_url = Column(String, nullable=True)  # URL to uploaded photo evidence
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    # Relationships
     class_ = relationship("Class", back_populates="classroom_reports")
     reporter = relationship("User")
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    schedule_id = Column(Integer, ForeignKey("schedules.id"), nullable=True) # Added for session validation
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    status = Column(String, nullable=False)  # 'Present', 'Absent', 'Late', 'Excused'
+
+    # Relationships
+    class_ = relationship("Class")
+    schedule = relationship("Schedule")
+    student = relationship("User")
 
 # Pydantic schemas for Class
 class ClassBase(BaseModel):
@@ -261,6 +279,7 @@ class ScheduleCreate(ScheduleBase):
 
 class ScheduleResponse(ScheduleBase):
     id: int
+    join_code: Optional[str] = None # Mapped from property
 
     model_config = {"from_attributes": True}
 
@@ -270,6 +289,7 @@ class ScheduleEnrichedResponse(ScheduleBase):
     class_code: str
     teacher_name: str
     teacher_full_name: str
+    join_code: Optional[str] = None # Link code for joining
 
     model_config = {"from_attributes": True}
 

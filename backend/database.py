@@ -10,11 +10,16 @@ load_dotenv()
 # Get database URL from environment variable (with default fallback)
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://postgres:allen14@localhost/classtrack_db"
+    "postgresql://postgres:Jacob26@localhost/postgres"
 )
 
-# Create SQLAlchemy engine
-engine = create_engine(DATABASE_URL)
+# Create SQLAlchemy engine with connection pooling and error handling
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,  # Verify connections before using them
+    pool_recycle=300,    # Recycle connections after 5 minutes
+    echo=False            # Set to True for SQL query logging
+)
 
 # Create SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -38,12 +43,25 @@ def run_migrations():
     """
     migration_sql = [
         # Add missing columns to submissions table
+        # FIXED: PostgreSQL requires separate ALTER TABLE statements for each column
         """
         ALTER TABLE submissions 
-        ADD COLUMN IF NOT EXISTS content TEXT,
-        ADD COLUMN IF NOT EXISTS file_path VARCHAR(255),
-        ADD COLUMN IF NOT EXISTS file_name VARCHAR(255),
-        ADD COLUMN IF NOT EXISTS link_url VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS content TEXT;
+        """,
+        """
+        ALTER TABLE submissions 
+        ADD COLUMN IF NOT EXISTS file_path VARCHAR(255);
+        """,
+        """
+        ALTER TABLE submissions 
+        ADD COLUMN IF NOT EXISTS file_name VARCHAR(255);
+        """,
+        """
+        ALTER TABLE submissions 
+        ADD COLUMN IF NOT EXISTS link_url VARCHAR(255);
+        """,
+        """
+        ALTER TABLE submissions 
         ADD COLUMN IF NOT EXISTS feedback TEXT;
         """,
         
@@ -162,13 +180,16 @@ def run_migrations():
         print(f"❌ Error running migrations: {e}")
         raise
 
-# Check if we need to run migrations - FIXED TO CHECK VIOLATIONS TABLE
+# Check if we need to run migrations - FIXED TO CHECK VIOLATIONS TABLE AND SUBMISSIONS COLUMNS
 def check_and_run_migrations():
     """
-    Check if the violations table exists, if not run migrations.
+    Check if the violations table exists and submissions table has all required columns.
+    If not, run migrations.
     """
     try:
         with engine.connect() as conn:
+            needs_migration = False
+            
             # Check if violations table exists
             result = conn.execute(text("""
                 SELECT EXISTS (
@@ -181,21 +202,53 @@ def check_and_run_migrations():
             
             if not table_exists:
                 print("⚠️  Violations table not found, running migrations...")
-                run_migrations()
-                return
+                needs_migration = True
+            else:
+                # Check if violations table has required columns
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'violations' 
+                    AND column_name IN ('student_id', 'assignment_id', 'violation_type')
+                """))
+                
+                columns = result.fetchall()
+                
+                if len(columns) < 3:
+                    print("⚠️  Violations table missing required columns, running migrations...")
+                    needs_migration = True
             
-            # Also check if violations table has required columns
-            result = conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'violations' 
-                AND column_name IN ('student_id', 'assignment_id', 'violation_type')
-            """))
+            # CRITICAL FIX: Check if submissions table has the content column
+            # This prevents errors when deleting users with submissions
+            if not needs_migration:
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'submissions' 
+                    AND column_name = 'content'
+                """))
+                
+                content_column_exists = result.first() is not None
+                
+                if not content_column_exists:
+                    print("⚠️  Submissions table missing 'content' column, running migrations...")
+                    needs_migration = True
+                else:
+                    # Also check other required columns
+                    result = conn.execute(text("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'submissions' 
+                        AND column_name IN ('file_path', 'file_name', 'link_url', 'feedback')
+                    """))
+                    
+                    submission_columns = result.fetchall()
+                    
+                    if len(submission_columns) < 4:
+                        print("⚠️  Submissions table missing required columns, running migrations...")
+                        needs_migration = True
             
-            columns = result.fetchall()
-            
-            if len(columns) < 3:
-                print("⚠️  Violations table missing required columns, running migrations...")
+            if needs_migration:
                 run_migrations()
             else:
                 print("✅ Database schema is up to date")
@@ -290,10 +343,64 @@ def check_database_connection():
         with engine.connect() as conn:
             result = conn.execute(text("SELECT version();"))
             version = result.scalar()
-            print(f"✅ Database connection successful: {version}")
+            print(f"✅ Database connection successful")
             return True
     except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+        error_str = str(e).lower()
+        if "password authentication failed" in error_str:
+            print(f"❌ Database connection failed: Password authentication failed")
+            print("   Please check your PostgreSQL password in database.py or .env file")
+        elif "does not exist" in error_str or "database" in error_str:
+            print(f"❌ Database connection failed: Database does not exist")
+            print("   Please create the database: CREATE DATABASE postgres;")
+        else:
+            print(f"❌ Database connection failed: {e}")
+        return False
+
+# Function to create database if it doesn't exist
+def create_database_if_not_exists():
+    """
+    Try to create the database if it doesn't exist.
+    This connects to the default 'postgres' database first.
+    """
+    import re
+    from sqlalchemy import create_engine as create_engine_sql
+    
+    # Parse the DATABASE_URL to get components
+    db_url = DATABASE_URL
+    # Extract database name from URL
+    db_match = re.search(r'/([^/?]+)(?:\?|$)', db_url)
+    if not db_match:
+        print("❌ Could not parse database name from DATABASE_URL")
+        return False
+    
+    db_name = db_match.group(1)
+    
+    # Create connection URL to default 'postgres' database
+    postgres_url = re.sub(r'/([^/?]+)(?:\?|$)', '/postgres', db_url)
+    
+    try:
+        # Connect to default postgres database
+        postgres_engine = create_engine_sql(postgres_url)
+        with postgres_engine.connect() as conn:
+            # Check if database exists
+            result = conn.execute(text(f"""
+                SELECT 1 FROM pg_database WHERE datname = '{db_name}'
+            """))
+            exists = result.first() is not None
+            
+            if not exists:
+                # Create the database
+                conn.execute(text(f"CREATE DATABASE {db_name}"))
+                conn.commit()
+                print(f"✅ Created database '{db_name}'")
+                return True
+            else:
+                print(f"✅ Database '{db_name}' already exists")
+                return True
+    except Exception as e:
+        print(f"⚠️  Could not create database automatically: {e}")
+        print(f"   Please create it manually: CREATE DATABASE {db_name};")
         return False
 
 # Function to list all tables

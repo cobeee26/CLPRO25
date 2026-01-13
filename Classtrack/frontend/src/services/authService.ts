@@ -109,6 +109,7 @@ export interface ScheduleResponse {
   end_time: string;
   room_number: string;
   status: string;
+  join_code?: string;
 }
 
 export interface ScheduleEnrichedResponse {
@@ -125,6 +126,10 @@ export interface ScheduleEnrichedResponse {
   cleanliness_before?: string;
   cleanliness_after?: string;
   last_report_time?: string;
+  join_code?: string;
+  semester?: string;
+  day_of_week?: string;
+  time_slot?: string;
 }
 
 export interface AssignmentResponse {
@@ -318,7 +323,7 @@ export interface StudentAssignmentDetail {
 export const getAllViolations = async (): Promise<ViolationResponse[]> => {
   try {
     console.log('🔍 Fetching all violations...');
-    
+
     // Try multiple endpoints to find violations
     try {
       // First try the main violations endpoint
@@ -327,7 +332,7 @@ export const getAllViolations = async (): Promise<ViolationResponse[]> => {
       return response.data;
     } catch (firstError: any) {
       console.log('❌ /violations/ endpoint failed, trying alternatives...');
-      
+
       // Try assignments/violations endpoint
       try {
         const response = await apiClient.get('/assignments/violations');
@@ -335,7 +340,7 @@ export const getAllViolations = async (): Promise<ViolationResponse[]> => {
         return response.data;
       } catch (secondError: any) {
         console.log('❌ /assignments/violations endpoint failed, trying enriched endpoint...');
-        
+
         // Try enriched violations endpoint
         try {
           const response = await apiClient.get('/violations/enriched');
@@ -353,7 +358,7 @@ export const getAllViolations = async (): Promise<ViolationResponse[]> => {
       console.log('Not authorized to view violations, returning empty array...');
       return [];
     }
-    
+
     // Check for localStorage backup
     try {
       const allBackupViolations: ViolationResponse[] = [];
@@ -381,10 +386,10 @@ export const getAllViolations = async (): Promise<ViolationResponse[]> => {
 export const getAssignmentViolations = async (assignmentId: number): Promise<ViolationResponse[]> => {
   try {
     console.log(`🔍 Fetching violations for assignment ${assignmentId}...`);
-    
+
     // Try multiple endpoints in sequence
     let violationsData: ViolationResponse[] = [];
-    
+
     try {
       // First try the assignment-specific violations endpoint
       const response = await apiClient.get(`/assignments/${assignmentId}/violations`);
@@ -392,7 +397,7 @@ export const getAssignmentViolations = async (assignmentId: number): Promise<Vio
       console.log(`✅ Found ${violationsData.length} violations for assignment ${assignmentId} via /assignments/${assignmentId}/violations`);
     } catch (firstError: any) {
       console.log(`❌ First endpoint failed for assignment ${assignmentId}, trying alternative...`);
-      
+
       try {
         // Try the enriched endpoint
         const response = await apiClient.get(`/assignments/${assignmentId}/violations/enriched`);
@@ -400,7 +405,7 @@ export const getAssignmentViolations = async (assignmentId: number): Promise<Vio
         console.log(`✅ Found ${violationsData.length} violations via enriched endpoint`);
       } catch (secondError: any) {
         console.log(`❌ Enriched endpoint failed for assignment ${assignmentId}, trying all violations...`);
-        
+
         try {
           // Get all violations and filter by assignment ID
           const allViolations = await getAllViolations();
@@ -412,23 +417,23 @@ export const getAssignmentViolations = async (assignmentId: number): Promise<Vio
         }
       }
     }
-    
+
     // Also check submissions for embedded violations
     try {
       const submissionsResponse = await apiClient.get(`/assignments/${assignmentId}/submissions`);
       const submissions = submissionsResponse.data;
-      
+
       submissions.forEach((submission: any) => {
         if (submission.violations && Array.isArray(submission.violations)) {
           // Check if these violations are already in our list
           submission.violations.forEach((violation: any) => {
-            const exists = violationsData.some(v => 
-              v.id === violation.id || 
-              (v.student_id === violation.student_id && 
-               v.violation_type === violation.violation_type &&
-               v.detected_at === violation.detected_at)
+            const exists = violationsData.some(v =>
+              v.id === violation.id ||
+              (v.student_id === violation.student_id &&
+                v.violation_type === violation.violation_type &&
+                v.detected_at === violation.detected_at)
             );
-            
+
             if (!exists) {
               violationsData.push({
                 id: violation.id || Date.now(),
@@ -447,28 +452,28 @@ export const getAssignmentViolations = async (assignmentId: number): Promise<Vio
           });
         }
       });
-      
+
       console.log(`📊 After checking submissions: ${violationsData.length} total violations`);
     } catch (submissionError) {
       console.log('Could not check submissions for embedded violations:', submissionError);
     }
-    
+
     // Check localStorage for backup violations
     try {
       const key = `violations_backup_${assignmentId}`;
       const backupViolations = JSON.parse(localStorage.getItem(key) || '[]');
       if (backupViolations.length > 0) {
         console.log(`📦 Found ${backupViolations.length} backup violations in localStorage`);
-        
+
         // Merge backup violations
         backupViolations.forEach((backupViolation: any) => {
-          const exists = violationsData.some(v => 
-            v.id === backupViolation.id || 
-            (v.student_id === backupViolation.student_id && 
-             v.violation_type === backupViolation.violation_type &&
-             v.detected_at === backupViolation.detected_at)
+          const exists = violationsData.some(v =>
+            v.id === backupViolation.id ||
+            (v.student_id === backupViolation.student_id &&
+              v.violation_type === backupViolation.violation_type &&
+              v.detected_at === backupViolation.detected_at)
           );
-          
+
           if (!exists) {
             violationsData.push({
               id: backupViolation.id || Date.now(),
@@ -485,15 +490,15 @@ export const getAssignmentViolations = async (assignmentId: number): Promise<Vio
             });
           }
         });
-        
+
         console.log(`📊 After merging localStorage: ${violationsData.length} total violations`);
       }
     } catch (backupError) {
       console.error('Error checking localStorage backup:', backupError);
     }
-    
+
     return violationsData;
-    
+
   } catch (error: any) {
     console.error(`Failed to fetch violations for assignment ${assignmentId}:`, error);
     if (error.response?.status === 403) {
@@ -503,7 +508,7 @@ export const getAssignmentViolations = async (assignmentId: number): Promise<Vio
       console.log('Assignment not found, returning empty array...');
       return [];
     }
-    
+
     // Final fallback to localStorage
     try {
       const key = `violations_backup_${assignmentId}`;
@@ -524,9 +529,9 @@ export const getAssignmentViolations = async (assignmentId: number): Promise<Vio
 export const getEnrichedViolationsForAssignment = async (assignmentId: number): Promise<ViolationWithStudentResponse[]> => {
   try {
     console.log(`🔍 Fetching enriched violations for assignment ${assignmentId}...`);
-    
+
     let enrichedViolations: ViolationWithStudentResponse[] = [];
-    
+
     try {
       // Try the enriched endpoint first
       const response = await apiClient.get(`/assignments/${assignmentId}/violations/enriched`);
@@ -534,11 +539,11 @@ export const getEnrichedViolationsForAssignment = async (assignmentId: number): 
       console.log(`✅ Found ${enrichedViolations.length} enriched violations via endpoint`);
     } catch (firstError: any) {
       console.log(`❌ Enriched endpoint failed, trying to enrich manually...`);
-      
+
       try {
         // Get regular violations and student info separately
         const violations = await getAssignmentViolations(assignmentId);
-        
+
         // Enrich each violation with student info
         enrichedViolations = await Promise.all(
           violations.map(async (violation) => {
@@ -546,11 +551,11 @@ export const getEnrichedViolationsForAssignment = async (assignmentId: number): 
               // Try to get student info
               const studentResponse = await apiClient.get(`/users/${violation.student_id}`);
               const student = studentResponse.data;
-              
+
               // Try to get assignment info
               const assignmentResponse = await apiClient.get(`/assignments/${assignmentId}`);
               const assignment = assignmentResponse.data;
-              
+
               // Try to get class info
               let className = 'Unknown Class';
               try {
@@ -559,7 +564,7 @@ export const getEnrichedViolationsForAssignment = async (assignmentId: number): 
               } catch (classError) {
                 console.log('Could not fetch class info:', classError);
               }
-              
+
               return {
                 ...violation,
                 student_name: student.username || student.name || `Student ${violation.student_id}`,
@@ -579,14 +584,14 @@ export const getEnrichedViolationsForAssignment = async (assignmentId: number): 
             }
           })
         );
-        
+
         console.log(`✅ Manually enriched ${enrichedViolations.length} violations`);
       } catch (manualError) {
         console.error('Manual enrichment failed:', manualError);
         enrichedViolations = [];
       }
     }
-    
+
     return enrichedViolations;
   } catch (error: any) {
     console.error(`Failed to fetch enriched violations for assignment ${assignmentId}:`, error);
@@ -608,9 +613,9 @@ export const getEnrichedViolationsForAssignment = async (assignmentId: number): 
 export const getViolationsSummary = async (assignmentId: number): Promise<ViolationSummary> => {
   try {
     console.log(`📊 Getting violations summary for assignment ${assignmentId}...`);
-    
+
     let summaryData: ViolationSummary;
-    
+
     try {
       // Try the summary endpoint
       const response = await apiClient.get(`/assignments/${assignmentId}/violations/summary`);
@@ -618,25 +623,25 @@ export const getViolationsSummary = async (assignmentId: number): Promise<Violat
       console.log('✅ Got violations summary via endpoint');
     } catch (firstError: any) {
       console.log('❌ Summary endpoint failed, calculating manually...');
-      
+
       // Calculate summary manually
       const violations = await getAssignmentViolations(assignmentId);
-      
+
       // Get assignment info
       let assignmentName = `Assignment ${assignmentId}`;
       let className = 'Unknown Class';
       let totalStudents = 0;
-      
+
       try {
         const assignmentResponse = await apiClient.get(`/assignments/${assignmentId}`);
         const assignment = assignmentResponse.data;
         assignmentName = assignment.name || assignmentName;
-        
+
         // Try to get class info and student count
         try {
           const classResponse = await apiClient.get(`/classes/${assignment.class_id}`);
           className = classResponse.data.name || className;
-          
+
           // Try to get student count
           try {
             const rosterResponse = await apiClient.get(`/classes/${assignment.class_id}/students`);
@@ -650,7 +655,7 @@ export const getViolationsSummary = async (assignmentId: number): Promise<Violat
       } catch (assignmentError) {
         console.log('Could not get assignment info:', assignmentError);
       }
-      
+
       // Calculate statistics
       const violationsByType: Record<string, number> = {};
       const violationsBySeverity = {
@@ -658,26 +663,26 @@ export const getViolationsSummary = async (assignmentId: number): Promise<Violat
         medium: 0,
         high: 0
       };
-      
+
       let totalTimeAway = 0;
       const studentsWithViolations = new Set<number>();
-      
+
       violations.forEach(violation => {
         // Count by type
         violationsByType[violation.violation_type] = (violationsByType[violation.violation_type] || 0) + 1;
-        
+
         // Count by severity
         if (violation.severity === 'low') violationsBySeverity.low++;
         else if (violation.severity === 'medium') violationsBySeverity.medium++;
         else if (violation.severity === 'high') violationsBySeverity.high++;
-        
+
         // Track time away
         totalTimeAway += violation.time_away_seconds || 0;
-        
+
         // Track students with violations
         studentsWithViolations.add(violation.student_id);
       });
-      
+
       summaryData = {
         assignment_id: assignmentId,
         assignment_name: assignmentName,
@@ -689,14 +694,14 @@ export const getViolationsSummary = async (assignmentId: number): Promise<Violat
         students_with_violations: studentsWithViolations.size,
         total_students: totalStudents || studentsWithViolations.size * 2 // Estimate if unknown
       };
-      
+
       console.log('✅ Calculated violations summary manually');
     }
-    
+
     return summaryData;
   } catch (error: any) {
     console.error(`Failed to fetch violations summary for assignment ${assignmentId}:`, error);
-    
+
     // Return default summary
     return {
       assignment_id: assignmentId,
@@ -723,9 +728,9 @@ export const getViolationsSummary = async (assignmentId: number): Promise<Violat
 export const getSubmissionsWithViolations = async (assignmentId: number): Promise<SubmissionWithViolations[]> => {
   try {
     console.log(`📋 Getting submissions with violations for assignment ${assignmentId}...`);
-    
+
     let submissionsWithViolations: SubmissionWithViolations[] = [];
-    
+
     try {
       // Try the dedicated endpoint
       const response = await apiClient.get(`/assignments/${assignmentId}/submissions-with-violations`);
@@ -733,19 +738,19 @@ export const getSubmissionsWithViolations = async (assignmentId: number): Promis
       console.log(`✅ Found ${submissionsWithViolations.length} submissions with violations via endpoint`);
     } catch (firstError: any) {
       console.log('❌ Dedicated endpoint failed, building manually...');
-      
+
       try {
         // Get submissions
         const submissionsResponse = await apiClient.get(`/assignments/${assignmentId}/submissions`);
         const submissions = submissionsResponse.data;
-        
+
         // Get violations
         const violations = await getAssignmentViolations(assignmentId);
-        
+
         // Build submissions with violations
         submissionsWithViolations = submissions.map((submission: any) => {
           const submissionViolations = violations.filter(v => v.student_id === submission.student_id);
-          
+
           return {
             submission_id: submission.id,
             student_id: submission.student_id,
@@ -758,14 +763,14 @@ export const getSubmissionsWithViolations = async (assignmentId: number): Promis
             violations: submissionViolations
           };
         });
-        
+
         console.log(`✅ Built ${submissionsWithViolations.length} submissions with violations manually`);
       } catch (manualError) {
         console.error('Manual building failed:', manualError);
         submissionsWithViolations = [];
       }
     }
-    
+
     return submissionsWithViolations;
   } catch (error: any) {
     console.error(`Failed to fetch submissions with violations for assignment ${assignmentId}:`, error);
@@ -779,9 +784,9 @@ export const getSubmissionsWithViolations = async (assignmentId: number): Promis
 export const getAllViolationsPaginated = async (skip: number = 0, limit: number = 100): Promise<ViolationResponse[]> => {
   try {
     console.log(`📄 Getting violations paginated (skip: ${skip}, limit: ${limit})...`);
-    
+
     let violations: ViolationResponse[] = [];
-    
+
     try {
       // Try paginated endpoint
       const response = await apiClient.get('/violations/', {
@@ -791,7 +796,7 @@ export const getAllViolationsPaginated = async (skip: number = 0, limit: number 
       console.log(`✅ Found ${violations.length} violations via paginated endpoint`);
     } catch (firstError: any) {
       console.log('❌ Paginated endpoint failed, getting all and slicing...');
-      
+
       try {
         // Get all violations and slice
         const allViolations = await getAllViolations();
@@ -802,7 +807,7 @@ export const getAllViolationsPaginated = async (skip: number = 0, limit: number 
         violations = [];
       }
     }
-    
+
     return violations;
   } catch (error: any) {
     console.error('Failed to fetch all violations:', error);
@@ -818,9 +823,9 @@ export const getAllViolationsPaginated = async (skip: number = 0, limit: number 
 export const getViolationsForStudent = async (studentId: number): Promise<ViolationResponse[]> => {
   try {
     console.log(`👤 Fetching violations for student ${studentId}...`);
-    
+
     let studentViolations: ViolationResponse[] = [];
-    
+
     try {
       // Try student-specific endpoint
       const response = await apiClient.get(`/violations/student/${studentId}`);
@@ -828,7 +833,7 @@ export const getViolationsForStudent = async (studentId: number): Promise<Violat
       console.log(`✅ Found ${studentViolations.length} violations via student endpoint`);
     } catch (firstError: any) {
       console.log('❌ Student endpoint failed, filtering from all violations...');
-      
+
       try {
         // Get all violations and filter by student ID
         const allViolations = await getAllViolations();
@@ -839,7 +844,7 @@ export const getViolationsForStudent = async (studentId: number): Promise<Violat
         studentViolations = [];
       }
     }
-    
+
     // Also check localStorage for backup violations
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -847,16 +852,16 @@ export const getViolationsForStudent = async (studentId: number): Promise<Violat
         if (key && key.startsWith('violations_backup_')) {
           const backupData = JSON.parse(localStorage.getItem(key) || '[]');
           const studentBackupViolations = backupData.filter((v: any) => v.student_id === studentId);
-          
+
           // Merge backup violations
           studentBackupViolations.forEach((backupViolation: any) => {
-            const exists = studentViolations.some(v => 
-              v.id === backupViolation.id || 
-              (v.student_id === backupViolation.student_id && 
-               v.violation_type === backupViolation.violation_type &&
-               v.detected_at === backupViolation.detected_at)
+            const exists = studentViolations.some(v =>
+              v.id === backupViolation.id ||
+              (v.student_id === backupViolation.student_id &&
+                v.violation_type === backupViolation.violation_type &&
+                v.detected_at === backupViolation.detected_at)
             );
-            
+
             if (!exists) {
               studentViolations.push({
                 id: backupViolation.id || Date.now(),
@@ -875,14 +880,14 @@ export const getViolationsForStudent = async (studentId: number): Promise<Violat
           });
         }
       }
-      
+
       if (studentViolations.length > 0) {
         console.log(`📊 After checking localStorage: ${studentViolations.length} total violations for student`);
       }
     } catch (backupError) {
       console.error('Error checking localStorage for student violations:', backupError);
     }
-    
+
     return studentViolations;
   } catch (error: any) {
     console.error(`Failed to fetch violations for student ${studentId}:`, error);
@@ -898,23 +903,23 @@ export const getViolationsForStudent = async (studentId: number): Promise<Violat
 export const getViolationById = async (violationId: number): Promise<ViolationResponse> => {
   try {
     console.log(`🔍 Fetching violation ${violationId}...`);
-    
+
     try {
       const response = await apiClient.get(`/violations/${violationId}`);
       console.log('✅ Found violation via endpoint');
       return response.data;
     } catch (firstError: any) {
       console.log('❌ Violation endpoint failed, searching in all violations...');
-      
+
       // Search in all violations
       const allViolations = await getAllViolations();
       const violation = allViolations.find(v => v.id === violationId);
-      
+
       if (violation) {
         console.log('✅ Found violation by searching all violations');
         return violation;
       }
-      
+
       // Check localStorage
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -927,7 +932,7 @@ export const getViolationById = async (violationId: number): Promise<ViolationRe
           }
         }
       }
-      
+
       throw new Error('Violation not found');
     }
   } catch (error: any) {
@@ -946,7 +951,7 @@ export const getViolationById = async (violationId: number): Promise<ViolationRe
 export const createViolation = async (violationData: ViolationCreate): Promise<ViolationResponse> => {
   try {
     console.log('🚨 Creating violation:', violationData);
-    
+
     // Prepare the violation data
     const violationPayload: any = {
       student_id: violationData.student_id,
@@ -956,7 +961,7 @@ export const createViolation = async (violationData: ViolationCreate): Promise<V
       time_away_seconds: violationData.time_away_seconds,
       severity: violationData.severity
     };
-    
+
     // Add optional fields if they exist
     if (violationData.content_added_during_absence !== undefined) {
       violationPayload.content_added_during_absence = violationData.content_added_during_absence;
@@ -967,7 +972,7 @@ export const createViolation = async (violationData: ViolationCreate): Promise<V
     if (violationData.paste_content_length !== undefined) {
       violationPayload.paste_content_length = violationData.paste_content_length;
     }
-    
+
     let response;
     try {
       // Try to create violation via API
@@ -975,14 +980,14 @@ export const createViolation = async (violationData: ViolationCreate): Promise<V
       console.log('✅ Violation created successfully via API:', response.data);
     } catch (apiError: any) {
       console.log('❌ API creation failed, trying alternative endpoint...');
-      
+
       try {
         // Try alternative endpoint
         response = await apiClient.post('/assignments/violations', violationPayload);
         console.log('✅ Violation created via alternative endpoint:', response.data);
       } catch (altError: any) {
         console.log('❌ Alternative endpoint failed, storing locally...');
-        
+
         // Create local violation
         const localViolation: ViolationResponse = {
           id: Date.now(), // Temporary ID
@@ -997,7 +1002,7 @@ export const createViolation = async (violationData: ViolationCreate): Promise<V
           ai_similarity_score: violationData.ai_similarity_score,
           paste_content_length: violationData.paste_content_length
         };
-        
+
         // Save to localStorage as backup
         try {
           const key = `violations_backup_${violationData.assignment_id}`;
@@ -1008,15 +1013,15 @@ export const createViolation = async (violationData: ViolationCreate): Promise<V
         } catch (storageError) {
           console.error('Failed to save violation to localStorage:', storageError);
         }
-        
+
         return localViolation;
       }
     }
-    
+
     return response.data;
   } catch (error: any) {
     console.error('Failed to create violation:', error);
-    
+
     // Last resort: create a local violation
     const localViolation: ViolationResponse = {
       id: Date.now(),
@@ -1031,7 +1036,7 @@ export const createViolation = async (violationData: ViolationCreate): Promise<V
       ai_similarity_score: violationData.ai_similarity_score,
       paste_content_length: violationData.paste_content_length
     };
-    
+
     // Try to save to localStorage
     try {
       const key = `violations_backup_${violationData.assignment_id}`;
@@ -1042,7 +1047,7 @@ export const createViolation = async (violationData: ViolationCreate): Promise<V
     } catch (storageError) {
       console.error('Failed to save violation to localStorage:', storageError);
     }
-    
+
     return localViolation;
   }
 };
@@ -1057,7 +1062,7 @@ export const deleteViolation = async (violationId: number): Promise<{ message: s
     return response.data;
   } catch (error: any) {
     console.error(`Failed to delete violation ${violationId}:`, error);
-    
+
     // Also try to remove from localStorage
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -1075,7 +1080,7 @@ export const deleteViolation = async (violationId: number): Promise<{ message: s
     } catch (localError) {
       console.error('Failed to delete from localStorage:', localError);
     }
-    
+
     throw new Error('Failed to delete violation');
   }
 };
@@ -1088,9 +1093,9 @@ export const deleteViolation = async (violationId: number): Promise<{ message: s
 export const getViolationsForSubmission = async (submissionId: number): Promise<ViolationResponse[]> => {
   try {
     console.log(`📄 Fetching violations for submission ${submissionId}...`);
-    
+
     let submissionViolations: ViolationResponse[] = [];
-    
+
     try {
       // Try submission-specific endpoint
       const response = await apiClient.get(`/submissions/${submissionId}/violations`);
@@ -1098,12 +1103,12 @@ export const getViolationsForSubmission = async (submissionId: number): Promise<
       console.log(`✅ Found ${submissionViolations.length} violations via submission endpoint`);
     } catch (firstError: any) {
       console.log('❌ Submission endpoint failed, trying to find via assignment...');
-      
+
       try {
         // Get submission details to find assignment ID
         const submissionResponse = await apiClient.get(`/submissions/${submissionId}`);
         const submission = submissionResponse.data;
-        
+
         // Get assignment violations and filter by student
         const assignmentViolations = await getAssignmentViolations(submission.assignment_id);
         submissionViolations = assignmentViolations.filter(v => v.student_id === submission.student_id);
@@ -1113,7 +1118,7 @@ export const getViolationsForSubmission = async (submissionId: number): Promise<
         submissionViolations = [];
       }
     }
-    
+
     return submissionViolations;
   } catch (error: any) {
     console.error(`Failed to fetch violations for submission ${submissionId}:`, error);
@@ -1128,8 +1133,8 @@ export const getViolationsForSubmission = async (submissionId: number): Promise<
 export const reportStudentViolation = async (
   assignmentId: number,
   violationData: {
-    violation_type: 'tab_switch' | 'app_switch' | 'rapid_completion' | 'paste_detected' | 
-                    'suspicious_activity' | 'excessive_inactivity' | 'ai_content_detected';
+    violation_type: 'tab_switch' | 'app_switch' | 'rapid_completion' | 'paste_detected' |
+    'suspicious_activity' | 'excessive_inactivity' | 'ai_content_detected';
     description: string;
     time_away_seconds: number;
     severity: 'low' | 'medium' | 'high';
@@ -1141,7 +1146,7 @@ export const reportStudentViolation = async (
   try {
     // Get current user info to get student ID
     const currentUser = await authService.getUserProfile();
-    
+
     const violationPayload: ViolationCreate = {
       student_id: currentUser.id,
       assignment_id: assignmentId,
@@ -1153,11 +1158,11 @@ export const reportStudentViolation = async (
       ai_similarity_score: violationData.ai_similarity_score,
       paste_content_length: violationData.paste_content_length
     };
-    
+
     return await createViolation(violationPayload);
   } catch (error: any) {
     console.error('Failed to report student violation:', error);
-    
+
     // Get current user from localStorage as fallback
     let studentId = 0;
     try {
@@ -1169,7 +1174,7 @@ export const reportStudentViolation = async (
     } catch (parseError) {
       console.error('Could not parse user from localStorage:', parseError);
     }
-    
+
     // Create a local violation record
     const localViolation: ViolationResponse = {
       id: Date.now(),
@@ -1184,7 +1189,7 @@ export const reportStudentViolation = async (
       ai_similarity_score: violationData.ai_similarity_score,
       paste_content_length: violationData.paste_content_length
     };
-    
+
     // Save to localStorage as backup
     try {
       const key = `violations_backup_${assignmentId}`;
@@ -1195,7 +1200,7 @@ export const reportStudentViolation = async (
     } catch (storageError) {
       console.error('Failed to save student violation to localStorage:', storageError);
     }
-    
+
     return localViolation;
   }
 };
@@ -1207,31 +1212,31 @@ export const reportStudentViolation = async (
 export const getMyViolationsForAssignment = async (assignmentId: number): Promise<ViolationResponse[]> => {
   try {
     console.log(`👤 Getting my violations for assignment ${assignmentId}...`);
-    
+
     let myViolations: ViolationResponse[] = [];
-    
+
     try {
       // Get current user
       const currentUser = await authService.getUserProfile();
-      
+
       // Try to get student violations
       const response = await apiClient.get(`/violations/student/${currentUser.id}`);
       const allViolations = response.data;
-      
+
       // Filter violations for this specific assignment
       myViolations = allViolations.filter(
         (violation: ViolationResponse) => violation.assignment_id === assignmentId
       );
-      
+
       console.log(`✅ Found ${myViolations.length} of my violations via API`);
     } catch (firstError: any) {
       console.log('❌ API failed, trying localStorage...');
-      
+
       // Try to get from localStorage backup
       try {
         const key = `violations_backup_${assignmentId}`;
         const backupViolations = JSON.parse(localStorage.getItem(key) || '[]');
-        
+
         // Get current user ID for filtering
         let studentId = 0;
         try {
@@ -1245,7 +1250,7 @@ export const getMyViolationsForAssignment = async (assignmentId: number): Promis
             studentId = user.id || 0;
           }
         }
-        
+
         // Filter by student ID
         myViolations = backupViolations.filter((v: any) => v.student_id === studentId);
         console.log(`📂 Retrieved ${myViolations.length} of my violations from localStorage backup`);
@@ -1254,7 +1259,7 @@ export const getMyViolationsForAssignment = async (assignmentId: number): Promis
         myViolations = [];
       }
     }
-    
+
     return myViolations;
   } catch (error: any) {
     console.error(`Failed to fetch my violations for assignment ${assignmentId}:`, error);
@@ -1274,39 +1279,39 @@ export const getViolationStatistics = async (): Promise<{
 }> => {
   try {
     console.log('📊 Getting violation statistics...');
-    
+
     const allViolations = await getAllViolations();
     console.log(`📈 Total violations found: ${allViolations.length}`);
-    
+
     const by_severity = {
       low: allViolations.filter(v => v.severity === 'low').length,
       medium: allViolations.filter(v => v.severity === 'medium').length,
       high: allViolations.filter(v => v.severity === 'high').length
     };
-    
+
     const by_type: Record<string, number> = {};
     allViolations.forEach(violation => {
       by_type[violation.violation_type] = (by_type[violation.violation_type] || 0) + 1;
     });
-    
+
     // Get recent violations (last 10)
     const recent_violations = [...allViolations]
       .sort((a, b) => new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime())
       .slice(0, 10);
-    
+
     const stats = {
       total_violations: allViolations.length,
       by_severity,
       by_type,
       recent_violations
     };
-    
+
     console.log('📊 Violation statistics:', stats);
     return stats;
-    
+
   } catch (error: any) {
     console.error('Failed to fetch violation statistics:', error);
-    
+
     // Return default statistics
     return {
       total_violations: 0,
@@ -1336,11 +1341,11 @@ export const createSubmissionWithFile = async (
     const formData = new FormData();
     formData.append('assignment_id', assignmentId.toString());
     formData.append('time_spent_minutes', timeSpentMinutes.toString());
-    
+
     if (content) formData.append('content', content);
     if (linkUrl) formData.append('link_url', linkUrl);
     if (photoFile) formData.append('photo', photoFile);
-    
+
     const response = await apiClient.post('/submissions/upload/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -1369,11 +1374,11 @@ export const updateSubmissionWithFile = async (
     const formData = new FormData();
     formData.append('assignment_id', assignmentId.toString());
     formData.append('time_spent_minutes', timeSpentMinutes.toString());
-    
+
     if (content) formData.append('content', content);
     if (linkUrl) formData.append('link_url', linkUrl);
     if (photoFile) formData.append('photo', photoFile);
-    
+
     const response = await apiClient.put(`/submissions/${submissionId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -1414,9 +1419,9 @@ export const downloadSubmissionFile = async (submissionId: number): Promise<Blob
 export const getAssignmentSubmissions = async (assignmentId: number): Promise<SubmissionDetailResponse[]> => {
   try {
     console.log(`📋 Loading submissions for assignment ${assignmentId}...`);
-    
+
     let submissions: any[] = [];
-    
+
     // First get all submissions
     try {
       const response = await apiClient.get(`/assignments/${assignmentId}/submissions`);
@@ -1424,7 +1429,7 @@ export const getAssignmentSubmissions = async (assignmentId: number): Promise<Su
       console.log(`✅ Found ${submissions.length} submissions via API`);
     } catch (firstError: any) {
       console.log('❌ Submissions endpoint failed, trying alternative...');
-      
+
       try {
         const response = await apiClient.get(`/teachers/assignments/${assignmentId}/submissions`);
         submissions = response.data;
@@ -1434,14 +1439,14 @@ export const getAssignmentSubmissions = async (assignmentId: number): Promise<Su
         submissions = [];
       }
     }
-    
+
     if (submissions.length === 0) {
       console.log('No submissions found');
       return [];
     }
-    
+
     console.log(`✅ Found ${submissions.length} submissions`);
-    
+
     // Get violations for the entire assignment
     let allAssignmentViolations: ViolationResponse[] = [];
     try {
@@ -1451,12 +1456,12 @@ export const getAssignmentSubmissions = async (assignmentId: number): Promise<Su
     } catch (violationError) {
       console.error('Failed to fetch assignment violations:', violationError);
     }
-    
+
     // Enrich each submission with violations
     const enrichedSubmissions = await Promise.all(
       submissions.map(async (submission: any) => {
         let submissionViolations: ViolationResponse[] = [];
-        
+
         try {
           // Try to get violations specific to this submission
           const subViolations = await getViolationsForSubmission(submission.id);
@@ -1465,25 +1470,25 @@ export const getAssignmentSubmissions = async (assignmentId: number): Promise<Su
         } catch (subViolationError) {
           console.error(`Failed to fetch submission ${submission.id} violations:`, subViolationError);
         }
-        
+
         // Also add any assignment-level violations for this student
         const studentAssignmentViolations = allAssignmentViolations.filter(
           v => v.student_id === submission.student_id
         );
-        
+
         console.log(`📊 Student ${submission.student_id}: ${studentAssignmentViolations.length} assignment-level violations`);
-        
+
         // Merge violations, removing duplicates by ID or content
         const allViolations = [...submissionViolations, ...studentAssignmentViolations];
         const uniqueViolations = Array.from(
           new Map(allViolations.map(v => [
-            v.id || `${v.student_id}-${v.violation_type}-${v.detected_at}`, 
+            v.id || `${v.student_id}-${v.violation_type}-${v.detected_at}`,
             v
           ])).values()
         );
-        
+
         console.log(`📊 Submission ${submission.id}: ${uniqueViolations.length} unique violations`);
-        
+
         return {
           ...submission,
           student_name: submission.student_name || `Student ${submission.student_id}`,
@@ -1502,10 +1507,10 @@ export const getAssignmentSubmissions = async (assignmentId: number): Promise<Su
         };
       })
     );
-    
+
     console.log(`✅ Enriched ${enrichedSubmissions.length} submissions with violations`);
     return enrichedSubmissions;
-    
+
   } catch (error: any) {
     console.error(`Failed to get submissions for assignment ${assignmentId}:`, error);
     return [];
@@ -1626,7 +1631,7 @@ export const getScheduleCleanliness = async (scheduleId: number): Promise<Cleanl
     return response.data;
   } catch (error: any) {
     console.error(`Failed to fetch cleanliness for schedule ${scheduleId}:`, error);
-    
+
     // Return default response if endpoint not found
     if (error.response?.status === 404) {
       console.log('Cleanliness endpoint not available, returning default...');
@@ -1649,7 +1654,7 @@ export const loginUser = async (username: string, password: string): Promise<str
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
-    
+
     // Make POST request with explicit form data headers and body
     const response = await axios.post(`${API_BASE_URL}/token`, formData, {
       headers: {
@@ -1657,7 +1662,7 @@ export const loginUser = async (username: string, password: string): Promise<str
         'Accept': 'application/json',
       },
     });
-    
+
     // Return the access token from the response
     return response.data.access_token;
   } catch (error: any) {
@@ -1675,7 +1680,7 @@ export const getAllUsers = async (): Promise<User[]> => {
   try {
     // Use the configured apiClient which automatically includes auth headers
     const response = await apiClient.get('/users/');
-    
+
     // Return the data
     return response.data;
   } catch (error: any) {
@@ -1683,7 +1688,7 @@ export const getAllUsers = async (): Promise<User[]> => {
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Handle specific error cases
       if (error.response.status === 401) {
         throw new Error('Authentication failed. Please log in again.');
@@ -1702,32 +1707,32 @@ export const exportAllUsers = async (): Promise<User[]> => {
     return response.data;
   } catch (error: any) {
     console.error('Failed to export users:', error);
-    
+
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       let errorMessage = 'Failed to export users data. Please try again.';
-      
+
       if (error.response.data?.detail) {
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         }
       }
-      
+
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
       } else if (error.response.status === 403) {
         errorMessage = 'Access denied. Admin privileges required.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     throw new Error('Failed to export users data. Please try again.');
   }
 };
@@ -1737,11 +1742,11 @@ export const getTeachers = async (): Promise<User[]> => {
   try {
     // Use the configured apiClient which automatically includes auth headers
     const response = await apiClient.get('/users/');
-    
+
     // Filter the response to return only users with role 'teacher'
     const allUsers = response.data;
     const teachers = allUsers.filter((user: User) => user.role === 'teacher');
-    
+
     // Return only teachers
     return teachers;
   } catch (error: any) {
@@ -1749,7 +1754,7 @@ export const getTeachers = async (): Promise<User[]> => {
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Handle specific error cases
       if (error.response.status === 401) {
         throw new Error('Authentication failed. Please log in again.');
@@ -1766,7 +1771,7 @@ export const getAllClasses = async (): Promise<Class[]> => {
   try {
     // Use the configured apiClient which automatically includes auth headers
     const response = await apiClient.get('/classes/');
-    
+
     // Return the classes data
     return response.data;
   } catch (error: any) {
@@ -1774,7 +1779,7 @@ export const getAllClasses = async (): Promise<Class[]> => {
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Handle specific error cases
       if (error.response.status === 401) {
         throw new Error('Authentication failed. Please log in again.');
@@ -1787,15 +1792,15 @@ export const getAllClasses = async (): Promise<Class[]> => {
 };
 
 // Get classes for the current teacher with metrics (Teacher-specific endpoint) - UPDATED
-export const getTeacherClasses = async (): Promise<{classes: Class[], metrics: {total_classes: number, total_students: number}}> => {
+export const getTeacherClasses = async (): Promise<{ classes: Class[], metrics: { total_classes: number, total_students: number } }> => {
   try {
     // Use teacher-specific endpoint with metrics
     const response = await apiClient.get('/teachers/me/classes');
-    
+
     // Check if the API returns student_count in each class
     let classesWithStudentCount = response.data.classes || [];
     let totalStudents = response.data.metrics?.total_students || 0;
-    
+
     // If API doesn't provide student count, we need to calculate it ourselves
     if (totalStudents === 0 && classesWithStudentCount.length > 0) {
       // We need to get student count for each class individually
@@ -1818,11 +1823,11 @@ export const getTeacherClasses = async (): Promise<{classes: Class[], metrics: {
           }
         })
       );
-      
+
       classesWithStudentCount = classesWithCounts;
       totalStudents = classesWithCounts.reduce((sum, classItem) => sum + (classItem.student_count || 0), 0);
     }
-    
+
     return {
       classes: classesWithStudentCount,
       metrics: {
@@ -1929,7 +1934,7 @@ export const getStudentSchedule = async (): Promise<ScheduleEnrichedResponse[]> 
 export const getStudentClassesAll = async (): Promise<StudentClass[]> => {
   try {
     const response = await apiClient.get('/classes/student/');
-    
+
     // Transform the response to ensure all required fields exist
     const classes = response.data.map((classData: any) => ({
       id: classData.id,
@@ -1941,7 +1946,7 @@ export const getStudentClassesAll = async (): Promise<StudentClass[]> => {
       created_at: classData.created_at || new Date().toISOString(),
       student_count: classData.student_count || 0 // Add student count
     }));
-    
+
     return classes;
   } catch (error: any) {
     console.error('Error fetching student classes:', error);
@@ -1964,7 +1969,7 @@ export const getStudentClassesAll = async (): Promise<StudentClass[]> => {
 export const getStudentAssignmentsAll = async (): Promise<StudentAssignment[]> => {
   try {
     const response = await apiClient.get('/assignments/student/');
-    
+
     // Transform the response to ensure all required fields exist
     const assignments = response.data.map((assignment: any) => ({
       id: assignment.id,
@@ -1977,7 +1982,7 @@ export const getStudentAssignmentsAll = async (): Promise<StudentAssignment[]> =
       creator_id: assignment.creator_id || 0,
       created_at: assignment.created_at || new Date().toISOString()
     }));
-    
+
     return assignments;
   } catch (error: any) {
     console.error('Error fetching student assignments:', error);
@@ -2042,27 +2047,27 @@ export const createUserByAdmin = async (userData: UserCreate): Promise<User> => 
   try {
     // Use the configured apiClient which automatically includes auth headers
     const response = await apiClient.post('/users/create', userData);
-    
+
     // Return the created user data
     return response.data;
   } catch (error: any) {
     console.error('Failed to create user:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'User creation failed. Please check the input and try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2070,7 +2075,7 @@ export const createUserByAdmin = async (userData: UserCreate): Promise<User> => 
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2081,15 +2086,15 @@ export const createUserByAdmin = async (userData: UserCreate): Promise<User> => 
       } else if (error.response.status === 422) {
         errorMessage = errorMessage || 'Invalid request data. Please check all fields.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('User creation failed. Please try again.');
   }
@@ -2100,27 +2105,27 @@ export const updateUserByAdmin = async (userId: number, updateData: UserUpdate):
   try {
     // Use the configured apiClient which automatically includes auth headers
     const response = await apiClient.patch(`/users/${userId}`, updateData);
-    
+
     // Return the updated user data
     return response.data;
   } catch (error: any) {
     console.error('Failed to update user:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'User update failed. Please check the input and try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2128,7 +2133,7 @@ export const updateUserByAdmin = async (userId: number, updateData: UserUpdate):
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2141,15 +2146,15 @@ export const updateUserByAdmin = async (userId: number, updateData: UserUpdate):
       } else if (error.response.status === 422) {
         errorMessage = errorMessage || 'Invalid request data. Please check all fields.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('User update failed. Please try again.');
   }
@@ -2160,27 +2165,27 @@ export const deleteUserByAdmin = async (userId: number): Promise<{ message: stri
   try {
     // Use the configured apiClient which automatically includes auth headers
     const response = await apiClient.delete(`/users/${userId}`);
-    
+
     // Return the success message
     return response.data;
   } catch (error: any) {
     console.error('Failed to delete user:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'User deletion failed. Please try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2188,7 +2193,7 @@ export const deleteUserByAdmin = async (userId: number): Promise<{ message: stri
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2199,15 +2204,15 @@ export const deleteUserByAdmin = async (userId: number): Promise<{ message: stri
       } else if (error.response.status === 500) {
         errorMessage = 'Server error. Please try again later.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('User deletion failed. Please try again.');
   }
@@ -2223,27 +2228,27 @@ export const createClass = async (classData: ClassCreate): Promise<Class> => {
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`
       }
     });
-    
+
     // Return the created class data
     return response.data;
   } catch (error: any) {
     console.error('Failed to create class:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'Class creation failed. Please check the input and try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2251,7 +2256,7 @@ export const createClass = async (classData: ClassCreate): Promise<Class> => {
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2262,15 +2267,15 @@ export const createClass = async (classData: ClassCreate): Promise<Class> => {
       } else if (error.response.status === 422) {
         errorMessage = errorMessage || 'Invalid request data. Please check all fields.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('Class creation failed. Please try again.');
   }
@@ -2286,27 +2291,27 @@ export const updateClass = async (classId: number, updateData: ClassUpdate): Pro
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`
       }
     });
-    
+
     // Return the updated class data
     return response.data;
   } catch (error: any) {
     console.error('Failed to update class:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'Class update failed. Please check the input and try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2314,7 +2319,7 @@ export const updateClass = async (classId: number, updateData: ClassUpdate): Pro
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2327,15 +2332,15 @@ export const updateClass = async (classId: number, updateData: ClassUpdate): Pro
       } else if (error.response.status === 422) {
         errorMessage = errorMessage || 'Invalid request data. Please check all fields.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('Class update failed. Please try again.');
   }
@@ -2350,27 +2355,27 @@ export const deleteClass = async (classId: number): Promise<{ message: string }>
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`
       }
     });
-    
+
     // Return the success message
     return response.data;
   } catch (error: any) {
     console.error('Failed to delete class:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'Class deletion failed. Please try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2378,7 +2383,7 @@ export const deleteClass = async (classId: number): Promise<{ message: string }>
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2389,15 +2394,15 @@ export const deleteClass = async (classId: number): Promise<{ message: string }>
       } else if (error.response.status === 500) {
         errorMessage = 'Server error. Please try again later.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('Class deletion failed. Please try again.');
   }
@@ -2409,16 +2414,16 @@ export const exportAllClasses = async (): Promise<Class[]> => {
     // Explicitly define the backend URL
     const BACKEND_URL = 'http://localhost:8000';
     const endpoint = `${BACKEND_URL}/exports/classes/all`;
-    
+
     console.log('exportAllClasses: Starting API call to:', endpoint);
     console.log('exportAllClasses: Auth token:', localStorage.getItem('authToken') ? 'Present' : 'Missing');
-    
+
     // Get the auth token
     const token = localStorage.getItem('authToken');
     if (!token) {
       throw new Error('No authentication token found. Please log in again.');
     }
-    
+
     // Make explicit request with full URL and auth header
     const response = await axios.get(endpoint, {
       headers: {
@@ -2426,29 +2431,29 @@ export const exportAllClasses = async (): Promise<Class[]> => {
         'Content-Type': 'application/json'
       }
     });
-    
+
     console.log('exportAllClasses: API response received:', response.status, response.data);
-    
+
     // Return the classes data
     return response.data;
   } catch (error: any) {
     console.error('Failed to export classes:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'Failed to export classes data. Please try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2456,7 +2461,7 @@ export const exportAllClasses = async (): Promise<Class[]> => {
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2465,10 +2470,10 @@ export const exportAllClasses = async (): Promise<Class[]> => {
       } else if (error.response.status === 500) {
         errorMessage = 'Server error. Please try again later.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       console.error('Network request details:', error.request);
@@ -2477,7 +2482,7 @@ export const exportAllClasses = async (): Promise<Class[]> => {
       console.error('Request headers:', error.config?.headers);
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('Failed to export classes data. Please try again.');
   }
@@ -2488,27 +2493,27 @@ export const updateClassByAdmin = async (classId: number, updateData: ClassUpdat
   try {
     // Use the configured apiClient which automatically includes auth headers
     const response = await apiClient.patch(`/classes/${classId}`, updateData);
-    
+
     // Return the updated class data
     return response.data;
   } catch (error: any) {
     console.error('Failed to update class:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'Class update failed. Please check the input and try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2516,7 +2521,7 @@ export const updateClassByAdmin = async (classId: number, updateData: ClassUpdat
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2529,15 +2534,15 @@ export const updateClassByAdmin = async (classId: number, updateData: ClassUpdat
       } else if (error.response.status === 422) {
         errorMessage = errorMessage || 'Invalid request data. Please check all fields.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('Class update failed. Please try again.');
   }
@@ -2548,27 +2553,27 @@ export const deleteClassByAdmin = async (classId: number): Promise<{ message: st
   try {
     // Use the configured apiClient which automatically includes auth headers
     const response = await apiClient.delete(`/classes/${classId}`);
-    
+
     // Return the success message
     return response.data;
   } catch (error: any) {
     console.error('Failed to delete class:', error);
-    
+
     // Handle Axios error response
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
-      
+
       // Extract error message from response
       let errorMessage = 'Class deletion failed. Please try again.';
-      
+
       if (error.response.data?.detail) {
         // Handle different types of detail responses
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
           // Handle validation error arrays
-          errorMessage = error.response.data.detail.map((err: any) => 
+          errorMessage = error.response.data.detail.map((err: any) =>
             `${err.loc?.join('.') || 'Field'}: ${err.msg || err.type || 'Invalid value'}`
           ).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
@@ -2576,7 +2581,7 @@ export const deleteClassByAdmin = async (classId: number): Promise<{ message: st
           errorMessage = JSON.stringify(error.response.data.detail);
         }
       }
-      
+
       // Handle specific status codes
       if (error.response.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
@@ -2587,15 +2592,15 @@ export const deleteClassByAdmin = async (classId: number): Promise<{ message: st
       } else if (error.response.status === 500) {
         errorMessage = 'Server error. Please try again later.';
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     // Handle network or other errors
     if (error.request) {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    
+
     // Handle other errors
     throw new Error('Class deletion failed. Please try again.');
   }
@@ -2636,19 +2641,19 @@ export const authService = {
       const formData = new URLSearchParams();
       formData.append('username', credentials.email);
       formData.append('password', credentials.password);
-      
+
       const response = await axios.post(`${API_BASE_URL}/token`, formData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
         },
       });
-      
+
       const token = response.data.access_token;
-      
+
       // Store token in localStorage
       localStorage.setItem('authToken', token);
-      
+
       // Return simplified response
       return { token, user: { id: '1', email: credentials.email } };
     } catch (error) {
@@ -2666,10 +2671,10 @@ export const authService = {
     try {
       const response = await apiClient.post('/auth/register', userData);
       const { token, user } = response.data;
-      
+
       // Store token in localStorage
       localStorage.setItem('authToken', token);
-      
+
       return { token, user };
     } catch (error) {
       console.error('Registration failed:', error);
@@ -2697,7 +2702,7 @@ export const authService = {
   // Get user profile (assumes GET /users/me endpoint exists)
   async getUserProfile(): Promise<any> {
     try {
-      const response = await apiClient.get('/users/me');
+      const response = await apiClient.get('/api/users/me');
       return response.data;
     } catch (error) {
       console.error('Failed to get user profile:', error);
@@ -2711,7 +2716,7 @@ export const authService = {
     new_password: string;
   }): Promise<any> {
     try {
-      const response = await apiClient.put('/users/change-password', passwordData);
+      const response = await apiClient.put('/api/users/change-password', passwordData);
       return response.data;
     } catch (error) {
       console.error('Failed to change password:', error);
@@ -2762,7 +2767,7 @@ export const authService = {
   // Get current user profile
   async getCurrentUserProfile(): Promise<any> {
     try {
-      const response = await apiClient.get('/users/me');
+      const response = await apiClient.get('/api/users/me');
       return response.data;
     } catch (error) {
       console.error('Failed to get user profile:', error);
@@ -2776,7 +2781,7 @@ export const authService = {
     last_name?: string;
   }): Promise<any> {
     try {
-      const response = await apiClient.put('/users/me', profileData);
+      const response = await apiClient.put('/api/users/me', profileData);
       return response.data;
     } catch (error) {
       console.error('Failed to update user profile:', error);
@@ -2789,8 +2794,8 @@ export const authService = {
     try {
       const formData = new FormData();
       formData.append('photo', photoFile);
-      
-      const response = await apiClient.post('/users/me/photo', formData, {
+
+      const response = await apiClient.post('/api/users/me/photo', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -2859,7 +2864,7 @@ export const authService = {
   },
 
   // Teacher-specific functions
-  async getTeacherClasses(): Promise<{classes: Class[], metrics: {total_classes: number, total_students: number}}> {
+  async getTeacherClasses(): Promise<{ classes: Class[], metrics: { total_classes: number, total_students: number } }> {
     return getTeacherClasses();
   },
 
@@ -2963,8 +2968,8 @@ export const authService = {
   async reportStudentViolation(
     assignmentId: number,
     violationData: {
-      violation_type: 'tab_switch' | 'app_switch' | 'rapid_completion' | 'paste_detected' | 
-                      'suspicious_activity' | 'excessive_inactivity' | 'ai_content_detected';
+      violation_type: 'tab_switch' | 'app_switch' | 'rapid_completion' | 'paste_detected' |
+      'suspicious_activity' | 'excessive_inactivity' | 'ai_content_detected';
       description: string;
       time_away_seconds: number;
       severity: 'low' | 'medium' | 'high';
