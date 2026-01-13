@@ -4,10 +4,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# Get database URL from environment variable (with default fallback)
+# Get database URL from environment
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://postgres:Jacob26@localhost/postgres"
@@ -37,10 +37,7 @@ def get_db():
 
 # Migration function to add missing columns
 def run_migrations():
-    """
-    Run database migrations to add missing columns to existing tables.
-    This is safe to run multiple times as it uses IF NOT EXISTS.
-    """
+    # Migration SQL commands
     migration_sql = [
         # Add missing columns to submissions table
         # FIXED: PostgreSQL requires separate ALTER TABLE statements for each column
@@ -82,7 +79,7 @@ def run_migrations():
         END $$;
         """,
         
-        # Create violations table if not exists - FIXED WITH PROPER FOREIGN KEYS
+        # Create violations table if not exists
         """
         CREATE TABLE IF NOT EXISTS violations (
             id SERIAL PRIMARY KEY,
@@ -101,7 +98,7 @@ def run_migrations():
         );
         """,
         
-        # Create index for faster queries on violations
+        # Create indexes for faster queries
         """
         CREATE INDEX IF NOT EXISTS idx_violations_student_id ON violations(student_id);
         """,
@@ -144,13 +141,13 @@ def run_migrations():
         ADD COLUMN IF NOT EXISTS author_id INTEGER REFERENCES users(id);
         """,
         
-        # Add email to users table if not exists (for backward compatibility)
+        # Add email to users table if not exists
         """
         ALTER TABLE users 
         ADD COLUMN IF NOT EXISTS email VARCHAR(255);
         """,
         
-        # Add unique constraint to violations to prevent duplicates (optional)
+        # Add unique constraint to violations (optional)
         """
         DO $$
         BEGIN
@@ -180,11 +177,10 @@ def run_migrations():
         print(f"❌ Error running migrations: {e}")
         raise
 
-# Check if we need to run migrations - FIXED TO CHECK VIOLATIONS TABLE AND SUBMISSIONS COLUMNS
+# Check if we need to run migrations - FIXED TO CHECK VIOLATIONS TABLE
 def check_and_run_migrations():
     """
-    Check if the violations table exists and submissions table has all required columns.
-    If not, run migrations.
+    Check if the violations table exists, if not run migrations.
     """
     try:
         with engine.connect() as conn:
@@ -202,68 +198,32 @@ def check_and_run_migrations():
             
             if not table_exists:
                 print("⚠️  Violations table not found, running migrations...")
-                needs_migration = True
-            else:
-                # Check if violations table has required columns
-                result = conn.execute(text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = 'violations' 
-                    AND column_name IN ('student_id', 'assignment_id', 'violation_type')
-                """))
-                
-                columns = result.fetchall()
-                
-                if len(columns) < 3:
-                    print("⚠️  Violations table missing required columns, running migrations...")
-                    needs_migration = True
+                run_migrations()
+                return
             
-            # CRITICAL FIX: Check if submissions table has the content column
-            # This prevents errors when deleting users with submissions
-            if not needs_migration:
-                result = conn.execute(text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = 'submissions' 
-                    AND column_name = 'content'
-                """))
-                
-                content_column_exists = result.first() is not None
-                
-                if not content_column_exists:
-                    print("⚠️  Submissions table missing 'content' column, running migrations...")
-                    needs_migration = True
-                else:
-                    # Also check other required columns
-                    result = conn.execute(text("""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_name = 'submissions' 
-                        AND column_name IN ('file_path', 'file_name', 'link_url', 'feedback')
-                    """))
-                    
-                    submission_columns = result.fetchall()
-                    
-                    if len(submission_columns) < 4:
-                        print("⚠️  Submissions table missing required columns, running migrations...")
-                        needs_migration = True
+            # Also check if violations table has required columns
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'violations' 
+                AND column_name IN ('student_id', 'assignment_id', 'violation_type')
+            """))
             
-            if needs_migration:
+            columns = result.fetchall()
+            
+            if len(columns) < 3:
+                print("⚠️  Violations table missing required columns, running migrations...")
                 run_migrations()
             else:
                 print("✅ Database schema is up to date")
                 
     except Exception as e:
         print(f"❌ Error checking database schema: {e}")
-        # Table might not exist yet, which is OK - run migrations
         print("⚠️  Running migrations due to error...")
         run_migrations()
 
 # Function to recreate all tables (WARNING: Drops all data!)
 def recreate_tables():
-    """
-    Drops and recreates all tables. Use with caution!
-    """
     print("⚠️  WARNING: This will DROP ALL TABLES and recreate them!")
     print("⚠️  ALL DATA WILL BE LOST!")
     confirmation = input("Type 'YES-DROP-ALL' to continue: ")
@@ -288,9 +248,6 @@ def recreate_tables():
 
 # Function to reset violations table only (safer)
 def reset_violations_table():
-    """
-    Reset only the violations table (keeps other data).
-    """
     print("⚠️  WARNING: This will reset the violations table!")
     confirmation = input("Type 'RESET-VIOLATIONS' to continue: ")
     
@@ -336,9 +293,6 @@ def reset_violations_table():
 
 # Function to check database connection
 def check_database_connection():
-    """
-    Check if database connection is working.
-    """
     try:
         with engine.connect() as conn:
             result = conn.execute(text("SELECT version();"))
@@ -405,9 +359,6 @@ def create_database_if_not_exists():
 
 # Function to list all tables
 def list_tables():
-    """
-    List all tables in the database.
-    """
     try:
         with engine.connect() as conn:
             result = conn.execute(text("""
@@ -428,9 +379,6 @@ def list_tables():
 
 # Function to describe violations table
 def describe_violations_table():
-    """
-    Show the structure of the violations table.
-    """
     try:
         with engine.connect() as conn:
             result = conn.execute(text("""
@@ -451,9 +399,6 @@ def describe_violations_table():
 
 # Function to check for missing foreign keys
 def check_foreign_keys():
-    """
-    Check if all foreign key relationships are properly set up.
-    """
     try:
         with engine.connect() as conn:
             result = conn.execute(text("""
@@ -483,9 +428,6 @@ def check_foreign_keys():
 
 # Function to get violations count
 def get_violations_count():
-    """
-    Get total number of violations in the database.
-    """
     try:
         with engine.connect() as conn:
             result = conn.execute(text("SELECT COUNT(*) FROM violations;"))
@@ -498,9 +440,6 @@ def get_violations_count():
 
 # Quick test function
 def test_database_setup():
-    """
-    Run a complete test of the database setup.
-    """
     print("🧪 Testing database setup...")
     
     # Test connection
@@ -528,12 +467,14 @@ def test_database_setup():
     print("✅ Database test completed successfully!")
     return True
 
-# If this file is run directly, test the database setup
+# If this file is run directly
 if __name__ == "__main__":
     print("🚀 Database Configuration Script")
     print("=" * 50)
     
-    print(f"📊 Database URL: {DATABASE_URL.replace('allen14', '******')}")
+    # Hide password in display
+    display_url = DATABASE_URL.replace('allen14', '******')
+    print(f"📊 Database URL: {display_url}")
     
     # Check connection
     check_database_connection()

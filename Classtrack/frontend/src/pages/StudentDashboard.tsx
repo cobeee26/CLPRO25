@@ -9,6 +9,7 @@ import Swal from 'sweetalert2';
 
 const API_BASE_URL = "http://localhost:8000";
 
+// Axios instance configuration with interceptors
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -161,6 +162,10 @@ const StudentDashboard: React.FC = () => {
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
 
+  const handleJoinClass = () => {
+    navigate('/student/classes');
+  };
+
   const swalConfig = {
     customClass: {
       title: 'text-lg font-bold text-gray-900',
@@ -173,6 +178,7 @@ const StudentDashboard: React.FC = () => {
     background: '#ffffff'
   };
 
+  // IMPORTANT: Alert system configuration for different types of notifications
   const showSuccessAlert = (
     title: string,
     text: string = '',
@@ -351,6 +357,7 @@ const StudentDashboard: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // IMPORTANT: Scroll indicator handlers for better UX
   const handleScheduleScroll = () => {
     if (scheduleScrollRef.current) {
       const { scrollTop } = scheduleScrollRef.current;
@@ -384,6 +391,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Helper function to properly format profile image URLs
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -492,6 +500,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Logout handler with confirmation dialog
   const handleLogout = async () => {
     const result = await showConfirmDialog(
       'Confirm Logout',
@@ -520,39 +529,7 @@ const StudentDashboard: React.FC = () => {
     navigate("/student/classes");
   };
 
-  const handleJoinClass = async () => {
-    const { value: response } = await Swal.fire({
-      title: 'Join a Class',
-      input: 'text',
-      inputLabel: 'Enter the 6-character Join Code (from Teacher)',
-      inputPlaceholder: 'e.g. QDD88D',
-      showCancelButton: true,
-      confirmButtonText: 'Join',
-      showLoaderOnConfirm: true,
-      confirmButtonColor: '#3B82F6',
-      preConfirm: async (code) => {
-        if (!code) {
-          Swal.showValidationMessage('Please enter a code');
-          return false;
-        }
-        try {
-          const response = await apiClient.post('/api/enroll/join-by-code', { code });
-          return response.data;
-        } catch (error: any) {
-          Swal.showValidationMessage(
-            `Request failed: ${error.response?.data?.detail || error.message}`
-          );
-        }
-      },
-      allowOutsideClick: () => !Swal.isLoading()
-    });
-
-    if (response) {
-      await showSuccessAlert('Enrolled!', response.message || `You have successfully joined the class.`);
-      loadStudentData();
-    }
-  };
-
+  // IMPORTANT: Authentication check on component mount
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     const userRole = localStorage.getItem("userRole");
@@ -572,6 +549,7 @@ const StudentDashboard: React.FC = () => {
     setLoadingProgress(progress);
   };
 
+  // IMPORTANT: Load student submissions with multiple API endpoint fallbacks
   const loadStudentSubmissions = async () => {
     try {
       console.log("📥 Loading student submissions...");
@@ -584,14 +562,14 @@ const StudentDashboard: React.FC = () => {
       }
 
       try {
-
+        // Try to get assignments first
         const assignmentsResponse = await apiClient.get("/assignments/student/");
         const assignmentsData = assignmentsResponse.data || [];
         console.log('📝 Total assignments found:', assignmentsData.length);
 
         for (const assignment of assignmentsData) {
           try {
-
+            // Try first endpoint
             try {
               const response = await apiClient.get(`/assignments/${assignment.id}/submissions/my`);
               console.log(`✅ Found submission for assignment ${assignment.id}:`, response.data);
@@ -610,8 +588,8 @@ const StudentDashboard: React.FC = () => {
             } catch (firstError: any) {
               console.log(`❌ First endpoint failed for assignment ${assignment.id}:`, firstError.message);
 
+              // Try alternative endpoint
               try {
-
                 const response = await apiClient.get(`/assignments/${assignment.id}/submissions`);
                 console.log(`✅ Found submission (alternative) for assignment ${assignment.id}`);
                 if (response.data && Array.isArray(response.data)) {
@@ -663,6 +641,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Main data loading function with progress tracking
   const loadStudentData = async () => {
     try {
       console.log("🔄 Loading student data...");
@@ -674,7 +653,7 @@ const StudentDashboard: React.FC = () => {
       await loadStudentClasses();
 
       updateLoadingProgress(2, 5);
-
+      // Load submissions before assignments to enhance assignment data
       const submissions = await loadStudentSubmissions();
       console.log("📥 Loaded submissions:", submissions);
       setStudentSubmissions(submissions);
@@ -760,6 +739,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Load assignments and enhance with submission data
   const loadStudentAssignments = async (): Promise<Assignment[]> => {
     try {
       console.log("📝 Loading assignments for student from API...");
@@ -772,7 +752,7 @@ const StudentDashboard: React.FC = () => {
 
         if (response.status === 200 && Array.isArray(response.data)) {
           assignmentsData = response.data.map((assignment: any) => {
-
+            // Find submission for this assignment
             const submission = studentSubmissions.find(sub => sub.assignment_id === assignment.id);
 
             let submissionStatus: 'not_started' | 'submitted' | 'graded' | 'late' = 'not_started';
@@ -885,6 +865,7 @@ const StudentDashboard: React.FC = () => {
         if (response.status === 200) {
           let schedulesArray: any[] = [];
 
+          // IMPORTANT: Handle different API response structures
           if (Array.isArray(response.data)) {
             schedulesArray = response.data;
           } else if (
@@ -994,6 +975,7 @@ const StudentDashboard: React.FC = () => {
       } catch (error: any) {
         console.error("❌ Error loading schedules from API:", error.message);
 
+        // IMPORTANT: Fallback to mock data if API fails
         const mockSchedules: ScheduleItem[] = [
           {
             id: 1,
@@ -1082,6 +1064,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Update assignments when submissions are loaded
   useEffect(() => {
     if (studentSubmissions.length > 0 && assignments.length > 0) {
       console.log("🔄 Updating assignments with submission status...");
@@ -1117,6 +1100,7 @@ const StudentDashboard: React.FC = () => {
     }
   }, [studentSubmissions]);
 
+  // IMPORTANT: Auto-refresh and storage change listeners
   useEffect(() => {
     if (isInitialLoading) return;
 
@@ -1344,6 +1328,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Form validation for room reports
   const validateRoomReportForm = (): boolean => {
     const errors: { [key: string]: string } = {};
 
@@ -1380,6 +1365,7 @@ const StudentDashboard: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // IMPORTANT: Room report submission handler
   const handleSubmitRoomReport = async () => {
     if (!validateRoomReportForm() || !user) {
       return;
@@ -1477,6 +1463,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Auto-enrich assignments when classes are loaded
   useEffect(() => {
     if (classes.length > 0 && !isInitialLoading) {
       console.log("🔄 Classes loaded, automatically enriching assignments...");

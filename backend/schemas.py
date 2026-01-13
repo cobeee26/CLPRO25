@@ -5,9 +5,6 @@ from datetime import datetime
 class ClassExport(BaseModel):
     """
     Export schema for Class data without relationships.
-    
-    This schema is specifically designed for CSV export and API responses
-    that don't need the full Class model with its relationships.
     """
     id: int
     name: str
@@ -54,7 +51,6 @@ class Submission(SubmissionBase):
     model_config = {"from_attributes": True}
 
 class SubmissionResponse(BaseModel):
-    """Response schema for Submission data"""
     id: int
     assignment_id: int
     student_id: int

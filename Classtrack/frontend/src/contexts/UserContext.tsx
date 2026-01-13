@@ -21,6 +21,7 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+// Custom hook to access user context
 export const useUser = () => {
   const context = useContext(UserContext);
   if (context === undefined) {
@@ -38,7 +39,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUser = async (): Promise<User | null> => {
+  // Fetches user data from backend using auth token
+  const fetchUser = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -73,7 +75,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         data: err.response?.data,
         message: err.message
       });
-
+      
+      // Handle different error responses
       if (err.response?.status === 401) {
         console.log('🔑 Token is invalid (401), clearing and redirecting to login');
         localStorage.removeItem('authToken');
@@ -95,23 +98,28 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   };
 
+  // Refreshes user data from server
   const refreshUser = async () => {
     await fetchUser();
   };
 
-  const fetchCurrentUser = async (): Promise<User | null> => {
+  // Public method to manually fetch user data
+  const fetchCurrentUser = async () => {
     console.log('🔄 Manual fetchCurrentUser called');
     return await fetchUser();
   };
 
+  // Updates user data in context (for local updates)
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
   };
 
+  // Fetches user on component mount
   useEffect(() => {
     fetchUser();
   }, []);
 
+  // Listens for storage changes and token updates
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'authToken') {
@@ -128,7 +136,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     window.addEventListener('storage', handleStorageChange);
 
-
+    // Refetch user if token exists but user data is missing
+    const token = localStorage.getItem('authToken');
+    if (token && !user) {
+      console.log('🔑 Token exists but no user data, refreshing...');
+      fetchUser();
+    }
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);

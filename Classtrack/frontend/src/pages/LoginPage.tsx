@@ -3,7 +3,7 @@ import LoginForm from "../components/LoginForm";
 import loginBg from "../assets/images/PLMUNBG.jpg";
 import plmunLogo from "../assets/images/PLMUNlogo.png";
 
-// Developer data - Updated structure
+// Developer data
 const developers = [
   {
     id: 1,
@@ -140,24 +140,6 @@ const ShieldIcon = () => (
   </svg>
 );
 
-const ChatBotIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className="w-5 h-5"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-    <path d="M8 10h.01"></path>
-    <path d="M12 10h.01"></path>
-    <path d="M16 10h.01"></path>
-  </svg>
-);
-
 const EyeIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -220,7 +202,6 @@ const LoginPage: React.FC = () => {
     };
   }, [isTeamModalOpen]);
 
-  // Get color classes based on color name
   const getColorClasses = (color: string) => {
     switch (color) {
       case "green":
@@ -272,23 +253,26 @@ const LoginPage: React.FC = () => {
         {/* Team Button */}
         <button
           onClick={openTeamModal}
-          className="fixed right-4 sm:right-6 top-4 sm:top-6 z-30 flex items-center gap-2 bg-slate-800/90 hover:bg-slate-700/90 backdrop-blur-sm text-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-700/50 group cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+          className="fixed right-4 sm:right-6 top-4 sm:top-6 z-30 flex items-center gap-2 bg-slate-800/90 hover:bg-slate-700/90 backdrop-blur-sm text-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-700/50 group cursor-pointer hover:-translate-y-0.5"
           aria-label="View development team information"
         >
           <UsersIcon />
           <span className="font-semibold text-sm">Team</span>
         </button>
 
+        {/* Background Overlay */}
         <div
           className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-slate-900/50 to-slate-900/70"
           aria-hidden="true"
         ></div>
 
+        {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
           <div className="absolute -top-20 -right-20 w-40 h-40 sm:w-64 sm:h-64 bg-red-500/10 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute -bottom-20 -left-20 w-40 h-40 sm:w-64 sm:h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
         </div>
 
+        {/* Main Login Container */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full px-4 py-8 sm:px-6 md:px-8">
           <div
             className="w-full max-w-sm sm:max-w-md bg-slate-800/85 backdrop-blur-lg rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-700/30 transition-all duration-300 hover:shadow-2xl"
@@ -296,6 +280,7 @@ const LoginPage: React.FC = () => {
             aria-labelledby="login-heading"
             aria-describedby="login-description"
           >
+            {/* Logo Header */}
             <header className="flex justify-center mb-6">
               <div className="relative">
                 <div className="absolute inset-0 bg-green-500/20 rounded-full blur-lg scale-110"></div>
@@ -307,6 +292,7 @@ const LoginPage: React.FC = () => {
               </div>
             </header>
 
+            {/* Title Section */}
             <section className="text-center mb-8">
               <h1
                 id="login-heading"
@@ -326,6 +312,7 @@ const LoginPage: React.FC = () => {
               </p>
             </section>
 
+            {/* Login Form */}
             <section
               role="form"
               aria-label="User Authentication Form"
@@ -334,6 +321,7 @@ const LoginPage: React.FC = () => {
               <LoginForm />
             </section>
 
+            {/* Footer */}
             <footer className="text-center space-y-3">
               <div className="flex items-center justify-center gap-2 text-slate-400">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -351,6 +339,7 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Skip to Login Form (Accessibility) */}
         <a
           href="#login-heading"
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-red-600 text-white px-4 py-2 rounded-xl z-50 shadow-lg hover:bg-red-700 transition-colors"
@@ -383,7 +372,7 @@ const LoginPage: React.FC = () => {
               {/* Close Button */}
               <button
                 onClick={closeTeamModal}
-                className="absolute right-4 top-4 z-10 p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white transition-colors cursor-pointer hover:scale-110 active:scale-95"
+                className="absolute right-4 top-4 z-10 p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white transition-colors cursor-pointer hover:scale-110"
                 aria-label="Close team modal"
                 title="Close"
               >
@@ -408,7 +397,7 @@ const LoginPage: React.FC = () => {
                   </p>
                 </header>
 
-                {/* Thesis Description */}
+                {/* System Description */}
                 <section className="mb-8">
                   <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 rounded-2xl p-6 border border-slate-700/40 shadow-lg">
                     {/* Header with icon */}
@@ -430,7 +419,7 @@ const LoginPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Main content in a card layout */}
+                    {/* Main content */}
                     <div className="space-y-6">
                       {/* Introduction Card */}
                       <div className="bg-slate-800/40 rounded-xl p-5 border border-slate-700/30 hover:border-blue-500/30 transition-all duration-300">
@@ -444,12 +433,10 @@ const LoginPage: React.FC = () => {
                             </h4>
                             <p className="text-slate-300 text-sm leading-relaxed">
                               Classtrack Pro is an advanced digital classroom management 
-                              and academic integrity platform, developed by 4th-year 
-                              students as a thesis project for Pamantasan ng Lungsod ng 
-                              Muntinlupa. By leveraging artificial intelligence, it 
-                              provides educators with deep, real-time insights into 
-                              student engagement while fostering a culture of 
-                              accountability and genuine learning.
+                              and academic integrity platform developed by 4th-year 
+                              students for Pamantasan ng Lungsod ng Muntinlupa. It 
+                              provides educators with real-time insights into student 
+                              engagement while fostering accountability and genuine learning.
                             </p>
                           </div>
                         </div>
@@ -466,12 +453,9 @@ const LoginPage: React.FC = () => {
                               <span className="text-purple-400">Core Mission</span>
                             </h4>
                             <p className="text-slate-300 text-sm leading-relaxed">
-                              In an age where AI assistance is prevalent, Classtrack Pro 
-                              is designed to encourage academic honesty and motivate 
-                              students to put forth their personal best, ensuring their 
-                              achievements reflect their own diligence and understanding. 
-                              The system centers on a personalized academic dashboard 
-                              designed for clarity and efficiency.
+                              Designed to encourage academic honesty and motivate 
+                              students to achieve personal best. The system centers 
+                              on a personalized academic dashboard for clarity and efficiency.
                             </p>
                           </div>
                         </div>
@@ -488,7 +472,7 @@ const LoginPage: React.FC = () => {
                           <ul className="space-y-2 text-sm text-slate-300">
                             <li className="flex items-start gap-2">
                               <span className="text-cyan-400 mt-1">•</span>
-                              <span>Teacher's name, and assignment, subject, and unique class code display</span>
+                              <span>Teacher's name, assignments, subject, and unique class code display</span>
                             </li>
                             <li className="flex items-start gap-2">
                               <span className="text-cyan-400 mt-1">•</span>
@@ -519,14 +503,6 @@ const LoginPage: React.FC = () => {
                             <li className="flex items-start gap-2">
                               <span className="text-purple-400 mt-1">•</span>
                               <span>Provides information on schedules and announcements</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                              <span className="text-purple-400 mt-1">•</span>
-                              <span>Guides users through system features and navigation</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                              <span className="text-purple-400 mt-1">•</span>
-                              <span>Clarifies task requirements and platform usage</span>
                             </li>
                           </ul>
                         </div>
@@ -585,53 +561,14 @@ const LoginPage: React.FC = () => {
                           <div>
                             <h5 className="text-sm font-medium text-yellow-400 mb-2">Institutional Operations</h5>
                             <p className="text-sm text-slate-300 leading-relaxed">
-                              Real-time logging and verification of student-submitted cleaning reports. 
-                              Teachers can efficiently confirm room maintenance before vacating.
+                              Real-time logging and verification of student-submitted cleaning reports.
                             </p>
                           </div>
                           <div>
                             <h5 className="text-sm font-medium text-yellow-400 mb-2">Academic Management</h5>
                             <p className="text-sm text-slate-300 leading-relaxed">
-                              Centralized assignment management, submission portal, and automated 
-                              performance reporting with grade viewing capabilities.
+                              Centralized assignment management and automated performance reporting.
                             </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Security & Status */}
-                      <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 rounded-xl p-5 border border-slate-700/30">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
-                            <ShieldIcon />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                              <span className="text-red-400">System Status & Security</span>
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              <div className="bg-slate-900/40 rounded-lg p-3">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                  <span className="text-sm font-medium text-white">Server Status</span>
-                                </div>
-                                <p className="text-xs text-slate-400">All systems operational</p>
-                              </div>
-                              <div className="bg-slate-900/40 rounded-lg p-3">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                  <span className="text-sm font-medium text-white">AI Chatbot</span>
-                                </div>
-                                <p className="text-xs text-slate-400">24/7 Active Assistant</p>
-                              </div>
-                              <div className="bg-slate-900/40 rounded-lg p-3">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                                  <span className="text-sm font-medium text-white">Security Protocols</span>
-                                </div>
-                                <p className="text-xs text-slate-400">All protocols active & updated</p>
-                              </div>
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -642,12 +579,8 @@ const LoginPage: React.FC = () => {
                           Final Remarks
                         </h4>
                         <p className="text-slate-300 text-sm leading-relaxed text-center">
-                          By unifying intelligent integrity safeguards, real-time engagement insights, 
-                          automated reporting, and AI-driven support, Classtrack Pro does more than 
-                          streamline processes—it champions authentic education. It is designed to 
-                          cultivate a transparent, efficient, and effective academic ecosystem for 
-                          Pamantasan ng Lungsod ng Muntinlupa, where every student is motivated to 
-                          strive for excellence through their own hard work.
+                          Classtrack Pro champions authentic education by unifying intelligent 
+                          safeguards, engagement insights, automated reporting, and AI-driven support.
                         </p>
                       </div>
                     </div>
@@ -684,7 +617,6 @@ const LoginPage: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                              {/* Name with automatic line break */}
                               <h4 className="text-base font-bold text-white group-hover:text-green-300 transition-colors leading-tight break-words">
                                 {developer.name}
                               </h4>
@@ -698,8 +630,7 @@ const LoginPage: React.FC = () => {
                                   className={`text-xs font-semibold ${
                                     developer.teamRole === "Project Leader"
                                       ? "text-yellow-400 bg-yellow-500/20"
-                                      : developer.teamRole ===
-                                        "Assistant Leader"
+                                      : developer.teamRole === "Assistant Leader"
                                       ? "text-green-400 bg-green-500/20"
                                       : "text-blue-400 bg-blue-500/20"
                                   } px-2 py-1 rounded-full whitespace-nowrap`}
@@ -710,7 +641,7 @@ const LoginPage: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Content that pushes footer down */}
+                          {/* Content */}
                           <div className="flex-grow">
                             {/* Primary Role */}
                             <div className="mb-4">
@@ -809,8 +740,7 @@ const LoginPage: React.FC = () => {
                       Pamantasan ng Lungsod ng Muntinlupa
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      © 2025 Classtrack Pro Thesis Project - BS Information
-                      Technology
+                      © 2025 Classtrack Pro Thesis Project - BS Information Technology
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-3 mt-3">
                       <div className="flex items-center gap-1.5">
@@ -840,7 +770,7 @@ const LoginPage: React.FC = () => {
         </>
       )}
 
-      {/* Add custom animations */}
+      {/* Custom Animations */}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }

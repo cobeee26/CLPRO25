@@ -255,6 +255,7 @@ const UsersPage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Format date for display
   const formatDate = (dateString?: string): string => {
     if (!dateString) return 'N/A';
     
@@ -273,6 +274,7 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  // Generate realistic dates for demo data
   const generateRealisticDate = (userId: number, role: string, index: number): string => {
     const now = new Date();
     let daysAgo = 0;
@@ -292,11 +294,13 @@ const UsersPage: React.FC = () => {
     return date.toISOString();
   };
 
+  // Update loading progress indicator
   const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
     const progress = Math.floor((step / totalSteps) * 100);
     setLoadingProgress(progress);
   };
 
+  // Load all users data
   const loadUsersData = async () => {
     try {
       console.log("🔄 Loading users data...");
@@ -308,7 +312,6 @@ const UsersPage: React.FC = () => {
       await fetchUsers();
 
       updateLoadingProgress(2, 3);
-
       updateLoadingProgress(3, 3);
       
       setTimeout(() => {
@@ -326,6 +329,7 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  // Fetch users from API
   const fetchUsers = async () => {
     try {
       setLoadingProgress(25);
@@ -347,6 +351,7 @@ const UsersPage: React.FC = () => {
         };
       });
       
+      // Sort by most recent first
       transformedUsers.sort((a, b) => {
         const dateA = new Date(a.dateCreated || 0).getTime();
         const dateB = new Date(b.dateCreated || 0).getTime();
@@ -361,10 +366,12 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  // Initial data load
   useEffect(() => {
     loadUsersData();
   }, []);
 
+  // Scroll to top on mount and resize
   useEffect(() => {
     const handleResize = () => {
       window.scrollTo(0, 0);
@@ -390,6 +397,7 @@ const UsersPage: React.FC = () => {
     };
   }, []);
 
+  // Filter users based on search and role
   const filteredUsers = users.filter(user => {
     const matchesSearch = searchTerm === '' || 
                          user.username.toLowerCase().includes(searchTerm.toLowerCase());
@@ -414,6 +422,7 @@ const UsersPage: React.FC = () => {
     return matchesSearch && matchesRole;
   });
 
+  // Handle edit user button click
   const handleEditUser = (userId: number) => {
     const userToEdit = users.find(user => user.id === userId);
     if (userToEdit) {
@@ -428,6 +437,7 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  // Handle delete user button click
   const handleDeleteUser = (userId: number) => {
     const userToDelete = users.find(user => user.id === userId);
     if (userToDelete) {
@@ -437,6 +447,7 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  // Handle create user button click
   const handleCreateUser = () => {
     setIsModalOpen(true);
     setFormError(null);
@@ -447,6 +458,7 @@ const UsersPage: React.FC = () => {
     });
   };
 
+  // Close create user modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setFormError(null);
@@ -457,6 +469,7 @@ const UsersPage: React.FC = () => {
     });
   };
 
+  // Handle form submission for creating user
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -519,6 +532,7 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -527,6 +541,7 @@ const UsersPage: React.FC = () => {
     }));
   };
 
+  // Handle edit form input changes
   const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setEditFormData(prev => ({
@@ -535,6 +550,7 @@ const UsersPage: React.FC = () => {
     }));
   };
 
+  // Close edit modal
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
     setEditingUser(null);
@@ -546,12 +562,14 @@ const UsersPage: React.FC = () => {
     });
   };
 
+  // Close delete modal
   const handleCloseDeleteModal = () => {
     setIsDeleteModalOpen(false);
     setDeletingUser(null);
     setDeleteError(null);
   };
 
+  // Handle delete confirmation
   const handleConfirmDelete = async () => {
     if (!deletingUser) return;
     
@@ -621,6 +639,7 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  // Handle edit form submission
   const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditFormLoading(true);
@@ -690,6 +709,7 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  // Loading state display
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -771,6 +791,7 @@ const UsersPage: React.FC = () => {
     );
   }
 
+  // Error state display
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1212,6 +1233,7 @@ const UsersPage: React.FC = () => {
         </main>
       </div>
 
+      {/* Create User Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-md mx-auto">
@@ -1329,6 +1351,7 @@ const UsersPage: React.FC = () => {
         </div>
       )}
 
+      {/* Edit User Modal */}
       {isEditModalOpen && editingUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-md mx-auto">
@@ -1446,6 +1469,7 @@ const UsersPage: React.FC = () => {
         </div>
       )}
 
+      {/* Delete User Modal */}
       {isDeleteModalOpen && deletingUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-md mx-auto">

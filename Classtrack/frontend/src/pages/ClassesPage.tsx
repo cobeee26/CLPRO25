@@ -61,7 +61,7 @@ const ClassesPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [editFormError, setEditFormError] = useState<string | null>(null);
 
-  // Color palette for classroom cards (Google Classroom inspired)
+  // Color palette for classroom cards
   const classColors = [
     { bg: 'bg-gradient-to-br from-blue-500 to-blue-600', text: 'text-white', icon: 'text-blue-100' },
     { bg: 'bg-gradient-to-br from-green-500 to-green-600', text: 'text-white', icon: 'text-green-100' },
@@ -77,6 +77,7 @@ const ClassesPage: React.FC = () => {
     return classColors[index % classColors.length];
   };
 
+  // Alert configuration
   const swalConfig = {
     customClass: {
       title: 'text-lg font-bold text-gray-900',
@@ -247,6 +248,7 @@ const ClassesPage: React.FC = () => {
     setLoadingProgress(progress);
   };
 
+  // Load teachers (admin only)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -254,7 +256,6 @@ const ClassesPage: React.FC = () => {
       try {
         if (currentUser.role === 'admin') {
           const apiTeachers = await getTeachers();
-          console.log('📋 Loaded teachers:', apiTeachers);
           setTeachers(apiTeachers as AppUser[]);
         }
       } catch (err) {
@@ -265,6 +266,7 @@ const ClassesPage: React.FC = () => {
     loadTeachers();
   }, [currentUser]);
 
+  // Load classes based on user role
   useEffect(() => {
     if (!currentUser) return;
 
@@ -280,11 +282,9 @@ const ClassesPage: React.FC = () => {
 
         if (currentUser.role === 'admin') {
           apiClasses = await getAllClasses();
-          console.log('📋 Admin fetched classes:', apiClasses);
         } else if (currentUser.role === 'teacher') {
           const teacherData = await getTeacherClasses();
           apiClasses = teacherData.classes || [];
-          console.log('📋 Teacher fetched classes:', apiClasses);
         } else {
           apiClasses = [];
         }
@@ -307,8 +307,7 @@ const ClassesPage: React.FC = () => {
         });
 
         setClasses(transformedClasses);
-        console.log('📋 Transformed classes:', transformedClasses);
-
+        
         setTimeout(() => {
           setIsInitialLoading(false);
           setLoadingProgress(100);
@@ -318,7 +317,7 @@ const ClassesPage: React.FC = () => {
         console.error('Failed to fetch classes:', err);
         setHasInitialLoadError(true);
         setIsInitialLoading(false);
-        showErrorAlert("Load Error", "Failed to load classes data. Please refresh the page.", true, 4000);
+        showErrorAlert("Load Error", "Failed to load classes data.", true, 4000);
       }
     };
 
@@ -391,12 +390,10 @@ const ClassesPage: React.FC = () => {
     (classItem.teacher_name && classItem.teacher_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Refresh class list
   const refreshClassList = async () => {
-    if (!currentUser) {
-      console.warn('⚠️  No user context available for refresh');
-      return;
-    }
-
+    if (!currentUser) return;
+    
     try {
       setIsInitialLoading(true);
 
@@ -430,12 +427,13 @@ const ClassesPage: React.FC = () => {
 
     } catch (err) {
       console.error('Failed to refresh class list:', err);
-      showErrorAlert("Refresh Error", "Failed to refresh classes. Please try again.", true, 3000);
+      showErrorAlert("Refresh Error", "Failed to refresh classes.", true, 3000);
     } finally {
       setIsInitialLoading(false);
     }
   };
 
+  // Create new class
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -472,8 +470,8 @@ const ClassesPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to create class:', err);
       closeAlert();
-
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create class. Please try again.';
+      
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create class.';
       setFormError(errorMessage);
       showErrorAlert('Creation Error', errorMessage, true, 4000);
     } finally {
@@ -481,6 +479,7 @@ const ClassesPage: React.FC = () => {
     }
   };
 
+  // Edit existing class
   const handleEditClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClass) return;
@@ -518,8 +517,8 @@ const ClassesPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to update class:', err);
       closeAlert();
-
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update class. Please try again.';
+      
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update class.';
       setEditFormError(errorMessage);
       showErrorAlert('Update Error', errorMessage, true, 4000);
     } finally {
@@ -527,6 +526,7 @@ const ClassesPage: React.FC = () => {
     }
   };
 
+  // Delete class
   const handleDeleteClass = async (classItem: Class) => {
     const confirmed = await showConfirmDialog(
       'Delete Class?',
@@ -551,8 +551,8 @@ const ClassesPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to delete class:', err);
       closeAlert();
-
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete class. Please try again.';
+      
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete class.';
       showErrorAlert('Delete Error', errorMessage, true, 4000);
     }
   };
@@ -585,6 +585,7 @@ const ClassesPage: React.FC = () => {
     return classes.length;
   };
 
+  // Loading State
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -607,7 +608,6 @@ const ClassesPage: React.FC = () => {
               </svg>
             </div>
           </div>
-          <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
         <div className="text-center mb-8">
@@ -631,38 +631,11 @@ const ClassesPage: React.FC = () => {
             ></div>
           </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-3 max-w-md mb-8">
-          {[
-            { text: "Teachers", color: "bg-emerald-100 text-emerald-600" },
-            { text: "Classes", color: "bg-teal-100 text-teal-600" },
-          ].map((step, index) => (
-            <div
-              key={index}
-              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${loadingProgress >= ((index + 1) * 50)
-                ? `${step.color} shadow-sm`
-                : "bg-gray-100 text-gray-400"
-                }`}
-            >
-              {step.text}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <div className="w-3 h-3 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-          <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-        </div>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            This might take a moment. Please wait...
-          </p>
-        </div>
       </div>
     );
   }
 
+  // Error State
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -678,7 +651,7 @@ const ClassesPage: React.FC = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 a9 9 0 0118 0z"
               />
             </svg>
           </div>
@@ -688,7 +661,7 @@ const ClassesPage: React.FC = () => {
           </h2>
 
           <p className="text-gray-600 mb-6">
-            We encountered an issue while loading your class data. This could be due to network issues or server problems.
+            We encountered an issue while loading your class data.
           </p>
 
           <div className="space-y-3">
@@ -696,38 +669,8 @@ const ClassesPage: React.FC = () => {
               onClick={refreshClassList}
               className="w-full px-6 py-3 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
               Retry Loading Classes
             </button>
-
-            <button
-              onClick={() => window.location.href = "/login"}
-              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
-            >
-              Return to Login
-            </button>
-          </div>
-
-          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
-            <ul className="text-sm text-gray-500 text-left space-y-1">
-              <li>• Check your internet connection</li>
-              <li>• Refresh the page (F5 or Ctrl+R)</li>
-              <li>• Clear browser cache and try again</li>
-              <li>• Contact system administrator if problem persists</li>
-            </ul>
           </div>
         </div>
       </div>
@@ -740,9 +683,6 @@ const ClassesPage: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Verifying your session...</p>
-          <p className="text-gray-500 text-sm mt-2">
-            Please wait while we authenticate your account
-          </p>
         </div>
       </div>
     );
@@ -785,7 +725,7 @@ const ClassesPage: React.FC = () => {
         <div className="hidden lg:block relative z-30 flex-shrink-0">
           <DynamicHeader
             title={currentUser?.role === 'admin' ? "Manage Classes" : "My Classes"}
-            subtitle={currentUser?.role === 'admin' ? "View and manage all system classes" : `View your assigned classes - ${getDisplayName(currentUser || {})}`}
+            subtitle={currentUser?.role === 'admin' ? "View and manage all system classes" : `View your assigned classes`}
           />
         </div>
 
@@ -826,14 +766,7 @@ const ClassesPage: React.FC = () => {
                       <h2 className="text-lg lg:text-2xl font-bold text-gray-900">
                         Search & Filter
                       </h2>
-                      <p className="text-xs text-gray-600 mt-1 lg:hidden">
-                        Find classes quickly
-                      </p>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2 text-xs text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-200">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                    <span className="font-medium">Real-time</span>
                   </div>
                 </div>
 
@@ -878,7 +811,6 @@ const ClassesPage: React.FC = () => {
                       title="Create new class"
                       aria-label="Create new class"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       <div className="relative flex items-center justify-center space-x-3">
                         <svg className="h-5 w-5 lg:h-6 lg:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -895,13 +827,13 @@ const ClassesPage: React.FC = () => {
                   <>
                     <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-default">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
+                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors duration-200">{classes.length}</p>
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900">{classes.length}</p>
                           <p className="text-xs lg:text-sm text-gray-600 font-medium">Total Classes</p>
                         </div>
                       </div>
@@ -909,32 +841,16 @@ const ClassesPage: React.FC = () => {
 
                     <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-xl p-3 lg:p-4 border-2 border-green-200 hover:border-green-300 hover:bg-green-100 transition-all duration-300 group cursor-default">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-green-500 to-lime-500 rounded-lg shadow-lg group-hover:shadow-green-500/25 transition-all duration-300">
+                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-green-500 to-lime-500 rounded-lg shadow-lg">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-green-700 transition-colors duration-200">
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900">
                             {getAssignedClassesCount()}
                           </p>
                           <p className="text-xs lg:text-sm text-gray-600 font-medium">Active Classes</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 lg:p-4 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-100 transition-all duration-300 group cursor-default">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300">
-                          <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors duration-200">
-                            {getAssignedClassesCount()}
-                          </p>
-                          <p className="text-xs lg:text-sm text-gray-600 font-medium">Assigned Classes Teachers</p>
                         </div>
                       </div>
                     </div>
@@ -945,13 +861,13 @@ const ClassesPage: React.FC = () => {
                   <>
                     <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 lg:p-4 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-100 transition-all duration-300 group cursor-default">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300">
+                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg shadow-lg">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors duration-200">
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900">
                             {classes.length}
                           </p>
                           <p className="text-xs lg:text-sm text-gray-600 font-medium">My Classes</p>
@@ -961,13 +877,13 @@ const ClassesPage: React.FC = () => {
 
                     <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-xl p-3 lg:p-4 border-2 border-green-200 hover:border-green-300 hover:bg-green-100 transition-all duration-300 group cursor-default">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-green-500 to-lime-500 rounded-lg shadow-lg group-hover:shadow-green-500/25 transition-all duration-300">
+                        <div className="p-2 lg:p-2.5 bg-gradient-to-br from-green-500 to-lime-500 rounded-lg shadow-lg">
                           <svg className="h-4 w-4 lg:h-5 lg:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                           </svg>
                         </div>
                         <div>
-                          <p className="text-lg lg:text-2xl font-bold text-gray-900 group-hover:text-green-700 transition-colors duration-200">
+                          <p className="text-lg lg:text-2xl font-bold text-gray-900">
                             {getAssignedClassesCount()}
                           </p>
                           <p className="text-xs lg:text-sm text-gray-600 font-medium">Active Classes</p>
@@ -984,7 +900,6 @@ const ClassesPage: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
                   <h3 className="text-base lg:text-lg font-semibold text-gray-900">Classes Overview</h3>
                   <div className="flex items-center gap-2 text-xs lg:text-sm text-gray-600">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
                     <span className="font-medium text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-200">
                       {filteredClasses.length} classes
                     </span>
@@ -1022,7 +937,7 @@ const ClassesPage: React.FC = () => {
                       <p className="text-gray-600 max-w-md text-xs lg:text-base">
                         {searchTerm
                           ? `No classes match your search for "${searchTerm}". Try adjusting your search terms.`
-                          : 'Get started by creating your first class. Click the "Create New Class" button above.'
+                          : 'Get started by creating your first class.'
                         }
                       </p>
                     </div>
@@ -1169,7 +1084,7 @@ const ClassesPage: React.FC = () => {
                         onClick={openCreateModal}
                       >
                         <div className="h-full min-h-[240px] flex flex-col items-center justify-center p-6">
-                          <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                          <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mb-4">
                             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
@@ -1178,9 +1093,6 @@ const ClassesPage: React.FC = () => {
                           <p className="text-sm text-gray-600 text-center">
                             Add a new class to the system
                           </p>
-                          <div className="mt-4 px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            Click to create
-                          </div>
                         </div>
                       </div>
                     )}
@@ -1192,6 +1104,7 @@ const ClassesPage: React.FC = () => {
         </main>
       </div>
 
+      {/* Create Class Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1304,6 +1217,7 @@ const ClassesPage: React.FC = () => {
         </div>
       )}
 
+      {/* Edit Class Modal */}
       {isEditModalOpen && editingClass && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">

@@ -83,27 +83,29 @@ const ReportsPage: React.FC = () => {
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
+  // Get user display name with fallback options
   const getUserDisplayName = (user: any): string => {
     if (!user) return 'User';
     if (user.name) return user.name;
     if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
     if (user.first_name) return user.first_name;
     if (user.username) return user.username;
-    if (user.email) return user.email.split('@')[0]; 
-    
+    if (user.email) return user.email.split('@')[0];
+
     return user.role === 'admin' ? 'Admin User' : 'Teacher';
   };
 
+  // Success alert with configurable type
   const showSuccessAlert = (
-    title: string, 
-    text: string = '', 
+    title: string,
+    text: string = '',
     type: 'export' | 'data' | 'logout' | 'refresh' = 'export',
     autoDismiss: boolean = true,
     dismissTime: number = 3000
   ) => {
     const iconColor = type === 'logout' ? 'warning' : 'success';
     const confirmButtonColor = type === 'logout' ? '#F59E0B' : '#10B981';
-    
+
     const alertConfig: any = {
       title,
       text,
@@ -113,16 +115,14 @@ const ReportsPage: React.FC = () => {
       ...swalConfig,
       customClass: {
         ...swalConfig.customClass,
-        title: `text-lg font-bold ${
-          type === 'logout' ? 'text-yellow-900' : 
-          type === 'refresh' ? 'text-blue-900' : 
-          'text-green-900'
-        }`,
-        confirmButton: `px-4 py-2 rounded-lg font-medium ${
-          type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
-          type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
-          'bg-green-500 hover:bg-green-600 text-white'
-        }`
+        title: `text-lg font-bold ${type === 'logout' ? 'text-yellow-900' :
+            type === 'refresh' ? 'text-blue-900' :
+              'text-green-900'
+          }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${type === 'logout' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+            type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+              'bg-green-500 hover:bg-green-600 text-white'
+          }`
       }
     };
 
@@ -135,8 +135,9 @@ const ReportsPage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Error alert handler
   const showErrorAlert = (
-    title: string, 
+    title: string,
     text: string = '',
     autoDismiss: boolean = true,
     dismissTime: number = 4000
@@ -164,9 +165,10 @@ const ReportsPage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Confirmation dialog for actions
   const showConfirmDialog = (
-    title: string, 
-    text: string, 
+    title: string,
+    text: string,
     confirmText: string = 'Yes, proceed',
     autoDismiss: boolean = false
   ) => {
@@ -192,6 +194,7 @@ const ReportsPage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Loading alert for async operations
   const showLoadingAlert = (
     title: string = 'Processing...',
     autoDismiss: boolean = false
@@ -216,10 +219,12 @@ const ReportsPage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Close any active alert
   const closeAlert = () => {
     Swal.close();
   };
 
+  // Info alert for general notifications
   const showInfoAlert = (
     title: string,
     text: string = '',
@@ -249,18 +254,20 @@ const ReportsPage: React.FC = () => {
     return Swal.fire(alertConfig);
   };
 
+  // Update loading progress for visual feedback
   const updateLoadingProgress = (step: number, totalSteps: number = 3) => {
     const progress = Math.floor((step / totalSteps) * 100);
     setLoadingProgress(progress);
   };
 
+  // Main function to load reports data based on user role
   const loadReportsData = async () => {
     try {
       console.log('🔄 Loading reports data...');
       setIsInitialLoading(true);
       setHasInitialLoadError(false);
       setLoadingProgress(10);
-      
+
       if (!user) {
         showErrorAlert("Session Expired", "Please login again", true, 2000);
         setTimeout(() => window.location.href = "/login", 2000);
@@ -268,37 +275,40 @@ const ReportsPage: React.FC = () => {
       }
 
       updateLoadingProgress(1, 3);
-      
+
       console.log('Fetching reports data for user role:', user.role);
       setLoading(true);
       setError(null);
-      
+
+      // Admin: Fetch all users and classes
       if (user.role === 'admin') {
         console.log('🔑 Admin user - fetching all users and classes');
         const [usersData, classesData] = await Promise.all([
           getAllUsers(),
           getAllClasses()
         ]);
-        
+
         console.log('Users data fetched:', usersData);
         console.log('Classes data fetched:', classesData);
-        
+
         setUsers(usersData);
-        
+
         const enhancedClasses: Class[] = classesData.map(cls => ({
           ...cls,
           status: 'Active',
           assignedTeacher: cls.teacher_id ? `Teacher ${cls.teacher_id}` : 'Unassigned'
         }));
-        
+
         setClasses(enhancedClasses);
-      } else if (user.role === 'teacher') {
+      }
+      // Teacher: Fetch teacher-specific reports
+      else if (user.role === 'teacher') {
         updateLoadingProgress(2, 3);
-        
+
         console.log('👨‍🏫 Teacher user - fetching teacher reports');
         const reportsData = await getTeacherReports();
         console.log('Teacher reports fetched:', reportsData);
-        
+
         if (reportsData) {
           const validatedReports: TeacherReports = {
             class_performance: reportsData.class_performance || [],
@@ -327,17 +337,17 @@ const ReportsPage: React.FC = () => {
         console.warn('⚠️  Unknown or unauthorized user role for reports');
         showErrorAlert('Access Denied', 'You do not have permission to view reports.', true, 3000);
       }
-      
+
       updateLoadingProgress(3, 3);
-      
+
       setTimeout(() => {
         setIsInitialLoading(false);
         setLoading(false);
         setLoadingProgress(100);
       }, 500);
-      
+
       console.log('✅ Reports data loaded successfully');
-      
+
     } catch (err) {
       console.error('❌ Failed to fetch reports data:', err);
       setHasInitialLoadError(true);
@@ -349,19 +359,23 @@ const ReportsPage: React.FC = () => {
     }
   };
 
+  // Load data on component mount or user change
   useEffect(() => {
     loadReportsData();
   }, [user]);
 
+  // Calculate statistics for admin dashboard
   const totalActiveUsers = users.filter(user => user.role === 'teacher' || user.role === 'student').length;
   const totalActiveClasses = classes.filter(cls => cls.status === 'Active').length;
   const totalTeachers = users.filter(user => user.role === 'teacher').length;
   const totalStudents = users.filter(user => user.role === 'student').length;
 
+  // Calculate total students in teacher's classes
   const totalStudentsInMyClasses = teacherReports?.class_performance.reduce((total, classData) => {
     return total + (classData.total_students || 0);
   }, 0) || 0;
 
+  // Utility function to download data as CSV
   const downloadCSV = (data: any[], filename: string) => {
     if (!data || data.length === 0) {
       console.warn('No data to export');
@@ -373,7 +387,7 @@ const ReportsPage: React.FC = () => {
       const headers = Object.keys(data[0]);
       const csvContent = [
         headers.join(','),
-        ...data.map(row => 
+        ...data.map(row =>
           headers.map(header => {
             const value = row[header];
             if (value === null || value === undefined) {
@@ -398,9 +412,9 @@ const ReportsPage: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       showSuccessAlert('Export Successful!', `Successfully exported ${data.length} records. The file will download automatically.`, 'export', true, 3000);
-      
+
     } catch (error) {
       console.error('Error generating CSV:', error);
       showErrorAlert('Export Failed', 'Failed to generate CSV file.', true, 3000);
@@ -408,17 +422,18 @@ const ReportsPage: React.FC = () => {
     }
   };
 
+  // Handle user data export
   const handleExportUsers = async () => {
     console.log('Export Users Data button clicked');
     setExportLoading(prev => ({ ...prev, users: true }));
     showLoadingAlert('Exporting users data...', false);
-    
+
     try {
       const usersData = await exportAllUsers();
       console.log('Users data received:', usersData);
       downloadCSV(usersData, `users_export_${new Date().toISOString().split('T')[0]}.csv`);
       console.log('CSV download initiated successfully');
-      
+
     } catch (err) {
       console.error('Failed to export users:', err);
       const errorMessage = `Failed to export users data: ${err instanceof Error ? err.message : 'Unknown error'}`;
@@ -429,17 +444,18 @@ const ReportsPage: React.FC = () => {
     }
   };
 
+  // Handle class data export
   const handleExportClasses = async () => {
     console.log('Export Classes Data button clicked');
     setExportLoading(prev => ({ ...prev, classes: true }));
     showLoadingAlert('Exporting classes data...', false);
-    
+
     try {
       const classesData = await exportAllClasses();
       console.log('Classes data received:', classesData);
       downloadCSV(classesData, `classes_export_${new Date().toISOString().split('T')[0]}.csv`);
       console.log('CSV download initiated successfully');
-      
+
     } catch (err) {
       console.error('Failed to export classes:', err);
       const errorMessage = `Failed to export classes data: ${err instanceof Error ? err.message : 'Unknown error'}`;
@@ -450,6 +466,7 @@ const ReportsPage: React.FC = () => {
     }
   };
 
+  // Confirmation dialog for user export
   const exportUsersToCSV = () => {
     showConfirmDialog(
       'Export Users Data',
@@ -462,6 +479,7 @@ const ReportsPage: React.FC = () => {
     });
   };
 
+  // Confirmation dialog for class export
   const exportClassesToCSV = () => {
     showConfirmDialog(
       'Export Classes Data',
@@ -474,6 +492,7 @@ const ReportsPage: React.FC = () => {
     });
   };
 
+  // Initial loading screen with progress indicator
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -514,7 +533,7 @@ const ReportsPage: React.FC = () => {
             <span>{loadingProgress}%</span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
               style={{ width: `${loadingProgress}%` }}
             ></div>
@@ -529,11 +548,10 @@ const ReportsPage: React.FC = () => {
           ].map((step, index) => (
             <div
               key={index}
-              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
-                loadingProgress >= ((index + 1) * 33)
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${loadingProgress >= ((index + 1) * 33)
                   ? `${step.color} shadow-sm`
                   : "bg-gray-100 text-gray-400"
-              }`}
+                }`}
             >
               {step.text}
             </div>
@@ -555,6 +573,7 @@ const ReportsPage: React.FC = () => {
     );
   }
 
+  // Error state screen
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -574,15 +593,15 @@ const ReportsPage: React.FC = () => {
               />
             </svg>
           </div>
-          
+
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
             Unable to Load Reports
           </h2>
-          
+
           <p className="text-gray-600 mb-6">
             We encountered an issue while loading your reports data. This could be due to network issues or server problems.
           </p>
-          
+
           <div className="space-y-3">
             <button
               onClick={loadReportsData}
@@ -603,7 +622,7 @@ const ReportsPage: React.FC = () => {
               </svg>
               Retry Loading Reports
             </button>
-            
+
             <button
               onClick={() => window.location.href = "/login"}
               className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
@@ -611,7 +630,7 @@ const ReportsPage: React.FC = () => {
               Return to Login
             </button>
           </div>
-          
+
           <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
             <ul className="text-sm text-gray-500 text-left space-y-1">
@@ -626,14 +645,15 @@ const ReportsPage: React.FC = () => {
     );
   }
 
+  // Main reports page layout
   return (
     <div className="h-screen w-full bg-white overflow-hidden relative flex">
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <img 
-              src={plmunLogo} 
-              alt="PLMun Logo" 
+            <img
+              src={plmunLogo}
+              alt="PLMun Logo"
               className="w-8 h-8 rounded-lg"
             />
             <div>
@@ -645,7 +665,7 @@ const ReportsPage: React.FC = () => {
               </p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Toggle navigation menu"
@@ -660,18 +680,13 @@ const ReportsPage: React.FC = () => {
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       <div className="flex-1 flex flex-col min-w-0 lg:ml-0 h-screen pt-16 lg:pt-0">
         <div className="hidden lg:block relative z-30 flex-shrink-0">
-          <DynamicHeader 
+          <DynamicHeader
             title={user?.role === 'admin' ? "System Reports & Analytics" : "My Reports & Analytics"}
             subtitle={user?.role === 'admin' ? "Comprehensive data insights and export capabilities" : "Student performance and class analytics"}
-            userInfo={{
-              name: getUserDisplayName(user),
-              role: user?.role === 'admin' ? 'Administrator' : (user?.role || 'User'),
-              status: 'active',
-              lastActive: 'Just now'
-            }}
           />
         </div>
 
+        {/* Status bar */}
         <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-3 shadow-sm">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
@@ -696,6 +711,7 @@ const ReportsPage: React.FC = () => {
 
         <main className="flex-1 overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8 relative z-20">
           <div className="dashboard-content w-full max-w-7xl mx-auto">
+            {/* Loading indicator */}
             {loading && !isInitialLoading && (
               <div className="flex items-center justify-center py-20">
                 <div className="flex flex-col items-center space-y-4">
@@ -711,6 +727,7 @@ const ReportsPage: React.FC = () => {
               </div>
             )}
 
+            {/* Error display */}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 lg:px-6 py-3 lg:py-4 rounded-2xl mb-6 lg:mb-8">
                 <div className="flex items-center space-x-3">
@@ -724,8 +741,10 @@ const ReportsPage: React.FC = () => {
               </div>
             )}
 
+            {/* Main content when not loading and no errors */}
             {!loading && !error && (
               <div className="space-y-6 lg:space-y-8">
+                {/* Page header */}
                 <div className="text-center py-4 lg:py-8">
                   <div className="inline-flex items-center justify-center w-14 h-14 lg:w-20 lg:h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl lg:rounded-3xl mb-4 lg:mb-6 shadow-2xl shadow-blue-500/25">
                     <svg className="w-6 h-6 lg:w-10 lg:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -736,14 +755,16 @@ const ReportsPage: React.FC = () => {
                     {user?.role === 'admin' ? 'System Analytics' : 'My Reports & Analytics'}
                   </h1>
                   <p className="text-base lg:text-xl text-gray-600 max-w-2xl mx-auto px-4">
-                    {user?.role === 'admin' 
+                    {user?.role === 'admin'
                       ? "Comprehensive insights into your educational platform's performance and data management"
                       : "Student performance insights and class analytics for your assigned classes"
                     }
                   </p>
                 </div>
 
+                {/* Stats cards - different data based on user role */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
+                  {/* Users/Students card */}
                   <div className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-100 to-purple-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-blue-200 hover:border-blue-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
@@ -767,7 +788,7 @@ const ReportsPage: React.FC = () => {
                           {user?.role === 'admin' ? 'Teachers and students' : 'Student Count'}
                         </p>
                         <p className="text-xs lg:text-sm text-gray-500">
-                          {user?.role === 'admin' 
+                          {user?.role === 'admin'
                             ? 'Teachers and students in the system'
                             : 'Total students enrolled in your classes'
                           }
@@ -786,6 +807,7 @@ const ReportsPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Classes card */}
                   <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-100 to-teal-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-emerald-200 hover:border-emerald-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
@@ -809,7 +831,7 @@ const ReportsPage: React.FC = () => {
                           {user?.role === 'admin' ? 'System Classes' : 'Assigned Classes'}
                         </p>
                         <p className="text-xs lg:text-sm text-gray-500">
-                          {user?.role === 'admin' 
+                          {user?.role === 'admin'
                             ? 'Currently active classes in the system'
                             : 'Classes assigned to you'
                           }
@@ -821,6 +843,7 @@ const ReportsPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Average Grade/System Health card */}
                   <div className="group relative overflow-hidden bg-gradient-to-br from-purple-50 via-purple-100 to-pink-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-purple-200 hover:border-purple-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
@@ -844,7 +867,7 @@ const ReportsPage: React.FC = () => {
                           {user?.role === 'admin' ? 'All Systems Operational' : 'Class Performance'}
                         </p>
                         <p className="text-xs lg:text-sm text-gray-500">
-                          {user?.role === 'admin' 
+                          {user?.role === 'admin'
                             ? 'Platform running smoothly'
                             : 'Overall average grade across classes'
                           }
@@ -856,6 +879,7 @@ const ReportsPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Submission Rate/Data Records card */}
                   <div className="group relative overflow-hidden bg-gradient-to-br from-orange-50 via-orange-100 to-red-100 rounded-2xl lg:rounded-3xl p-4 lg:p-6 border border-orange-200 hover:border-orange-300 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative">
@@ -879,7 +903,7 @@ const ReportsPage: React.FC = () => {
                           {user?.role === 'admin' ? 'Data Integrity' : 'Assignment Completion'}
                         </p>
                         <p className="text-xs lg:text-sm text-gray-500">
-                          {user?.role === 'admin' 
+                          {user?.role === 'admin'
                             ? 'All records validated and secure'
                             : 'Overall assignment submission rate'
                           }
@@ -892,8 +916,10 @@ const ReportsPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Teacher-specific reports section */}
                 {user?.role === 'teacher' && teacherReports && (
                   <div className="space-y-6 lg:space-y-8">
+                    {/* Class Performance Overview */}
                     {teacherReports.class_performance.length > 0 ? (
                       <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                         <div className="text-center mb-6 lg:mb-8">
@@ -907,7 +933,7 @@ const ReportsPage: React.FC = () => {
                             Performance metrics for each of your assigned classes
                           </p>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 gap-4 lg:gap-6">
                           {teacherReports.class_performance.map((classData) => (
                             <div key={classData.class_id} className="bg-gray-50 rounded-xl lg:rounded-2xl p-4 lg:p-6 border border-gray-200">
@@ -951,6 +977,7 @@ const ReportsPage: React.FC = () => {
                       </div>
                     )}
 
+                    {/* Individual Student Performance */}
                     {teacherReports.student_performance.length > 0 ? (
                       <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                         <div className="text-center mb-6 lg:mb-8">
@@ -964,7 +991,8 @@ const ReportsPage: React.FC = () => {
                             Detailed performance data for each student across your classes
                           </p>
                         </div>
-                        
+
+                        {/* Mobile view */}
                         <div className="block lg:hidden space-y-3">
                           {teacherReports.student_performance.map((student) => (
                             <div key={`${student.student_id}-${student.class_id}`} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -976,23 +1004,21 @@ const ReportsPage: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
                                     <p className="text-gray-700 text-xs">Average Grade</p>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      student.average_grade_in_class >= 90 ? 'bg-green-100 text-green-800' :
-                                      student.average_grade_in_class >= 80 ? 'bg-blue-100 text-blue-800' :
-                                      student.average_grade_in_class >= 70 ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${student.average_grade_in_class >= 90 ? 'bg-green-100 text-green-800' :
+                                        student.average_grade_in_class >= 80 ? 'bg-blue-100 text-blue-800' :
+                                          student.average_grade_in_class >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-red-100 text-red-800'
+                                      }`}>
                                       {student.average_grade_in_class}%
                                     </span>
                                   </div>
                                   <div>
                                     <p className="text-gray-700 text-xs">Submission Rate</p>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      student.submission_rate >= 90 ? 'bg-green-100 text-green-800' :
-                                      student.submission_rate >= 70 ? 'bg-blue-100 text-blue-800' :
-                                      student.submission_rate >= 50 ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${student.submission_rate >= 90 ? 'bg-green-100 text-green-800' :
+                                        student.submission_rate >= 70 ? 'bg-blue-100 text-blue-800' :
+                                          student.submission_rate >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-red-100 text-red-800'
+                                      }`}>
                                       {student.submission_rate}%
                                     </span>
                                   </div>
@@ -1006,6 +1032,7 @@ const ReportsPage: React.FC = () => {
                           ))}
                         </div>
 
+                        {/* Desktop view - Table */}
                         <div className="hidden lg:block overflow-x-auto">
                           <table className="w-full text-left">
                             <thead>
@@ -1023,12 +1050,11 @@ const ReportsPage: React.FC = () => {
                                   <td className="py-4 text-gray-900 font-medium">{student.student_name}</td>
                                   <td className="py-4 text-gray-700">{student.class_name}</td>
                                   <td className="py-4">
-                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                      student.average_grade_in_class >= 90 ? 'bg-green-100 text-green-800' :
-                                      student.average_grade_in_class >= 80 ? 'bg-blue-100 text-blue-800' :
-                                      student.average_grade_in_class >= 70 ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${student.average_grade_in_class >= 90 ? 'bg-green-100 text-green-800' :
+                                        student.average_grade_in_class >= 80 ? 'bg-blue-100 text-blue-800' :
+                                          student.average_grade_in_class >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-red-100 text-red-800'
+                                      }`}>
                                       {student.average_grade_in_class}%
                                     </span>
                                   </td>
@@ -1036,12 +1062,11 @@ const ReportsPage: React.FC = () => {
                                     {student.total_assignments_submitted} / {student.total_assignments_available}
                                   </td>
                                   <td className="py-4">
-                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                      student.submission_rate >= 90 ? 'bg-green-100 text-green-800' :
-                                      student.submission_rate >= 70 ? 'bg-blue-100 text-blue-800' :
-                                      student.submission_rate >= 50 ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${student.submission_rate >= 90 ? 'bg-green-100 text-green-800' :
+                                        student.submission_rate >= 70 ? 'bg-blue-100 text-blue-800' :
+                                          student.submission_rate >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-red-100 text-red-800'
+                                      }`}>
                                       {student.submission_rate}%
                                     </span>
                                   </td>
@@ -1067,6 +1092,7 @@ const ReportsPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* Admin-specific export section */}
                 {user?.role === 'admin' && (
                   <div className="bg-white border border-gray-200 rounded-2xl lg:rounded-3xl p-4 lg:p-12 shadow-2xl">
                     <div className="text-center mb-6 lg:mb-8">
@@ -1080,8 +1106,9 @@ const ReportsPage: React.FC = () => {
                         Export comprehensive system data in CSV format for analysis, reporting, and backup purposes
                       </p>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 gap-4 lg:gap-6">
+                      {/* Export Users Button */}
                       <button
                         onClick={exportUsersToCSV}
                         disabled={exportLoading.users}
@@ -1112,6 +1139,7 @@ const ReportsPage: React.FC = () => {
                         </div>
                       </button>
 
+                      {/* Export Classes Button */}
                       <button
                         onClick={exportClassesToCSV}
                         disabled={exportLoading.classes}
@@ -1143,6 +1171,7 @@ const ReportsPage: React.FC = () => {
                       </button>
                     </div>
 
+                    {/* Export information note */}
                     <div className="mt-6 lg:mt-8 p-4 lg:p-6 bg-gray-50 rounded-xl lg:rounded-2xl border border-gray-200">
                       <div className="flex items-start space-x-3 lg:space-x-4">
                         <div className="p-1 lg:p-2 bg-blue-100 rounded-lg">
@@ -1153,7 +1182,7 @@ const ReportsPage: React.FC = () => {
                         <div>
                           <h4 className="text-gray-900 font-medium mb-1 lg:mb-2 text-sm lg:text-base">Export Information</h4>
                           <p className="text-gray-600 text-xs lg:text-sm leading-relaxed">
-                            All exports include comprehensive data with proper formatting. CSV files are compatible with Excel, Google Sheets, and other data analysis tools. 
+                            All exports include comprehensive data with proper formatting. CSV files are compatible with Excel, Google Sheets, and other data analysis tools.
                             Exports are generated in real-time and include the most current system data.
                           </p>
                         </div>

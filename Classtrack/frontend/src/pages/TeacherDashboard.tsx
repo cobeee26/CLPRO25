@@ -6,11 +6,12 @@ import DynamicHeader from "../components/DynamicHeader";
 import Sidebar from "../components/Sidebar";
 import plmunLogo from "../assets/images/PLMUNLOGO.png";
 import Swal from "sweetalert2";
-import AnnouncementModal from "../components/AnnouncementModal";
+
 import { Html5Qrcode } from "html5-qrcode";
 
 const API_BASE_URL = "http://localhost:8000";
 
+// Axios instance configuration with interceptors
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -20,6 +21,7 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
+// Add authorization token to all requests
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -33,6 +35,7 @@ apiClient.interceptors.request.use(
   }
 );
 
+// Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => {
     return response;
@@ -53,6 +56,7 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Interface definitions for data types
 interface Class {
   id: number;
   name: string;
@@ -62,7 +66,7 @@ interface Class {
   semester?: string;
   academic_year?: string;
   teacher_name?: string;
-  subject?: string; // Added subject field
+  subject?: string; // Added subject field for class
 }
 
 interface Assignment {
@@ -112,14 +116,14 @@ interface AttendanceRecord {
   class_subject?: string; // Added subject field for attendance
 }
 
-/*
+// Announcement Modal Component Props
 interface AnnouncementModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAnnouncementCreated: () => void;
 }
 
-/*
+// Announcement Modal Component
 const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   isOpen,
   onClose,
@@ -133,6 +137,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Handle announcement form submission
   const handleAnnouncementSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -212,6 +217,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
     }
   };
 
+  // Handle modal close with confirmation for unsaved changes
   const closeModal = () => {
     if (announcementForm.title.trim() || announcementForm.content.trim()) {
       Swal.fire({
@@ -432,17 +438,17 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
     </div>
   );
 };
-*/
 
+// Main Teacher Dashboard Component
 const TeacherDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
+
+  // State management
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [classes, setClasses] = useState<Class[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [engagementInsights, setEngagementInsights] = useState<
-    EngagementInsight[]
-  >([]);
+  const [engagementInsights, setEngagementInsights] = useState<EngagementInsight[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
@@ -454,17 +460,16 @@ const TeacherDashboard: React.FC = () => {
     announcements: true,
   });
 
+  // Announcement modal state
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  const [showClassesScrollIndicator, setShowClassesScrollIndicator] =
-    useState(true);
-  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] =
-    useState(true);
-  const [
-    showAnnouncementsScrollIndicator,
-    setShowAnnouncementsScrollIndicator,
-  ] = useState(true);
-  const [showInsightsScrollIndicator, setShowInsightsScrollIndicator] =
-    useState(true);
+
+  // Scroll indicators state
+  const [showClassesScrollIndicator, setShowClassesScrollIndicator] = useState(true);
+  const [showAssignmentsScrollIndicator, setShowAssignmentsScrollIndicator] = useState(true);
+  const [showAnnouncementsScrollIndicator, setShowAnnouncementsScrollIndicator] = useState(true);
+  const [showInsightsScrollIndicator, setShowInsightsScrollIndicator] = useState(true);
+
+  // Refs for scrollable containers
   const classesScrollRef = useRef<HTMLDivElement>(null);
   const assignmentsScrollRef = useRef<HTMLDivElement>(null);
   const announcementsScrollRef = useRef<HTMLDivElement>(null);
@@ -472,7 +477,7 @@ const TeacherDashboard: React.FC = () => {
   const previousAssignmentsCountRef = useRef<number>(0);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // QR Code Reader states - IMPROVED
+  // QR Code Reader states with 7-second timer
   const [showQrReader, setShowQrReader] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -481,256 +486,19 @@ const TeacherDashboard: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Camera Selection
-  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
-  const [cameraError, setCameraError] = useState<string>("");
+  // 7-second timer states for QR detection
+  const [qrDetected, setQrDetected] = useState<boolean>(false); // Start with false (RED)
+  const [scanBoxColor, setScanBoxColor] = useState<string>("red"); // Start with RED
+  const [detectionTimer, setDetectionTimer] = useState<number>(7); // 7-second timer
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const [scanCount, setScanCount] = useState<number>(0);
 
-  // Debounce & State
-  const lastScanTimeRef = useRef<number>(0);
-  const [isProcessingScan, setIsProcessingScan] = useState(false);
-
-  // QR Scanner Instance Ref
-  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
-
-  // Initialize Camera List
-  useEffect(() => {
-    if (showQrReader) {
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-          // Map to MediaDeviceInfo format to satisfy type definition
-          const mappedDevices = devices.map(device => ({
-            deviceId: device.id,
-            label: device.label,
-            kind: 'videoinput',
-            groupId: '',
-            toJSON: () => { }
-          }));
-
-          setAvailableCameras(mappedDevices as any);
-
-          if (!selectedCameraId) {
-            setSelectedCameraId(devices[0].id);
-          }
-        }
-      }).catch(err => {
-        console.error("Error getting cameras", err);
-        setCameraError("Could not access cameras. Permission denied?");
-      });
-    } else {
-      stopScanner();
-    }
-
-    // Cleanup on unmount
-    return () => {
-      stopScanner();
-    };
-  }, [showQrReader]);
-
-  // Start Scanner Logic using Html5Qrcode
-  const startScanner = async () => {
-    if (!selectedCameraId) return;
-
-    try {
-      // If already running, stop first
-      if (html5QrCodeRef.current) {
-        try {
-          await html5QrCodeRef.current.stop();
-        } catch (e) { /* ignore if not running */ }
-      }
-
-      const html5QrCode = new Html5Qrcode("reader-video-box");
-      html5QrCodeRef.current = html5QrCode;
-
-      setIsScanning(true);
-      setCameraError("");
-
-      await html5QrCode.start(
-        selectedCameraId,
-        {
-          fps: 30,    // Higher FPS for faster detection
-          qrbox: { width: 250, height: 250 },  // Precision match with UI
-          aspectRatio: 1.0, // Square aspect ratio for the video feed
-          disableFlip: false,
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          }
-        } as any,
-        (decodedText, decodedResult) => {
-          // Success callback
-          console.log("QR Code detected:", decodedText);
-          processScannedData(decodedText);
-        },
-        (errorMessage) => {
-          // parse error, ignore it.
-        }
-      );
-
-    } catch (err: any) {
-      console.error("Failed to start scanner:", err);
-      // setCameraError("Failed to start camera: " + err);
-      // Retry or just show error
-      // Sometimes it fails if element is not ready, wait a bit?
-    }
-  };
-
-  // Stop Scanner
-  const stopScanner = async () => {
-    if (html5QrCodeRef.current) {
-      try {
-        await html5QrCodeRef.current.stop();
-        html5QrCodeRef.current.clear();
-      } catch (err) {
-        console.error("Failed to stop scanner", err);
-      }
-      html5QrCodeRef.current = null;
-    }
-    setIsScanning(false);
-  };
-
-  // Switch Camera
-  useEffect(() => {
-    if (isScanning && selectedCameraId) {
-      // Restart with new camera
-      startScanner();
-    }
-  }, [selectedCameraId]);
-
-  // Mock Scanner Logic needs to be replaced with REAL library (e.g. jsQR or just handling data input if this was a simulation)
-  // Since the user is asking for "Logic", and previous context implies we might be using a library or just simulating "detected".
-  // Assuming there's a library hook or we just process "simulated" input for now if no library is imported?
-  // User "Start Scanner" implies usage of a library like 'react-qr-scanner' or similar. 
-  // IF NO LIBRARY is visible in imports, I assume I must provide the handling logic or the user uses an external reader that inputs text?
-  // "The 'Open QR Code Scanner' button to the scanner overlay."
-  // "Ensure the scanner correctly reads..."
-
-  // Let's assume we use a library like 'html5-qrcode' which is popular, or we insert the logic to "Scan" frames from video element.
-  // Implementing a basic frame capture loop to "simulate" scanning or hook into a decoder.
-  // Since I cannot import a new npm package without asking, I will implement a "Capture Frame" that would technically send to a decoder API or mock it for now
-  // BUT user asked for "Strict Detection Logic". 
-  // "The 'Start Scanner' button must remain disabled... until a valid string... is actually decoded".
-  // This implies there's already a decoder logic I should hook into?
-  // Let's look at how it *was* implemented. The previous code had `scanBoxColor` etc.
-
-  // I will implement a robust `scanFrame` loop that *would* call a decoder. For the purpose of "Logic", 
-  // I will add a text input handling for "Debug/Simulation" OR assume `scannedData` comes from a listener.
-
-  // KEY CHANGE: The user implies the *current* Auto-Detect was fake/noisy.
-  // I will implement a strict "Process Scanned String" function.
-
-  // Process Scanned Data with High Fidelity Logic
-  const processScannedData = async (data: string) => {
-    if (!data || data.trim().length === 0) return;
-
-    // 1. Debounce (3 Seconds)
-    const now = Date.now();
-    if (now - lastScanTimeRef.current < 3000) {
-      console.log("Creating strict 3s debounce...");
-      return;
-    }
-
-    // 2. Strict Data Validation (No Ghost Scans)
-    // Must be email-like OR student ID-like (alphanumeric at least 5 chars)
-    const isValidFormat = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(data) || /^[a-zA-Z0-9]{5,}$/.test(data);
-
-    if (!isValidFormat) {
-      console.warn("Ignored invalid QR format:", data);
-      return;
-    }
-
-    lastScanTimeRef.current = now;
-    setIsProcessingScan(true);
-
-    try {
-      if (!selectedClass) {
-        Swal.fire({
-          icon: "warning",
-          title: "Select Class",
-          text: "Please select a class to record attendance."
-        });
-        setIsProcessingScan(false);
-        return;
-      }
-
-      // 3. Backend Verification
-      // We send the scan to backend. Backend performs:
-      // a. Student lookup
-      // b. Enrollment check
-      // c. Schedule time check (Strict)
-      const response = await apiClient.post("/api/attendance/verify", {
-        qr_content: data,
-        schedule_id: (selectedClass as any).active_schedule_id || 1, // Fallback need actual schedule ID
-        teacher_id: user?.id
-      });
-
-      // 4. Success Modal (Only after Verification)
-      // Visual Feedback: Green Flash
-      const overlay = document.getElementById("qr-overlay");
-      if (overlay) {
-        overlay.classList.add("border-green-500", "shadow-[0_0_50px_rgba(34,197,94,0.8)]");
-        setTimeout(() => {
-          overlay.classList.remove("border-green-500", "shadow-[0_0_50px_rgba(34,197,94,0.8)]");
-        }, 500);
-      }
-
-      await Swal.fire({
-        title: "Attendance Recorded!",
-        html: `
-          <div class="flex flex-col items-center">
-            <div class="w-24 h-24 rounded-full overflow-hidden mb-3 border-4 border-green-500">
-               <img src="${response.data.student_photo || 'https://ui-avatars.com/api/?name=' + response.data.student_name}" alt="Student" class="w-full h-full object-cover" />
-            </div>
-            <h3 class="text-xl font-bold text-gray-800">${response.data.student_name}</h3>
-            <p class="text-green-600 font-medium">Verified & Present</p>
-            <p class="text-xs text-gray-500 mt-1">${new Date().toLocaleTimeString()}</p>
-          </div>
-        `,
-        icon: "success",
-        timer: 2000,
-        showConfirmButton: false
-      });
-
-      // Update Recent List
-      setRecentAttendance(prev => [
-        {
-          id: Date.now(),
-          student_name: response.data.student_name,
-          status: "Present",
-          scanned_at: new Date().toISOString(),
-          class_name: selectedClass?.name,
-        } as any,
-        ...prev
-      ]);
-
-    } catch (error: any) {
-      console.error("Scan Verification Failed:", error);
-
-      // Visual Feedback: Red Flash
-      const overlay = document.getElementById("qr-overlay");
-      if (overlay) {
-        overlay.classList.add("border-red-500", "shadow-[0_0_50px_rgba(239,68,68,0.8)]");
-        setTimeout(() => {
-          overlay.classList.remove("border-red-500", "shadow-[0_0_50px_rgba(239,68,68,0.8)]");
-        }, 500);
-      }
-
-      const msg = error.response?.data?.detail || "Verification failed. Student may not be enrolled or session is inactive.";
-
-      Swal.fire({
-        title: "Scan Rejected",
-        text: msg,
-        icon: "error",
-        timer: 3000,
-        showConfirmButton: false
-      });
-    } finally {
-      setIsProcessingScan(false);
-    }
-  };
+  // Scroll handlers for different sections
   const handleClassesScroll = () => {
     if (classesScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        classesScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = classesScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowClassesScrollIndicator(false);
       } else {
@@ -741,8 +509,7 @@ const TeacherDashboard: React.FC = () => {
 
   const handleAssignmentsScroll = () => {
     if (assignmentsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        assignmentsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = assignmentsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowAssignmentsScrollIndicator(false);
       } else {
@@ -753,8 +520,7 @@ const TeacherDashboard: React.FC = () => {
 
   const handleAnnouncementsScroll = () => {
     if (announcementsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        announcementsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = announcementsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowAnnouncementsScrollIndicator(false);
       } else {
@@ -765,8 +531,7 @@ const TeacherDashboard: React.FC = () => {
 
   const handleInsightsScroll = () => {
     if (insightsScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        insightsScrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = insightsScrollRef.current;
       if (scrollTop > 10 || scrollHeight <= clientHeight) {
         setShowInsightsScrollIndicator(false);
       } else {
@@ -775,6 +540,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Helper function to construct profile image URLs
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -802,6 +568,7 @@ const TeacherDashboard: React.FC = () => {
     return constructedUrl;
   };
 
+  // Role-based icon rendering
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -883,6 +650,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Logout handler with confirmation
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: "Confirm Logout",
@@ -919,6 +687,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Navigation handlers
   const handleViewProfile = () => {
     navigate("/profile");
   };
@@ -927,6 +696,7 @@ const TeacherDashboard: React.FC = () => {
     navigate("/teacher/reports");
   };
 
+  // Authentication check on component mount
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     const userRole = localStorage.getItem("userRole");
@@ -940,11 +710,13 @@ const TeacherDashboard: React.FC = () => {
     console.log("✅ Authentication verified for teacher");
   }, [navigate]);
 
+  // Update loading progress helper
   const updateLoadingProgress = (progress: number) => {
     const cappedProgress = Math.min(progress, 100);
     setLoadingProgress(cappedProgress);
   };
 
+  // Main data loading function
   const loadTeacherData = async () => {
     try {
       console.log("🔄 Loading teacher data...");
@@ -986,6 +758,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Load classes from API
   const loadClasses = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, classes: true }));
@@ -1073,13 +846,12 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Load assignments from API
   const loadAssignments = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, assignments: true }));
 
-      console.log(
-        "📝 Loading teacher assignments from /teachers/me/assignments..."
-      );
+      console.log("📝 Loading teacher assignments from /teachers/me/assignments...");
 
       try {
         const response = await apiClient.get("/teachers/me/assignments");
@@ -1106,25 +878,7 @@ const TeacherDashboard: React.FC = () => {
           response.data.assignments &&
           Array.isArray(response.data.assignments)
         ) {
-          assignmentsData = response.data.assignments.map(
-            (assignment: any) => ({
-              id: assignment.id,
-              name: assignment.name || `Assignment ${assignment.id}`,
-              description: assignment.description,
-              class_id: assignment.class_id,
-              creator_id: assignment.creator_id,
-              created_at: assignment.created_at || new Date().toISOString(),
-              class_name:
-                assignment.class_name || `Class ${assignment.class_id}`,
-              class_code:
-                assignment.class_code || `CLASS-${assignment.class_id}`,
-              due_date: assignment.due_date,
-              points: assignment.points,
-              assignment_type: assignment.assignment_type,
-            })
-          );
-        } else if (response.data && Array.isArray(response.data.data)) {
-          assignmentsData = response.data.data.map((assignment: any) => ({
+          assignmentsData = response.data.assignments.map((assignment: any) => ({
             id: assignment.id,
             name: assignment.name || `Assignment ${assignment.id}`,
             description: assignment.description,
@@ -1141,23 +895,14 @@ const TeacherDashboard: React.FC = () => {
 
         console.log("✅ Processed assignments data:", assignmentsData);
         setAssignments(assignmentsData);
-        console.log(
-          "✅ Teacher assignments loaded successfully:",
-          assignmentsData
-        );
+        console.log("✅ Teacher assignments loaded successfully:", assignmentsData);
       } catch (apiError: any) {
-        console.warn(
-          "⚠️ /teachers/me/assignments API failed:",
-          apiError.message
-        );
+        console.warn("⚠️ /teachers/me/assignments API failed:", apiError.message);
         console.log("🔄 Trying alternative endpoint...");
 
         try {
           const response = await apiClient.get("/assignments/teacher");
-          console.log(
-            "✅ Alternative assignments API response:",
-            response.data
-          );
+          console.log("✅ Alternative assignments API response:", response.data);
 
           let assignmentsData: Assignment[] = [];
 
@@ -1169,10 +914,8 @@ const TeacherDashboard: React.FC = () => {
               class_id: assignment.class_id,
               creator_id: assignment.creator_id,
               created_at: assignment.created_at || new Date().toISOString(),
-              class_name:
-                assignment.class_name || `Class ${assignment.class_id}`,
-              class_code:
-                assignment.class_code || `CLASS-${assignment.class_id}`,
+              class_name: assignment.class_name || `Class ${assignment.class_id}`,
+              class_code: assignment.class_code || `CLASS-${assignment.class_id}`,
               due_date: assignment.due_date,
               points: assignment.points,
               assignment_type: assignment.assignment_type,
@@ -1181,16 +924,11 @@ const TeacherDashboard: React.FC = () => {
 
           if (assignmentsData.length === 0) {
             try {
-              const { getTeacherAssignments } = await import(
-                "../services/authService"
-              );
+              const { getTeacherAssignments } = await import("../services/authService");
               const assignmentsData2 = await getTeacherAssignments();
 
               setAssignments(assignmentsData2);
-              console.log(
-                "✅ Teacher assignments loaded via authService:",
-                assignmentsData2
-              );
+              console.log("✅ Teacher assignments loaded via authService:", assignmentsData2);
             } catch (thirdError) {
               console.error("❌ All assignment endpoints failed:", thirdError);
               setAssignments([]);
@@ -1198,25 +936,17 @@ const TeacherDashboard: React.FC = () => {
             }
           } else {
             setAssignments(assignmentsData);
-            console.log(
-              "✅ Teacher assignments loaded via alternative:",
-              assignmentsData
-            );
+            console.log("✅ Teacher assignments loaded via alternative:", assignmentsData);
           }
         } catch (secondError: any) {
           console.error("❌ Alternative endpoint failed:", secondError.message);
 
           try {
-            const { getTeacherAssignments } = await import(
-              "../services/authService"
-            );
+            const { getTeacherAssignments } = await import("../services/authService");
             const assignmentsData = await getTeacherAssignments();
 
             setAssignments(assignmentsData);
-            console.log(
-              "✅ Teacher assignments loaded via authService fallback:",
-              assignmentsData
-            );
+            console.log("✅ Teacher assignments loaded via authService fallback:", assignmentsData);
           } catch (thirdError) {
             console.error("❌ All assignment endpoints failed:", thirdError);
             setAssignments([]);
@@ -1247,6 +977,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Load engagement insights with real data
   const loadEngagementInsights = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, insights: true }));
@@ -1330,10 +1061,7 @@ const TeacherDashboard: React.FC = () => {
             last_updated: new Date().toISOString(),
           };
         } catch (error) {
-          console.error(
-            `Error loading insights for assignment ${assignment.id}:`,
-            error
-          );
+          console.error(`Error loading insights for assignment ${assignment.id}:`, error);
 
           return {
             id: assignment.id,
@@ -1341,9 +1069,7 @@ const TeacherDashboard: React.FC = () => {
             assignment_name: assignment.name,
             total_submissions: Math.floor(Math.random() * 30) + 1,
             average_time_spent: Math.floor(Math.random() * 120) + 10,
-            engagement_score: parseFloat(
-              (Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)
-            ),
+            engagement_score: parseFloat((Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)),
             last_updated: new Date().toISOString(),
           };
         }
@@ -1355,19 +1081,15 @@ const TeacherDashboard: React.FC = () => {
     } catch (error) {
       console.error("Error loading engagement insights:", error);
 
-      const mockInsights: EngagementInsight[] = assignments.map(
-        (assignment) => ({
-          id: assignment.id,
-          class_name: assignment.class_name || `Class ${assignment.class_id}`,
-          assignment_name: assignment.name,
-          total_submissions: Math.floor(Math.random() * 30) + 1,
-          average_time_spent: Math.floor(Math.random() * 120) + 10,
-          engagement_score: parseFloat(
-            (Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)
-          ),
-          last_updated: new Date().toISOString(),
-        })
-      );
+      const mockInsights: EngagementInsight[] = assignments.map((assignment) => ({
+        id: assignment.id,
+        class_name: assignment.class_name || `Class ${assignment.class_id}`,
+        assignment_name: assignment.name,
+        total_submissions: Math.floor(Math.random() * 30) + 1,
+        average_time_spent: Math.floor(Math.random() * 120) + 10,
+        engagement_score: parseFloat((Math.floor(Math.random() * 40) / 10 + 6).toFixed(1)),
+        last_updated: new Date().toISOString(),
+      }));
 
       setEngagementInsights(mockInsights);
       console.log("🔄 Using mock data as fallback");
@@ -1376,31 +1098,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
-
-
-  const handleViewReportsNav = () => {
-    // Navigate to reports page or show reports modal
-    console.log("Navigating to reports...");
-    // navigate("/teacher/reports"); // Uncomment when route exists
-    Swal.fire({
-      title: "Reports",
-      text: "Reports feature is coming soon!",
-      icon: "info",
-    });
-  };
-
-  const handleAnnouncementCreated = () => {
-    loadAnnouncements();
-    setShowAnnouncementModal(false);
-    Swal.fire({
-      title: "Success",
-      text: "Announcement posted successfully",
-      icon: "success",
-      timer: 2000,
-      showConfirmButton: false
-    });
-  };
-
+  // Load announcements from API
   const loadAnnouncements = async () => {
     try {
       setLoadingStates((prev) => ({ ...prev, announcements: true }));
@@ -1414,16 +1112,11 @@ const TeacherDashboard: React.FC = () => {
           setAnnouncements(response.data);
           console.log("✅ Announcements loaded from API:", response.data);
         } else {
-          console.warn(
-            "⚠️ Announcements API returned invalid data, using mock data"
-          );
+          console.warn("⚠️ Announcements API returned invalid data, using mock data");
           setAnnouncements(getFallbackAnnouncements());
         }
       } catch (error: any) {
-        console.warn(
-          "⚠️ Announcements API failed, using mock data:",
-          error.message
-        );
+        console.warn("⚠️ Announcements API failed, using mock data:", error.message);
         setAnnouncements(getFallbackAnnouncements());
       }
     } catch (error) {
@@ -1442,6 +1135,7 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Fallback announcements for when API fails
   const getFallbackAnnouncements = (): Announcement[] => {
     return [
       {
@@ -1474,14 +1168,16 @@ const TeacherDashboard: React.FC = () => {
     ];
   };
 
+  // Refresh announcements after new announcement is created
+  const handleAnnouncementCreated = () => {
+    loadAnnouncements();
+  };
 
-
+  // Date formatting helper
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      const localDate = new Date(
-        date.getTime() - date.getTimezoneOffset() * 60000
-      );
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
       return localDate.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
@@ -1495,18 +1191,18 @@ const TeacherDashboard: React.FC = () => {
     }
   };
 
+  // Engagement score badge color based on score
   const getEngagementBadge = (score: number) => {
     if (score >= 8.5) return "bg-green-100 text-green-800 border-green-200";
     if (score >= 7.0) return "bg-yellow-100 text-yellow-800 border-yellow-200";
     return "bg-red-100 text-red-800 border-red-200";
   };
 
+  // Time ago calculation for engagement insights
   const getTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    );
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
 
     if (diffInHours < 1) return "Just now";
     if (diffInHours < 24) return `${diffInHours} hours ago`;
@@ -1514,26 +1210,284 @@ const TeacherDashboard: React.FC = () => {
     return `${Math.floor(diffInHours / 168)} weeks ago`;
   };
 
+  // Navigate to reports page
+  const handleViewReportsNav = () => {
+    navigate("/teacher/reports");
+  };
 
 
+  // Stop QR detection timer
+  const stopQrDetection = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setQrDetected(false);
+    setScanBoxColor("red");
+    setIsTimerActive(false);
+    setDetectionTimer(7);
+  };
 
+  // QR Code Reader Functions
 
+  // Open QR reader modal
+  const handleOpenQrReader = () => {
+    if (classes.length === 0) {
+      Swal.fire({
+        title: "No Classes Available",
+        text: "You need to have at least one class to use QR code attendance.",
+        icon: "warning",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      return;
+    }
+    setShowQrReader(true);
+  };
+
+  // Close QR reader modal
+  const handleCloseQrReader = () => {
+    stopCamera();
+    stopQrDetection();
+    setShowQrReader(false);
+    setSelectedClass(null);
+    setIsScanning(false);
+    setScannedData("");
+    setQrDetected(false);
+    setScanBoxColor("red");
+    setIsTimerActive(false);
+    setDetectionTimer(7);
+  };
+
+  // Handle class selection for QR scanning
+  const handleClassSelect = (classItem: Class) => {
+    setSelectedClass(classItem);
+    startCamera();
+    // Start 7-second timer for QR detection
+    startQrDetectionTimer();
+  };
+
+  // Start camera for QR scanning
+  const startCamera = async () => {
+    try {
+      setIsScanning(true);
+
+      // Try to access camera, but if fails, use fallback
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+
+          videoRef.current.onplaying = () => {
+            console.log("📹 Camera started, starting QR detection timer...");
+          };
+        }
+      } catch (cameraError) {
+        console.warn("📹 Camera not available, using simulation mode:", cameraError);
+        // Continue with simulation mode
+      }
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      Swal.fire({
+        title: "Camera Simulation Mode",
+        text: "Using QR code simulation mode. You can still scan QR codes.",
+        icon: "info",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      setIsScanning(true);
+    }
+  };
+
+  // Stop camera stream
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  // Simulate QR code scanning with sequential student data
+  const simulateQrScan = () => {
+    // Only allow scanning if QR is detected (after 7 seconds)
+    if (!qrDetected) {
+      Swal.fire({
+        title: "No QR Code Detected",
+        text: `Please wait for QR code detection (${detectionTimer}s remaining). Point camera at student QR code.`,
+        icon: "warning",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      return;
+    }
+
+    if (!selectedClass) {
+      Swal.fire({
+        title: "No Class Selected",
+        text: "Please select a class first.",
+        icon: "warning",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      return;
+    }
+
+    // List of students for sequential scanning
+    const students = [
+      {
+        firstName: "Boss Allen",
+        lastName: "Orcino",
+        studentId: "ClasstrackPro-26-000005-ALL",
+        username: "bossallen",
+      },
+      {
+        firstName: "Allen Jefferson",
+        lastName: "Orcino",
+        studentId: "ClasstrackPro-26-000002-STU",
+        username: "allenjefferson",
+      },
+      {
+        firstName: "John",
+        lastName: "Doe",
+        studentId: "ClasstrackPro-26-000003-STU",
+        username: "johndoe",
+      },
+      {
+        firstName: "Jane",
+        lastName: "Smith",
+        studentId: "ClasstrackPro-26-000004-STU",
+        username: "janesmith",
+      },
+    ];
+
+    // Use scanCount to get sequential student
+    const studentIndex = scanCount % students.length;
+    const currentStudent = students[studentIndex];
+
+    // Simulate student data with subject information
+    const mockStudentData = {
+      id: Math.floor(Math.random() * 1000) + 1,
+      username: currentStudent.username,
+      firstName: currentStudent.firstName,
+      lastName: currentStudent.lastName,
+      role: "student",
+      timestamp: new Date().toISOString(),
+      institution: "PLMun",
+      department: "Student",
+      studentId: currentStudent.studentId,
+      purpose: "attendance",
+      subject: selectedClass.subject || selectedClass.name, // Add subject info
+      classCode: selectedClass.code,
+      className: selectedClass.name,
+    };
+
+    setScannedData(JSON.stringify(mockStudentData));
+    setScanCount(prev => prev + 1); // Increment scan count
+
+    // Simulate processing time
+    setTimeout(() => {
+      handleAttendanceSubmit(mockStudentData);
+    }, 500);
+
+    // Reset for next scan
+    setTimeout(() => {
+      setScannedData("");
+      // Restart timer for next QR detection
+      startQrDetectionTimer();
+      console.log("✅ Ready for next QR code scan!");
+    }, 2000);
+  };
+
+  // Submit attendance after QR scan
+  const handleAttendanceSubmit = async (studentData: any) => {
+    if (!selectedClass) {
+      Swal.fire({
+        title: "No Class Selected",
+        text: "Please select a class first.",
+        icon: "warning",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      return;
+    }
+
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Add to recent attendance with subject information
+      const newAttendance: AttendanceRecord = {
+        id: Math.floor(Math.random() * 1000) + 1,
+        student_id: studentData.id,
+        class_id: selectedClass.id,
+        attendance_date: new Date().toISOString().split("T")[0],
+        status: "present",
+        scanned_at: new Date().toISOString(),
+        student_name: `${studentData.firstName} ${studentData.lastName}`,
+        student_username: studentData.username,
+        class_name: selectedClass.name,
+        class_subject: selectedClass.subject || selectedClass.name, // Add subject
+      };
+
+      setRecentAttendance((prev) => [newAttendance, ...prev.slice(0, 4)]);
+
+      Swal.fire({
+        title: "Attendance Recorded!",
+        html: `
+          <div class="text-center">
+            <div class="text-4xl mb-2">✅</div>
+            <p class="font-bold text-lg">${studentData.firstName} ${studentData.lastName}</p>
+            <p class="text-gray-600">${studentData.studentId}</p>
+            <p class="text-gray-600 mt-2">Marked present for:</p>
+            <p class="font-bold">${selectedClass.name}</p>
+            <p class="text-sm text-blue-600 font-medium mt-1">
+              Subject: ${selectedClass.subject || selectedClass.name}
+            </p>
+            <p class="text-sm text-gray-500 mt-2">${new Date().toLocaleTimeString()}</p>
+          </div>
+        `,
+        icon: "success",
+        timer: 3000,
+        showConfirmButton: false,
+        timerProgressBar: true,
+      });
+
+    } catch (error) {
+      console.error("Error recording attendance:", error);
+      Swal.fire({
+        title: "Error",
+        text: "Failed to record attendance. Please try again.",
+        icon: "error",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+    }
+  };
+
+  // Format time for attendance display
+  const formatAttendanceTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // Effect: Load assignments when classes are available
   useEffect(() => {
-    if (
-      classes.length > 0 &&
-      assignments.length === 0 &&
-      !loadingStates.assignments
-    ) {
+    if (classes.length > 0 && assignments.length === 0 && !loadingStates.assignments) {
       loadAssignments();
     }
   }, [classes]);
 
+  // Effect: Refresh engagement insights when assignments change
   useEffect(() => {
     if (assignments.length > 0) {
       if (previousAssignmentsCountRef.current !== assignments.length) {
-        console.log(
-          "🔄 Assignments changed, refreshing engagement insights..."
-        );
+        console.log("🔄 Assignments changed, refreshing engagement insights...");
         loadEngagementInsights();
         previousAssignmentsCountRef.current = assignments.length;
       } else if (!loadingStates.insights && engagementInsights.length === 0) {
@@ -1541,6 +1495,39 @@ const TeacherDashboard: React.FC = () => {
       }
     }
   }, [assignments]);
+
+  // Effect: Load teacher data when user is available
+  const stopScanner = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsScanning(false);
+    setShowQrReader(false);
+  };
+
+  const startQrDetectionTimer = () => {
+    setDetectionTimer(7);
+    setIsTimerActive(true);
+    setScanBoxColor("red");
+    setQrDetected(false);
+
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    timerRef.current = setInterval(() => {
+      setDetectionTimer((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          setIsTimerActive(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   useEffect(() => {
     if (user && user.role === "teacher") {
@@ -1552,6 +1539,7 @@ const TeacherDashboard: React.FC = () => {
     }
   }, [user, navigate]);
 
+  // Effect: Auto-refresh engagement insights every 15 seconds
   useEffect(() => {
     if (isInitialLoading || assignments.length === 0) return;
 
@@ -1573,6 +1561,7 @@ const TeacherDashboard: React.FC = () => {
     };
   }, [isInitialLoading, assignments.length]);
 
+  // Effect: Auto-refresh announcements every 30 seconds
   useEffect(() => {
     if (isInitialLoading) return;
 
@@ -1586,12 +1575,14 @@ const TeacherDashboard: React.FC = () => {
     };
   }, [isInitialLoading]);
 
+  // Effect: Clean up camera and timer on unmount
   useEffect(() => {
     return () => {
       stopScanner();
     };
   }, []);
 
+  // Loading state UI
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1648,21 +1639,9 @@ const TeacherDashboard: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mb-8">
           {[
             { text: "Classes", color: "bg-red-100 text-red-600", progress: 25 },
-            {
-              text: "Assignments",
-              color: "bg-green-100 text-green-600",
-              progress: 50,
-            },
-            {
-              text: "Announcements",
-              color: "bg-orange-100 text-orange-600",
-              progress: 75,
-            },
-            {
-              text: "Insights",
-              color: "bg-purple-100 text-purple-600",
-              progress: 100,
-            },
+            { text: "Assignments", color: "bg-green-100 text-green-600", progress: 50 },
+            { text: "Announcements", color: "bg-orange-100 text-orange-600", progress: 75 },
+            { text: "Insights", color: "bg-purple-100 text-purple-600", progress: 100 },
           ].map((step, index) => (
             <div
               key={index}
@@ -1704,6 +1683,7 @@ const TeacherDashboard: React.FC = () => {
     );
   }
 
+  // Error state UI
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -1765,6 +1745,7 @@ const TeacherDashboard: React.FC = () => {
     );
   }
 
+  // User verification check
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
@@ -1776,8 +1757,10 @@ const TeacherDashboard: React.FC = () => {
     );
   }
 
+  // Main dashboard UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex relative">
+      {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 p-4 lg:hidden h-16">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center space-x-3">
@@ -1790,9 +1773,7 @@ const TeacherDashboard: React.FC = () => {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">
-                Teacher Portal
-              </h1>
+              <h1 className="text-lg font-bold text-gray-900">Teacher Portal</h1>
               <p className="text-xs text-gray-600">ClassTrack Dashboard</p>
             </div>
           </div>
@@ -1859,6 +1840,7 @@ const TeacherDashboard: React.FC = () => {
         </div>
       </header>
 
+      {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-40 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } lg:translate-x-0 transition-transform duration-300 ease-in-out`}
@@ -1866,7 +1848,9 @@ const TeacherDashboard: React.FC = () => {
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       </div>
 
+      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+        {/* Desktop Header */}
         <div className="hidden lg:block fixed top-0 right-0 left-64 z-30 bg-white border-b border-gray-200">
           <DynamicHeader
             title="Teacher Portal"
@@ -1875,14 +1859,13 @@ const TeacherDashboard: React.FC = () => {
         </div>
 
         <div className="flex-1 flex flex-col mt-16 lg:mt-20">
+          {/* Status Bar */}
           <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-3 mx-4 mb-4 mt-4 lg:mt-6">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-green-600 font-medium">
-                    System Active
-                  </span>
+                  <span className="text-green-600 font-medium">System Active</span>
                 </div>
                 <div className="text-gray-600">
                   Last updated: {new Date().toLocaleTimeString()}
@@ -1891,17 +1874,16 @@ const TeacherDashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                 <span className="text-blue-600 font-medium">
-                  {user?.role
-                    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
-                    : "Teacher"}{" "}
-                  User
+                  {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Teacher"} User
                 </span>
               </div>
             </div>
           </div>
 
+          {/* Main Dashboard Content */}
           <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+              {/* Welcome Card */}
               <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-xl">
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
@@ -1945,44 +1927,35 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </h2>
                     <p className="text-gray-700 leading-relaxed text-sm md:text-base">
-                      Manage your classes, create assignments, and gain insights
-                      into student engagement.
+                      Manage your classes, create assignments, and gain insights into student engagement.
                     </p>
                   </div>
                 </div>
               </div>
 
+              {/* Profile Card */}
               <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-xl">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-lg">
-                      {user?.profile_picture_url &&
-                        user.profile_picture_url.trim() !== "" ? (
+                      {user?.profile_picture_url && user.profile_picture_url.trim() !== "" ? (
                         <img
                           src={getProfileImageUrl(user.profile_picture_url)}
                           alt="Profile"
                           className="w-full h-full object-cover"
                           onLoad={() => {
-                            console.log(
-                              "🖼️  Profile image loaded successfully in teacher dashboard"
-                            );
+                            console.log("🖼️ Profile image loaded successfully in teacher dashboard");
                           }}
                           onError={(e) => {
-                            console.error(
-                              "🖼️  Profile image failed to load in teacher dashboard:",
-                              e.currentTarget.src
-                            );
+                            console.error("🖼️ Profile image failed to load in teacher dashboard:", e.currentTarget.src);
                             e.currentTarget.style.display = "none";
-                            e.currentTarget.nextElementSibling?.classList.remove(
-                              "hidden"
-                            );
+                            e.currentTarget.nextElementSibling?.classList.remove("hidden");
                           }}
                         />
                       ) : null}
 
                       <div
-                        className={`w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-2xl ${!user?.profile_picture_url ||
-                          user.profile_picture_url.trim() === ""
+                        className={`w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-2xl ${!user?.profile_picture_url || user.profile_picture_url.trim() === ""
                           ? ""
                           : "hidden"
                           }`}
@@ -2001,8 +1974,7 @@ const TeacherDashboard: React.FC = () => {
                       </p>
                       <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full border border-purple-200">
                         {user?.role
-                          ? user.role.charAt(0).toUpperCase() +
-                          user.role.slice(1)
+                          ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                           : "Teacher"}
                       </span>
                     </div>
@@ -2030,9 +2002,13 @@ const TeacherDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Main Dashboard Grid */}
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                {/* Left Column (2/3) */}
                 <div className="xl:col-span-2 space-y-6">
+                  {/* Classes and Assignments Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* My Classes Card */}
                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
@@ -2051,9 +2027,7 @@ const TeacherDashboard: React.FC = () => {
                               />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-bold text-gray-900">
-                            My Classes
-                          </h3>
+                          <h3 className="text-lg font-bold text-gray-900">My Classes</h3>
                         </div>
                         <button
                           onClick={() => navigate("/teacher/classes")}
@@ -2105,12 +2079,8 @@ const TeacherDashboard: React.FC = () => {
                                   />
                                 </svg>
                               </div>
-                              <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                                No Classes Yet
-                              </h4>
-                              <p className="text-gray-600 mb-4">
-                                You haven't been assigned to any classes yet.
-                              </p>
+                              <h4 className="text-lg font-semibold text-gray-900 mb-2">No Classes Yet</h4>
+                              <p className="text-gray-600 mb-4">You haven't been assigned to any classes yet.</p>
                               <button
                                 className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
                                 style={{ cursor: "pointer" }}
@@ -2124,15 +2094,11 @@ const TeacherDashboard: React.FC = () => {
                                 key={classItem.id}
                                 className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                                 style={{ cursor: "pointer" }}
-                                onClick={() =>
-                                  navigate(`/teacher/classes/${classItem.id}`)
-                                }
+                                onClick={() => navigate(`/teacher/classes/${classItem.id}`)}
                               >
                                 <div className="flex items-center justify-between mb-3">
                                   <div>
-                                    <h4 className="font-semibold text-gray-900 text-sm">
-                                      {classItem.name}
-                                    </h4>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{classItem.name}</h4>
                                     <p className="text-xs text-blue-600 mt-1">
                                       Subject: {classItem.subject || classItem.name}
                                     </p>
@@ -2143,16 +2109,9 @@ const TeacherDashboard: React.FC = () => {
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="text-gray-600">
-                                    {
-                                      assignments.filter(
-                                        (a) => a.class_id === classItem.id
-                                      ).length
-                                    }{" "}
-                                    assignments
+                                    {assignments.filter((a) => a.class_id === classItem.id).length} assignments
                                   </span>
-                                  <span className="text-green-600 font-medium">
-                                    Active
-                                  </span>
+                                  <span className="text-green-600 font-medium">Active</span>
                                 </div>
                               </div>
                             ))
@@ -2184,6 +2143,7 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Recent Assignments Card */}
                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center space-x-3">
@@ -2202,9 +2162,7 @@ const TeacherDashboard: React.FC = () => {
                               />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-bold text-gray-900">
-                            Recent Assignments
-                          </h3>
+                          <h3 className="text-lg font-bold text-gray-900">Recent Assignments</h3>
                         </div>
                         <button
                           onClick={() => navigate("/teacher/assignments")}
@@ -2253,12 +2211,8 @@ const TeacherDashboard: React.FC = () => {
                                   />
                                 </svg>
                               </div>
-                              <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                                No Assignments Yet
-                              </h4>
-                              <p className="text-gray-600 mb-4">
-                                Create your first assignment to get started.
-                              </p>
+                              <h4 className="text-lg font-semibold text-gray-900 mb-2">No Assignments Yet</h4>
+                              <p className="text-gray-600 mb-4">Create your first assignment to get started.</p>
                               <button
                                 className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
                                 style={{ cursor: "pointer" }}
@@ -2272,16 +2226,10 @@ const TeacherDashboard: React.FC = () => {
                                 key={assignment.id}
                                 className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                                 style={{ cursor: "pointer" }}
-                                onClick={() =>
-                                  navigate(
-                                    `/teacher/assignments/${assignment.id}`
-                                  )
-                                }
+                                onClick={() => navigate(`/teacher/assignments/${assignment.id}`)}
                               >
                                 <div className="flex items-center justify-between mb-3">
-                                  <h4 className="font-semibold text-gray-900 text-sm">
-                                    {assignment.name}
-                                  </h4>
+                                  <h4 className="font-semibold text-gray-900 text-sm">{assignment.name}</h4>
                                   <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200">
                                     Active
                                   </span>
@@ -2291,33 +2239,33 @@ const TeacherDashboard: React.FC = () => {
                           )}
                         </div>
 
-                        {assignments.length > 4 &&
-                          showAssignmentsScrollIndicator && (
-                            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                              <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                                <svg
-                                  className="w-3 h-3 text-green-500 animate-bounce"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                                  />
-                                </svg>
-                                <span className="text-xs text-gray-600">
-                                  Scroll for more ({assignments.length} total)
-                                </span>
-                              </div>
+                        {assignments.length > 4 && showAssignmentsScrollIndicator && (
+                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                              <svg
+                                className="w-3 h-3 text-green-500 animate-bounce"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                                />
+                              </svg>
+                              <span className="text-xs text-gray-600">
+                                Scroll for more ({assignments.length} total)
+                              </span>
                             </div>
-                          )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
 
+                  {/* Student Engagement Insights Card */}
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center space-x-3">
@@ -2337,22 +2285,16 @@ const TeacherDashboard: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold text-gray-900">
-                            Student Engagement Insights
-                          </h3>
+                          <h3 className="text-lg font-bold text-gray-900">Student Engagement Insights</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-blue-600 font-medium">
-                              AI Powered • Auto-Refresh
-                            </span>
+                            <span className="text-xs text-blue-600 font-medium">AI Powered • Auto-Refresh</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs text-green-600 font-medium">
-                          Live
-                        </span>
+                        <span className="text-xs text-green-600 font-medium">Live</span>
                         <button
                           onClick={loadEngagementInsights}
                           className="px-3 py-1 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-700 rounded-xl text-xs font-medium transition-all duration-200 shadow-sm cursor-pointer flex items-center gap-1"
@@ -2417,16 +2359,11 @@ const TeacherDashboard: React.FC = () => {
                                 />
                               </svg>
                             </div>
-                            <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                              No Engagement Data Yet
-                            </h4>
+                            <h4 className="text-lg font-semibold text-gray-900 mb-2">No Engagement Data Yet</h4>
                             <p className="text-gray-600 mb-4">
-                              Create assignments to start tracking student
-                              engagement.
+                              Create assignments to start tracking student engagement.
                               <br />
-                              <span className="text-sm text-blue-600">
-                                Data will auto-refresh every 15 seconds.
-                              </span>
+                              <span className="text-sm text-blue-600">Data will auto-refresh every 15 seconds.</span>
                             </p>
                           </div>
                         ) : (
@@ -2435,9 +2372,7 @@ const TeacherDashboard: React.FC = () => {
                               key={insight.id}
                               className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-all duration-200 shadow-sm cursor-pointer"
                               style={{ cursor: "pointer" }}
-                              onClick={() =>
-                                navigate(`/teacher/assignments/${insight.id}`)
-                              }
+                              onClick={() => navigate(`/teacher/assignments/${insight.id}`)}
                             >
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex-1 min-w-0">
@@ -2456,17 +2391,13 @@ const TeacherDashboard: React.FC = () => {
 
                               <div className="grid grid-cols-2 gap-2 mb-3">
                                 <div className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                                  <div className="text-gray-600 text-xs mb-1">
-                                    Submissions
-                                  </div>
+                                  <div className="text-gray-600 text-xs mb-1">Submissions</div>
                                   <div className="text-gray-900 font-bold text-sm">
                                     {insight.total_submissions}
                                   </div>
                                 </div>
                                 <div className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                                  <div className="text-gray-600 text-xs mb-1">
-                                    Avg. Time Spent
-                                  </div>
+                                  <div className="text-gray-600 text-xs mb-1">Avg. Time Spent</div>
                                   <div className="text-gray-900 font-bold text-sm">
                                     {insight.average_time_spent}m
                                   </div>
@@ -2474,9 +2405,7 @@ const TeacherDashboard: React.FC = () => {
                               </div>
 
                               <div className="text-xs text-gray-500 flex items-center justify-between">
-                                <span>
-                                  Updated: {getTimeAgo(insight.last_updated)}
-                                </span>
+                                <span>Updated: {getTimeAgo(insight.last_updated)}</span>
                                 <span className="text-green-500 text-xs flex items-center gap-1">
                                   <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
                                   Live
@@ -2487,30 +2416,28 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {engagementInsights.length > 4 &&
-                        showInsightsScrollIndicator && (
-                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
-                            <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
-                              <svg
-                                className="w-3 h-3 text-purple-500 animate-bounce"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                                />
-                              </svg>
-                              <span className="text-xs text-gray-600">
-                                Scroll for more ({engagementInsights.length}{" "}
-                                total)
-                              </span>
-                            </div>
+                      {engagementInsights.length > 4 && showInsightsScrollIndicator && (
+                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
+                          <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
+                            <svg
+                              className="w-3 h-3 text-purple-500 animate-bounce"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                              />
+                            </svg>
+                            <span className="text-xs text-gray-600">
+                              Scroll for more ({engagementInsights.length} total)
+                            </span>
                           </div>
-                        )}
+                        </div>
+                      )}
                     </div>
 
                     {engagementInsights.length > 0 && (
@@ -2526,6 +2453,7 @@ const TeacherDashboard: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Right Column (1/3) */}
                 <div className="xl:col-span-1 space-y-6">
                   {/* QR Code Reader Section */}
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
@@ -2547,333 +2475,312 @@ const TeacherDashboard: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold text-gray-900">
-                            QR Code Attendance
-                          </h3>
+                          <h3 className="text-lg font-bold text-gray-900">QR Code Attendance</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-green-600 font-medium">
-                              Quick Scan • Real-time
-                            </span>
+                            <span className="text-xs text-green-600 font-medium">Quick Scan • Real-time</span>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <p className="text-sm text-gray-600 mb-4">
-                      Use the camera to scan student QR codes for instant attendance.
-                    </p>
-
-                    <button
-                      onClick={() => setShowQrReader(true)}
-                      className="w-full flex items-center justify-center p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg transition-all"
-                    >
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
-                      Open QR Scanner
-                    </button>
-
-                    {/* Recent Attendance (Optional, if state exists) */}
-                    {recentAttendance.length > 0 && (
-                      <div className="mt-4 pt-4 border-t">
-                        <h4 className="text-xs font-semibold text-gray-500 mb-2">RECENT SCANS</h4>
-                        <div className="space-y-2">
-                          {recentAttendance.slice(0, 3).map((rec, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-xs">
-                              <span className="text-gray-800 font-medium truncate w-32">{rec.student_name}</span>
-                              <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Present</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* IMPROVED QR Code Reader Overlay */}
-                  {
-                    showQrReader && (
-                      <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl relative">
-                          {/* Header */}
-                          <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                                </svg>
-                              </div>
-                              QR Attendance Scanner
-                            </h3>
-                            <button
-                              onClick={() => setShowQrReader(false)}
-                              className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500"
-                            >
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-
-                          {/* Camera Content */}
-                          <div className="p-6 relative">
-                            {/* Camera Selector */}
-                            {availableCameras.length > 1 && (
-                              <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Select Camera</label>
-                                <select
-                                  value={selectedCameraId}
-                                  onChange={(e) => setSelectedCameraId(e.target.value)}
-                                  className="w-full p-2 border border-gray-300 rounded-lg text-sm"
-                                >
-                                  {availableCameras.map(cam => (
-                                    <option key={cam.deviceId} value={cam.deviceId}>
-                                      {cam.label || `Camera ${cam.deviceId.slice(0, 5)}...`}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            )}
-
-                            {/* Error Message */}
-                            {cameraError && (
-                              <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm flex items-center gap-2">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                {cameraError}
-                              </div>
-                            )}
-
-                            {/* Class Selection inside Modal (Optional but good for context) */}
-                            <div className="mb-4">
-                              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Target Class</label>
-                              <select
-                                className="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg text-sm"
-                                value={selectedClass?.id || ""}
-                                onChange={(e) => {
-                                  const cls = classes.find(c => c.id === Number(e.target.value));
-                                  if (cls) setSelectedClass(cls);
-                                }}
+                    {!showQrReader ? (
+                      <div className="space-y-4">
+                        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                              <svg
+                                className="w-6 h-6 text-indigo-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
                               >
-                                <option value="">-- Select Class --</option>
-                                {classes.map(c => (
-                                  <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="relative aspect-square bg-black rounded-xl overflow-hidden shadow-inner border-2 border-gray-900">
-                              <div
-                                id="reader-video-box"
-                                className="w-full h-full object-cover"
-                              ></div>
-
-                              {/* High Fidelity Scanner Overlay UI */}
-                              <div
-                                id="qr-overlay"
-                                className="absolute inset-0 border-2 border-transparent transition-all duration-300 pointer-events-none"
-                              >
-                                {/* Central Detection Box */}
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64">
-
-                                  {/* Glowing Corner Brackets */}
-                                  <div className={`absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 rounded-tl-lg transition-colors duration-300 ${isScanning ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'border-gray-500'}`}></div>
-                                  <div className={`absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 rounded-tr-lg transition-colors duration-300 ${isScanning ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'border-gray-500'}`}></div>
-                                  <div className={`absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 rounded-bl-lg transition-colors duration-300 ${isScanning ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'border-gray-500'}`}></div>
-                                  <div className={`absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 rounded-br-lg transition-colors duration-300 ${isScanning ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'border-gray-500'}`}></div>
-
-                                  {/* Scanning Laser Line */}
-                                  {isScanning && (
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-green-500 shadow-[0_0_20px_rgba(34,197,94,1)] animate-[scan_2s_linear_infinite]"
-                                      style={{
-                                        background: 'linear-gradient(to right, transparent, #22c55e, transparent)',
-                                        boxShadow: '0 0 15px #22c55e, 0 0 30px #22c55e'
-                                      }}></div>
-                                  )}
-
-                                  {/* Pulsing Center Guide (Subtle) */}
-                                  {isScanning && (
-                                    <div className="absolute inset-0 border border-green-500/10 animate-pulse rounded-lg bg-green-500/5"></div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Status Overlay */}
-                              {!isScanning && !cameraError && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                                  <div className="text-center text-white">
-                                    <svg className="w-12 h-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                    <p className="font-medium">Camera Paused</p>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Processing Overlay */}
-                              {isProcessingScan && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-20">
-                                  <div className="bg-white/90 p-4 rounded-xl shadow-lg flex items-center gap-3">
-                                    <svg className="animate-spin w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span className="font-semibold text-gray-800">Verifying...</span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="mt-6 flex gap-3">
-                              {!isScanning ? (
-                                <button
-                                  // Start Scanner Logic using Html5Qrcode
-                                  onClick={startScanner}
-                                  disabled={!selectedCameraId}
-                                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                  Start Scanner
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={stopScanner}
-                                  className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                  Stop Camera
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Manual Entry & Simulation */}
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  placeholder="Manual Student ID or Email"
-                                  className="flex-1 p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      processScannedData((e.target as HTMLInputElement).value);
-                                      (e.target as HTMLInputElement).value = '';
-                                    }
-                                  }}
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
                                 />
-                                <button
-                                  onClick={(e) => {
-                                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                    processScannedData(input.value);
-                                    input.value = '';
-                                  }}
-                                  className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors"
+                              </svg>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-indigo-900">Scan Student QR Codes</h4>
+                              <p className="text-sm text-gray-600">
+                                Take attendance quickly using student QR codes
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={handleOpenQrReader}
+                          disabled={classes.length === 0}
+                          className="w-full flex items-center justify-center p-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl border border-indigo-300 transition-all duration-200 cursor-pointer group shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{
+                            cursor: classes.length === 0 ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          <svg
+                            className="w-5 h-5 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                            />
+                          </svg>
+                          Open QR Code Scanner
+                        </button>
+
+                        {recentAttendance.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <h5 className="font-semibold text-gray-900 text-sm mb-3">Recent Attendance</h5>
+                            <div className="space-y-2">
+                              {recentAttendance.slice(0, 3).map((record) => (
+                                <div
+                                  key={record.id}
+                                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                                 >
-                                  Submit
-                                </button>
+                                  <div>
+                                    <p className="font-medium text-gray-900 text-sm">{record.student_name}</p>
+                                    <p className="text-xs text-gray-500">{record.student_username}</p>
+                                    {record.class_subject && (
+                                      <p className="text-xs text-blue-600 mt-1">{record.class_subject}</p>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                                      Present
+                                    </span>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {formatAttendanceTime(record.scanned_at)}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Class Selection Dropdown */}
+                        <div className="space-y-3">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Select Class for Attendance
+                          </label>
+                          <div className="relative">
+                            <select
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer"
+                              value={selectedClass?.id || ""}
+                              onChange={(e) => {
+                                const classId = parseInt(e.target.value);
+                                const selected = classes.find((c) => c.id === classId);
+                                if (selected) {
+                                  handleClassSelect(selected);
+                                }
+                              }}
+                            >
+                              <option value="">Choose a class...</option>
+                              {classes.map((classItem) => (
+                                <option key={classItem.id} value={classItem.id}>
+                                  {classItem.name} ({classItem.code}) - {classItem.subject || classItem.name}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                              <svg
+                                className="w-4 h-4 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Selected Class Info */}
+                        {selectedClass && (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-semibold text-blue-900">{selectedClass.name}</h4>
+                                <p className="text-sm text-blue-700">
+                                  Subject: {selectedClass.subject || selectedClass.name}
+                                </p>
+                                <p className="text-xs text-blue-600">Code: {selectedClass.code}</p>
                               </div>
                             </div>
                           </div>
+                        )}
 
+                        {/* QR Scanner Area */}
+                        {selectedClass && isScanning && (
+                          <div className="relative bg-gray-900 rounded-xl overflow-hidden" ref={videoContainerRef}>
+                            <div className="aspect-video relative">
+                              <video
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                {/* QR SCAN BOX - Changes color based on 7-second timer */}
+                                <div
+                                  className={`w-64 h-64 border-4 rounded-lg relative transition-all duration-300 ${scanBoxColor === "red"
+                                    ? "border-red-500 bg-red-500/10"
+                                    : "border-green-500 bg-green-500/10"
+                                    }`}
+                                >
+                                  {/* Corner indicators */}
+                                  <div className={`absolute -top-2 -left-2 w-8 h-8 border-t-4 border-l-4 ${scanBoxColor === "red" ? "border-red-500" : "border-green-500"
+                                    }`}></div>
+                                  <div className={`absolute -top-2 -right-2 w-8 h-8 border-t-4 border-r-4 ${scanBoxColor === "red" ? "border-red-500" : "border-green-500"
+                                    }`}></div>
+                                  <div className={`absolute -bottom-2 -left-2 w-8 h-8 border-b-4 border-l-4 ${scanBoxColor === "red" ? "border-red-500" : "border-green-500"
+                                    }`}></div>
+                                  <div className={`absolute -bottom-2 -right-2 w-8 h-8 border-b-4 border-r-4 ${scanBoxColor === "red" ? "border-red-500" : "border-green-500"
+                                    }`}></div>
+
+                                  {/* Detection status indicator with timer */}
+                                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+                                    <div className={`px-4 py-2 rounded-full text-white text-sm font-medium flex items-center gap-2 ${scanBoxColor === "red" ? "bg-red-500" : "bg-green-500"
+                                      }`}>
+                                      {scanBoxColor === "red" ? (
+                                        <>
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          <span>Detecting QR Code...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                          </svg>
+                                          <span>QR Code Detected!</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Animated scanning line */}
+                                  <div className={`absolute left-0 right-0 h-1 ${scanBoxColor === "red" ? "bg-red-500" : "bg-green-500"
+                                    }`} style={{
+                                      animation: 'scan 2s linear infinite',
+                                      top: '50%',
+                                      transform: 'translateY(-50%)'
+                                    }}></div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="p-4 bg-gray-800">
+                              <p className="text-white text-center text-sm">
+                                {scanBoxColor === "red"
+                                  ? `QR detection in progress...`
+                                  : "QR Code detected! Click 'Start Scanner' to record attendance."}
+                              </p>
+                              {selectedClass && (
+                                <p className="text-white text-center text-xs mt-1">
+                                  Scanning for: <span className="font-medium">{selectedClass.subject || selectedClass.name}</span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Start Scanner Button - Enabled only when QR is detected (after 7 seconds) */}
+                        {selectedClass && isScanning && (
+                          <button
+                            onClick={simulateQrScan}
+                            disabled={!qrDetected}
+                            className={`w-full flex items-center justify-center p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl ${qrDetected
+                              ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-300"
+                              : "bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed"
+                              }`}
+                            style={{
+                              cursor: qrDetected ? "pointer" : "not-allowed",
+                            }}
+                          >
+                            <svg
+                              className="w-5 h-5 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                              />
+                            </svg>
+                            {qrDetected ? "Start Scanner" : `Waiting for QR Detection `}
+                          </button>
+                        )}
+
+                        {/* Scanned Data Display */}
+                        {scannedData && (
+                          <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className="text-green-700 font-medium">
+                                QR Code Scanned Successfully!
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              Student attendance has been recorded for <span className="font-medium">{selectedClass?.subject || selectedClass?.name}</span>.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={handleCloseQrReader}
+                            className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
+                          >
+                            Close Scanner
+                          </button>
+                          {selectedClass && (
+                            <button
+                              onClick={() => {
+                                setSelectedClass(null);
+                                setIsScanning(false);
+                                setScannedData("");
+                                stopCamera();
+                                stopQrDetection();
+                                setQrDetected(false);
+                                setScanBoxColor("red");
+                                setIsTimerActive(false);
+                                setDetectionTimer(7);
+                              }}
+                              className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 cursor-pointer"
+                            >
+                              Change Class
+                            </button>
+                          )}
                         </div>
-                      </div>
-
-                    )
-                  }
-                </div >
-
-                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md">
-                        <svg
-                          className="w-5 h-5 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
-                          />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        Announcements
-                      </h3>
-                    </div>
-                    {announcements.filter((a) => a.is_urgent).length > 0 && (
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs text-orange-600 font-medium">
-                          {announcements.filter((a) => a.is_urgent).length}{" "}
-                          Urgent
-                        </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="relative">
-                    <div
-                      className="space-y-3 h-[220px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
-                      ref={announcementsScrollRef}
-                      onScroll={handleAnnouncementsScroll}
-                    >
-                      {loadingStates.announcements ? (
-                        <div className="space-y-3">
-                          {[1, 2].map((i) => (
-                            <div
-                              key={i}
-                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
-                            >
-                              <div className="flex items-start space-x-3">
-                                <div className="w-3 h-3 rounded-full mt-1 bg-gray-300 animate-pulse"></div>
-                                <div className="flex-1">
-                                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-full mb-2 animate-pulse"></div>
-                                  <div className="h-3 bg-gray-300 rounded w-1/2 animate-pulse"></div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : announcements.length > 0 ? (
-                        announcements.slice(0, 3).map((announcement) => (
-                          <div
-                            key={announcement.id}
-                            className={`bg-gray-50 rounded-xl p-4 border transition-all duration-200 hover:bg-gray-100 shadow-sm cursor-pointer ${announcement.is_urgent
-                              ? "border-orange-300 ring-1 ring-orange-100"
-                              : "border-gray-200"
-                              }`}
-                          >
-                            <div className="flex items-start space-x-3">
-                              <div
-                                className={`w-3 h-3 rounded-full mt-2 ${announcement.is_urgent
-                                  ? "bg-orange-500"
-                                  : "bg-blue-500"
-                                  }`}
-                              ></div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-semibold text-gray-900 text-sm leading-tight">
-                                    {announcement.title}
-                                  </h4>
-                                  {announcement.is_urgent && (
-                                    <span className="px-2 py-1 text-xs rounded-full border ml-2 flex-shrink-0 bg-orange-100 border-orange-200 text-orange-700">
-                                      🚨 URGENT
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-gray-700 mb-3 leading-relaxed">
-                                  {announcement.content}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {formatDate(announcement.date_posted)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8">
+                  {/* Announcements Card */}
+                  <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md">
                           <svg
                             className="w-12 h-12 text-gray-400 mx-auto mb-3"
                             fill="none"
@@ -2887,18 +2794,100 @@ const TeacherDashboard: React.FC = () => {
                               d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                             />
                           </svg>
-                          <h5 className="font-medium text-gray-900 text-sm mb-1">
-                            No Announcements
-                          </h5>
-                          <p className="text-xs text-gray-600">
-                            No announcements to display
-                          </p>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">Announcements</h3>
+                      </div>
+                      {announcements.filter((a) => a.is_urgent).length > 0 && (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-orange-600 font-medium">
+                            {announcements.filter((a) => a.is_urgent).length} Urgent
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    {announcements.length > 2 &&
-                      showAnnouncementsScrollIndicator && (
+                    <div className="relative">
+                      <div
+                        className="space-y-3 h-[220px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
+                        ref={announcementsScrollRef}
+                        onScroll={handleAnnouncementsScroll}
+                      >
+                        {loadingStates.announcements ? (
+                          <div className="space-y-3">
+                            {[1, 2].map((i) => (
+                              <div
+                                key={i}
+                                className="bg-gray-50 rounded-xl p-4 border border-gray-200"
+                              >
+                                <div className="flex items-start space-x-3">
+                                  <div className="w-3 h-3 rounded-full mt-1 bg-gray-300 animate-pulse"></div>
+                                  <div className="flex-1">
+                                    <div className="h-4 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
+                                    <div className="h-3 bg-gray-300 rounded w-full mb-2 animate-pulse"></div>
+                                    <div className="h-3 bg-gray-300 rounded w-1/2 animate-pulse"></div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : announcements.length > 0 ? (
+                          announcements.slice(0, 3).map((announcement) => (
+                            <div
+                              key={announcement.id}
+                              className={`bg-gray-50 rounded-xl p-4 border transition-all duration-200 hover:bg-gray-100 shadow-sm cursor-pointer ${announcement.is_urgent
+                                ? "border-orange-300 ring-1 ring-orange-100"
+                                : "border-gray-200"
+                                }`}
+                            >
+                              <div className="flex items-start space-x-3">
+                                <div
+                                  className={`w-3 h-3 rounded-full mt-2 ${announcement.is_urgent ? "bg-orange-500" : "bg-blue-500"
+                                    }`}
+                                ></div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <h4 className="font-semibold text-gray-900 text-sm leading-tight">
+                                      {announcement.title}
+                                    </h4>
+                                    {announcement.is_urgent && (
+                                      <span className="px-2 py-1 text-xs rounded-full border ml-2 flex-shrink-0 bg-orange-100 border-orange-200 text-orange-700">
+                                        🚨 URGENT
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-700 mb-3 leading-relaxed">
+                                    {announcement.content}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {formatDate(announcement.date_posted)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8">
+                            <svg
+                              className="w-3 h-3 text-orange-500 animate-bounce"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                              />
+                            </svg>
+                            <h5 className="font-medium text-gray-900 text-sm mb-1">No Announcements</h5>
+                            <p className="text-xs text-gray-600">No announcements to display</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {announcements.length > 2 && showAnnouncementsScrollIndicator && (
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300">
                           <div className="flex items-center space-x-1 bg-white/90 rounded-full px-3 py-1 border border-gray-300 backdrop-blur-sm shadow-sm">
                             <svg
@@ -2920,24 +2909,16 @@ const TeacherDashboard: React.FC = () => {
                           </div>
                         </div>
                       )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg mt-6">
+                {/* Quick Actions Card */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                   <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center space-x-3">
                     <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
-                      <svg
-                        className="w-4 h-4 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 10V3L4 14h7v7l9-11h-7z"
-                        />
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     </div>
                     <span>Quick Actions</span>
@@ -2946,30 +2927,15 @@ const TeacherDashboard: React.FC = () => {
                     <button
                       onClick={() => navigate("/teacher/assignments")}
                       className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
-                      style={{ cursor: "pointer" }}
                     >
                       <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-sm">
-                        <svg
-                          className="w-6 h-6 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                          />
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                       </div>
                       <div className="text-left">
-                        <p className="text-gray-900 font-semibold text-sm">
-                          Manage Assignments
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          Create and manage tasks
-                        </p>
+                        <p className="text-gray-900 font-semibold text-sm">Manage Assignments</p>
+                        <p className="text-xs text-gray-600">Create and manage tasks</p>
                       </div>
                     </button>
                     <button
@@ -3091,13 +3057,16 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </button>
                   </div>
+
                 </div>
-              </div >
-            </div >
-          </main >
-        </div >
-      </div >
-      <AnnouncementModal
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+
+      {/* Announcement Modal */}
+      < AnnouncementModal
         isOpen={showAnnouncementModal}
         onClose={() => setShowAnnouncementModal(false)}
         onAnnouncementCreated={handleAnnouncementCreated}
@@ -3105,7 +3074,8 @@ const TeacherDashboard: React.FC = () => {
 
       {/* CSS for scan animation */}
       <style>
-        {`
+        {
+          `
           @keyframes scan {
             0% {
               transform: translateY(-50%) translateX(-100%);
@@ -3124,7 +3094,7 @@ const TeacherDashboard: React.FC = () => {
             }
           }
         `}
-      </style>
+      </style >
     </div >
   );
 };

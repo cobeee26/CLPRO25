@@ -9,6 +9,7 @@ import Swal from 'sweetalert2';
 
 const API_BASE_URL = 'http://localhost:8000';
 
+// Axios instance configuration with interceptors
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -89,6 +90,7 @@ const DashboardPage: React.FC = () => {
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [classesError, setClassesError] = useState<string>('');
 
+  // Alert Functions
   const showSuccessAlert = (
     title: string, 
     text: string = '', 
@@ -269,9 +271,9 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  // Load dashboard statistics
   const fetchDashboardStats = async () => {
     try {
-      console.log('🔄 Loading dashboard data...');
       setIsInitialLoading(true);
       setHasInitialLoadError(false);
       setLoadingProgress(10);
@@ -301,16 +303,15 @@ const DashboardPage: React.FC = () => {
         setLoadingProgress(100);
       }, 500);
       
-      console.log('✅ Dashboard data loaded successfully');
-      
     } catch (error) {
-      console.error('❌ Failed to fetch dashboard stats:', error);
+      console.error('Failed to fetch dashboard stats:', error);
       setHasInitialLoadError(true);
       setIsInitialLoading(false);
-      showErrorAlert("Load Error", "Failed to load dashboard data. Please refresh the page.", true, 4000);
+      showErrorAlert("Load Error", "Failed to load dashboard data.", true, 4000);
     }
   };
 
+  // Load recent activities
   const fetchRecentActivities = async (usersData: any[] = [], classesData: any[] = []) => {
     try {
       const activities: Array<{
@@ -326,13 +327,13 @@ const DashboardPage: React.FC = () => {
       
       if (usersData.length > 0) {
         const newestUser = usersData[usersData.length - 1];
-        const newestUserTime = new Date(now.getTime() - 2 * 60000); 
+        const newestUserTime = new Date(now.getTime() - 2 * 60000);
         
         activities.push({
           id: 1,
           type: 'user',
           title: 'New user registered',
-          description: `Username "${newestUser.username || newestUser.email}" joined the system`, 
+          description: `Username "${newestUser.username || newestUser.email}" joined the system`,
           timestamp: newestUserTime.toISOString(),
           timeAgo: formatTimeAgo(newestUserTime.toISOString())
         });
@@ -340,7 +341,7 @@ const DashboardPage: React.FC = () => {
       
       if (classesData.length > 0) {
         const newestClass = classesData[classesData.length - 1];
-        const newestClassTime = new Date(now.getTime() - 15 * 60000); 
+        const newestClassTime = new Date(now.getTime() - 15 * 60000);
         
         let teacherName = 'teacher@classtrack.edu';
         if (newestClass.teacher_id && usersData.length > 0) {
@@ -354,13 +355,13 @@ const DashboardPage: React.FC = () => {
           id: 2,
           type: 'class',
           title: 'Class created',
-          description: `"${newestClass.name}" created by "${teacherName}"`, 
+          description: `"${newestClass.name}" created by "${teacherName}"`,
           timestamp: newestClassTime.toISOString(),
           timeAgo: formatTimeAgo(newestClassTime.toISOString())
         });
       }
       
-      const reportTime = new Date(now.getTime() - 60 * 60000); 
+      const reportTime = new Date(now.getTime() - 60 * 60000);
       activities.push({
         id: 3,
         type: 'report',
@@ -370,7 +371,7 @@ const DashboardPage: React.FC = () => {
         timeAgo: formatTimeAgo(reportTime.toISOString())
       });
       
-      const backupTime = new Date(now.getTime() - 120 * 60000); 
+      const backupTime = new Date(now.getTime() - 120 * 60000);
       activities.push({
         id: 4,
         type: 'backup',
@@ -383,8 +384,6 @@ const DashboardPage: React.FC = () => {
       setRecentActivities(activities);
       
     } catch (error) {
-      console.error('Failed to fetch recent activities:', error);
-
       const now = new Date();
       const activities = [
         {
@@ -399,7 +398,7 @@ const DashboardPage: React.FC = () => {
           id: 2,
           type: 'class' as const,
           title: 'Class created',
-          description: `"Aray mo" created by "teacher@classtrack.edu"`,
+          description: `"Computer Programming" created by "teacher@classtrack.edu"`,
           timestamp: new Date(now.getTime() - 15 * 60000).toISOString(),
           timeAgo: '15 mins ago'
         },
@@ -427,7 +426,7 @@ const DashboardPage: React.FC = () => {
   const handleLogout = async () => {
     const result = await showConfirmDialog(
       'Confirm Logout',
-      'Are you sure you want to logout? You will need to log in again to access your dashboard.',
+      'Are you sure you want to logout? You will need to log in again.',
       'Yes, logout'
     );
     
@@ -439,7 +438,7 @@ const DashboardPage: React.FC = () => {
           window.location.href = "/login";
         }, 1500);
       } catch (error) {
-        showErrorAlert('Logout Error', 'There was an issue logging out. Please try again.', true, 3000);
+        showErrorAlert('Logout Error', 'There was an issue logging out.', true, 3000);
       }
     }
   };
@@ -456,6 +455,7 @@ const DashboardPage: React.FC = () => {
     navigate('/admin/reports');
   };
 
+  // Schedule form submission
   const handleScheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -503,6 +503,7 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  // Announcement form submission
   const handleAnnouncementSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -564,6 +565,7 @@ const DashboardPage: React.FC = () => {
     });
   };
 
+  // Fetch classes for schedule form
   const fetchClasses = async () => {
     setLoadingClasses(true);
     setClassesError('');
@@ -577,9 +579,9 @@ const DashboardPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Failed to fetch classes:', error);
-      setClassesError('Failed to load classes. Please try again.');
+      setClassesError('Failed to load classes.');
       setClasses([]);
-      showErrorAlert('Load Error', 'Failed to load classes. Please try again.', true, 3000);
+      showErrorAlert('Load Error', 'Failed to load classes.', true, 3000);
     } finally {
       setLoadingClasses(false);
     }
@@ -663,6 +665,7 @@ const DashboardPage: React.FC = () => {
     }
   }, []);
 
+  // Loading State
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -685,7 +688,6 @@ const DashboardPage: React.FC = () => {
               </svg>
             </div>
           </div>
-          <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
         </div>
 
         <div className="text-center mb-8">
@@ -709,41 +711,11 @@ const DashboardPage: React.FC = () => {
             ></div>
           </div>
         </div>
-
-        <div className="grid grid-cols-3 gap-3 max-w-md mb-8">
-          {[
-            { text: "Users", color: "bg-blue-100 text-blue-600" },
-            { text: "Classes", color: "bg-green-100 text-green-600" },
-            { text: "Activities", color: "bg-orange-100 text-orange-600" },
-          ].map((step, index) => (
-            <div
-              key={index}
-              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
-                loadingProgress >= ((index + 1) * 33)
-                  ? `${step.color} shadow-sm`
-                  : "bg-gray-100 text-gray-400"
-              }`}
-            >
-              {step.text}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-          <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-        </div>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            This might take a moment. Please wait...
-          </p>
-        </div>
       </div>
     );
   }
 
+  // Error State
   if (hasInitialLoadError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
@@ -759,7 +731,7 @@ const DashboardPage: React.FC = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 a9 9 0 0118 0z"
               />
             </svg>
           </div>
@@ -769,7 +741,7 @@ const DashboardPage: React.FC = () => {
           </h2>
           
           <p className="text-gray-600 mb-6">
-            We encountered an issue while loading your dashboard data. This could be due to network issues or server problems.
+            We encountered an issue while loading your dashboard data.
           </p>
           
           <div className="space-y-3">
@@ -777,38 +749,8 @@ const DashboardPage: React.FC = () => {
               onClick={fetchDashboardStats}
               className="w-full px-6 py-3 bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
               Retry Loading Dashboard
             </button>
-            
-            <button
-              onClick={() => window.location.href = "/login"}
-              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
-            >
-              Return to Login
-            </button>
-          </div>
-          
-          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
-            <ul className="text-sm text-gray-500 text-left space-y-1">
-              <li>• Check your internet connection</li>
-              <li>• Refresh the page (F5 or Ctrl+R)</li>
-              <li>• Clear browser cache and try again</li>
-              <li>• Contact system administrator if problem persists</li>
-            </ul>
           </div>
         </div>
       </div>
@@ -822,7 +764,6 @@ const DashboardPage: React.FC = () => {
         <header className="lg:hidden bg-white border-b border-gray-200 p-4 shadow-sm flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl"></div>
               <img 
                 src={plmunLogo} 
                 alt="PLMun Logo" 
@@ -896,15 +837,15 @@ const DashboardPage: React.FC = () => {
                 <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 rounded-full"></div>
               </div>
               <p className="text-lg text-gray-600 font-medium max-w-2xl mx-auto leading-relaxed">
-                Manage your system and users from this central dashboard with powerful insights and controls.
+                Manage your system and users from this central dashboard.
               </p>
             </div>
 
+            {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-blue-50 rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
                       <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -927,7 +868,6 @@ const DashboardPage: React.FC = () => {
               <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-green-50 rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg">
                       <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -950,7 +890,6 @@ const DashboardPage: React.FC = () => {
               <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-purple-50 rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
                       <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -971,7 +910,6 @@ const DashboardPage: React.FC = () => {
               <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 cursor-default">
                 <div className="flex items-center justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-orange-50 rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
                       <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
@@ -991,6 +929,7 @@ const DashboardPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+              {/* Quick Actions */}
               <div className="lg:col-span-1">
                 <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg">
                   <h3 className="text-xl font-bold text-gray-900 flex items-center mb-6">
@@ -1003,17 +942,17 @@ const DashboardPage: React.FC = () => {
                   </h3>
                   <div className="space-y-4">
                     <button 
-                      className="group w-full flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl sm:rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer"
+                      className="group w-full flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl cursor-pointer"
                       title="Manage users"
                       onClick={handleManageUsers}
                     >
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600/20 rounded-xl sm:rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                         </svg>
                       </div>
                       <div className="text-left flex-1">
-                        <p className="text-xs sm:text-sm font-bold text-white">Manage Users</p>
+                        <p className="text-sm font-bold text-white">Manage Users</p>
                         <p className="text-xs text-blue-100 font-medium">View and manage user accounts</p>
                       </div>
                     </button>
@@ -1069,6 +1008,7 @@ const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* 📋 Recent Activity */}
               <div className="lg:col-span-2">
                 <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg">
                   <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
@@ -1096,7 +1036,6 @@ const DashboardPage: React.FC = () => {
                           className="group flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-all duration-300 hover:shadow-lg border border-gray-200 cursor-pointer" 
                         >
                           <div className="relative">
-                            <div className={`absolute inset-0 ${getActivityBgLightColor(activity.type)} rounded-2xl`}></div>
                             <div className={`relative w-12 h-12 ${getActivityBgColor(activity.type)} rounded-2xl flex items-center justify-center shadow-lg`}>
                               {getActivityIcon(activity.type)}
                             </div>
@@ -1118,11 +1057,12 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
+            {/* System Overview */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <span>System Overview</span>
@@ -1169,6 +1109,7 @@ const DashboardPage: React.FC = () => {
         </main>
       </div>
 
+      {/* System Utility Modal */}
       {showUtilityModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-300 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
@@ -1194,6 +1135,7 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Tab Navigation */}
             <div className="flex border-b border-gray-200">
               <button
                 onClick={() => setActiveTab('schedule')}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser } from '../services/authService';
+import { loginUser, authService } from '../services/authService';
 import { Button, Input } from './ui';
 import { useUser } from '../contexts/UserContext';
 
@@ -28,10 +28,10 @@ const LoginForm: React.FC<LoginFormProps> = () => {
     }
 
     setIsLoading(true);
-    setShowLoginLoading(true);
 
     try {
       console.log('Attempting login with:', { email, role });
+
 
       const token = await loginUser(email, password);
 
@@ -95,27 +95,31 @@ const LoginForm: React.FC<LoginFormProps> = () => {
         // and we want to hide the "flash" of the form before redirect.
       }, 1500);
 
+
     } catch (error: any) {
       console.error('Login failed:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
 
       setShowLoginLoading(false);
+      setIsLoading(false);
 
+      // Handle specific error cases
       if (error.message === 'Network Error' || error.code === 'ERR_NETWORK') {
         setLoginError('Network error. Please check your internet connection and try again.');
       } else if (error.response?.status === 401 || error.response?.status === 404) {
-        setLoginError('Invalid email/student number or password. Please check your credentials.');
+        setLoginError('Invalid email or password. Please check your credentials.');
       } else if (error.response?.status === 422) {
         setLoginError('Please fill in all required fields correctly.');
+      } else if (error.message.includes('Authentication failed')) {
+        setLoginError('Authentication failed. Please check your credentials.');
+      } else if (error.message.includes('not authorized') || error.message.includes('not registered')) {
+        // Role mismatch error from our validation above
+        setLoginError(error.message);
       } else {
         setLoginError('Login failed. Please check your credentials and try again.');
       }
-    } finally {
-      setIsLoading(false);
+
+      // Clear token on any error
+      localStorage.removeItem('authToken');
     }
   };
 
@@ -137,10 +141,10 @@ const LoginForm: React.FC<LoginFormProps> = () => {
               </div>
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-white mb-2">
-                  {role} Login
+                  {role} Login Successful
                 </h2>
                 <p className="text-gray-300 text-sm">
-                  Authenticating your credentials...
+                  Redirecting to {role.toLowerCase()} dashboard...
                 </p>
               </div>
             </div>
@@ -171,26 +175,26 @@ const LoginForm: React.FC<LoginFormProps> = () => {
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>Verifying credentials...</span>
-                  <span className="font-medium">{role} Access</span>
+                  <span>Role validation successful</span>
+                  <span className="font-medium">{role} Dashboard</span>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {[
                   {
-                    text: "Validation",
+                    text: "Authentication",
                     icon: "✓",
-                    desc: "Checking"
+                    desc: "Verified"
                   },
                   {
-                    text: "Security",
-                    icon: "🔒",
-                    desc: "Verifying"
+                    text: "Role Check",
+                    icon: "👑",
+                    desc: "Confirmed"
                   },
                   {
                     text: "Access",
                     icon: "🚪",
-                    desc: "Granting"
+                    desc: "Granted"
                   },
                 ].map((step, index) => (
                   <div
@@ -208,7 +212,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <p className="text-sm text-gray-300 font-medium">
-                    Preparing your {role.toLowerCase()} dashboard...
+                    Welcome! Loading your {role.toLowerCase()} interface...
                   </p>
                   <div className="flex space-x-1">
                     <span
@@ -302,19 +306,21 @@ const LoginForm: React.FC<LoginFormProps> = () => {
               </svg>
             </div>
           </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Please select the role that matches your account type
+          </p>
         </div>
         <Input
           id="email-or-student-number"
           name="email"
-          label={role === 'Student' ? 'Email Address' : 'Email Address'}
-          type={role === 'Student' ? 'email' : 'email'}
+          label="Email Address"
+          type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder={role === 'Student' ? 'Enter your email address' : 'Enter your email address'}
-          autoComplete="email"
+          placeholder="Enter your email address"
           leftIcon={
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={role === 'Student' ? "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" : "M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           }
           required
@@ -325,12 +331,11 @@ const LoginForm: React.FC<LoginFormProps> = () => {
         <Input
           id="password-or-pin"
           name="password"
-          label={role === 'Student' ? 'Password' : 'Password'}
+          label="Password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder={role === 'Student' ? 'Enter your password' : 'Enter your password'}
-          autoComplete="current-password"
+          placeholder="Enter your password"
           leftIcon={
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -362,7 +367,7 @@ const LoginForm: React.FC<LoginFormProps> = () => {
             className="transform hover:scale-[1.02] hover:shadow-xl cursor-pointer transition-transform duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
             disabled={isLoading}
           >
-            {isLoading ? 'Signing In...' : 'Sign In'}
+            {isLoading ? 'Verifying...' : 'Sign In'}
           </Button>
         </div>
       </form>

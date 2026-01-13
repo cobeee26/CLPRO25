@@ -12,6 +12,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
   const location = useLocation();
   const token = localStorage.getItem('authToken');
 
+  // Loading state with spinner
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -23,11 +24,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     );
   }
 
+  // Check if user is authenticated
   if (!token || !user) {
     console.log('❌ No authentication token or user data found');
     return <Navigate to="/login" replace />;
   }
 
+  // Check if user has required role
   if (requiredRole && user.role !== requiredRole) {
     console.log(`🚫 ACCESS DENIED: User role '${user.role}' cannot access '${requiredRole}' route: ${location.pathname}`);
     switch (user.role) {
@@ -46,6 +49,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     }
   }
 
+  // Route-based access control by URL path
   if (location.pathname.startsWith('/admin/') && user.role !== 'admin') {
     console.log(`🚫 BLOCKED: Non-admin user '${user.role}' attempted to access admin route: ${location.pathname}`);
     return <Navigate to={`/${user.role}/dashboard`} replace />;
@@ -61,6 +65,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     return <Navigate to={`/${user.role}/dashboard`} replace />;
   }
 
+  // Access granted
   console.log(`✅ ACCESS GRANTED: User '${user.role}' accessing route: ${location.pathname}`);
   return <>{children}</>;
 };

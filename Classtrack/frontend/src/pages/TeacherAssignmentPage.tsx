@@ -10,7 +10,7 @@ import { authService } from '../services/authService';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-// Create axios instance with interceptor
+// Axios instance with auth token interceptor
 const createApiClient = () => {
   const instance = axios.create({
     baseURL: API_BASE_URL,
@@ -41,6 +41,7 @@ const createApiClient = () => {
         url: error.config?.url
       });
       
+      // Redirect to login on 401
       if (error.response?.status === 401) {
         console.error('Authentication failed, redirecting to login...');
         localStorage.removeItem('authToken');
@@ -353,7 +354,7 @@ const TeacherAssignmentPage: React.FC = () => {
       
       setClassInfo(enhancedClassInfo);
       
-      // Update assignment with class info immediately
+      // Update assignment with class info
       const updatedAssignment = {
         ...currentAssignment,
         class_code: enhancedClassInfo.code,
@@ -852,7 +853,6 @@ const TeacherAssignmentPage: React.FC = () => {
 
   const filteredAndSortedSubmissions = submissions
     .filter(submission => {
-      
       if (searchTerm && !submission.student_name.toLowerCase().includes(searchTerm.toLowerCase()) && 
           !submission.student_email.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false;
@@ -919,7 +919,6 @@ const TeacherAssignmentPage: React.FC = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      // Show success SweetAlert
       Swal.fire({
         title: '✅ Download Started',
         text: 'Your file download has started.',
@@ -1265,17 +1264,14 @@ const TeacherAssignmentPage: React.FC = () => {
                   <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-green-700">{stats.totalSubmissions}</div>
                     <div className="text-sm text-green-600 font-medium">Submissions</div>
-                 
                   </div>
                   <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-emerald-700">{stats.gradedSubmissions}</div>
                     <div className="text-sm text-emerald-600 font-medium">Graded</div>
                   </div>
-            
                   <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-red-700">{stats.studentsWithViolations}</div>
                     <div className="text-sm text-red-600 font-medium">Violation</div>
-                 
                   </div>
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-4 shadow-sm">
                     <div className="text-3xl font-bold text-purple-700">{stats.averageGrade}%</div>
@@ -1438,7 +1434,6 @@ const TeacherAssignmentPage: React.FC = () => {
                     </p>
                   </div>
                 ) : viewMode === 'list' ? (
-               
                   <div className="overflow-hidden border border-gray-200 rounded-2xl shadow-sm">
                     <table className="w-full">
                       <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
@@ -1469,20 +1464,11 @@ const TeacherAssignmentPage: React.FC = () => {
                       <tbody className="divide-y divide-gray-200">
                         {filteredAndSortedSubmissions.map((submission) => {
                           const isEditing = editingGrades[submission.id];
-                      
                           const submissionViolations = violations.filter(v => v.student_id === submission.student_id);
-                        
                           const embeddedViolations = submission.violations || [];
-                          
-                      
                           const violationCount = submission.violations_count || 
                                                  (submission.violations ? submission.violations.length : 0) || 
                                                  submissionViolations.length;
-                          
-                          console.log(`📊 [Table Row] Student: ${submission.student_name}, Violations Count: ${violationCount}, 
-                            from field: ${submission.violations_count}, 
-                            from array: ${submission.violations?.length || 0}, 
-                            from violations list: ${submissionViolations.length}`);
                           
                           return (
                             <tr key={submission.id} className="hover:bg-gray-50 transition-colors duration-200">
@@ -1612,15 +1598,11 @@ const TeacherAssignmentPage: React.FC = () => {
                     </table>
                   </div>
                 ) : (
-                
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredAndSortedSubmissions.map((submission) => {
                       const isEditing = editingGrades[submission.id];
-                      
                       const submissionViolations = violations.filter(v => v.student_id === submission.student_id);
-                     
                       const embeddedViolations = submission.violations || [];
-                      
                       const violationCount = submission.violations_count || 
                                              (submission.violations ? submission.violations.length : 0) || 
                                              submissionViolations.length;

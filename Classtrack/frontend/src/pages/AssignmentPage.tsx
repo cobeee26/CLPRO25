@@ -9,6 +9,8 @@ import Swal from 'sweetalert2';
 import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8000';
+
+// Axios instance configuration with interceptors
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -80,32 +82,33 @@ const AssignmentPage: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [studentSubmissions, setStudentSubmissions] = useState<StudentSubmission[]>([]);
-  
+
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasInitialLoadError, setHasInitialLoadError] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
-  
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const nameRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const classRef = useRef<HTMLSelectElement>(null);
 
+  // IMPORTANT: Alert system configuration for different notification types
   const showSuccessAlert = (
-    title: string, 
-    text: string = '', 
+    title: string,
+    text: string = '',
     type: 'create' | 'update' | 'delete' | 'refresh' = 'create',
     autoDismiss: boolean = true,
     dismissTime: number = 3000
   ) => {
     const iconColor = type === 'delete' ? 'warning' : 'success';
     const confirmButtonColor = type === 'delete' ? '#d33' : '#10B981';
-    
+
     const alertConfig: any = {
       title,
       text,
@@ -113,16 +116,14 @@ const AssignmentPage: React.FC = () => {
       confirmButtonText: 'OK',
       confirmButtonColor,
       customClass: {
-        title: `text-lg font-bold ${
-          type === 'delete' ? 'text-yellow-900' : 
-          type === 'refresh' ? 'text-blue-900' : 
-          'text-green-900'
-        }`,
-        confirmButton: `px-4 py-2 rounded-lg font-medium ${
-          type === 'delete' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
-          type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
-          'bg-green-500 hover:bg-green-600 text-white'
-        }`
+        title: `text-lg font-bold ${type === 'delete' ? 'text-yellow-900' :
+            type === 'refresh' ? 'text-blue-900' :
+              'text-green-900'
+          }`,
+        confirmButton: `px-4 py-2 rounded-lg font-medium ${type === 'delete' ? 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer' :
+            type === 'refresh' ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' :
+              'bg-green-500 hover:bg-green-600 text-white'
+          }`
       }
     };
 
@@ -136,7 +137,7 @@ const AssignmentPage: React.FC = () => {
   };
 
   const showErrorAlert = (
-    title: string, 
+    title: string,
     text: string = '',
     autoDismiss: boolean = true,
     dismissTime: number = 4000
@@ -163,8 +164,8 @@ const AssignmentPage: React.FC = () => {
   };
 
   const showConfirmDialog = (
-    title: string, 
-    text: string, 
+    title: string,
+    text: string,
     confirmText: string = 'Yes, proceed',
     autoDismiss: boolean = false
   ) => {
@@ -247,13 +248,14 @@ const AssignmentPage: React.FC = () => {
     setLoadingProgress(progress);
   };
 
+  // IMPORTANT: Secure logout handler with confirmation dialog
   const handleLogout = async () => {
     const result = await showConfirmDialog(
       'Confirm Logout',
       'Are you sure you want to logout? You will need to log in again to access your dashboard.',
       'Yes, logout'
     );
-    
+
     if (result.isConfirmed) {
       try {
         localStorage.clear();
@@ -267,6 +269,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Authentication and role-based routing check
   useEffect(() => {
     if (!user) {
       return;
@@ -280,6 +283,7 @@ const AssignmentPage: React.FC = () => {
     loadAssignmentData();
   }, [user, navigate]);
 
+  // IMPORTANT: Real-time updates and periodic refresh mechanism
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'assignments_updated') {
@@ -289,13 +293,13 @@ const AssignmentPage: React.FC = () => {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    
+
     let refreshInterval: NodeJS.Timeout;
     if (user?.role === 'student') {
       refreshInterval = setInterval(() => {
         console.log('🔄 Student: Periodic assignment refresh');
         loadAssignmentData();
-      }, 30000); 
+      }, 30000);
     }
 
     return () => {
@@ -304,19 +308,20 @@ const AssignmentPage: React.FC = () => {
     };
   }, [user]);
 
+  // IMPORTANT: Load classes with role-specific API endpoints and fallbacks
   const loadClasses = async (): Promise<Class[]> => {
     try {
       console.log('📚 Loading classes from API...');
-      
+
       let classesData: Class[] = [];
-      
+
       if (user?.role === 'teacher') {
-      
+        // Teacher-specific class loading with API fallback
         try {
           console.log('👨‍🏫 Loading teacher classes...');
           const response = await apiClient.get('/teachers/me/classes');
           console.log('📊 Teacher classes API response:', response.data);
-          
+
           if (response.data && Array.isArray(response.data.classes)) {
             classesData = response.data.classes.map((cls: any) => ({
               id: cls.id,
@@ -336,7 +341,7 @@ const AssignmentPage: React.FC = () => {
           }
         } catch (teacherError: any) {
           console.warn('⚠️ Teacher classes API failed:', teacherError.message);
-        
+          // Fallback data for teachers
           classesData = [
             {
               id: 1,
@@ -355,12 +360,12 @@ const AssignmentPage: React.FC = () => {
           ];
         }
       } else if (user?.role === 'student') {
-    
+        // Student-specific class loading with multiple fallback strategies
         try {
           console.log('🎓 Loading student classes using getStudentClassesAll...');
           const studentClassesData = await getStudentClassesAll();
           console.log('📊 Student classes from getStudentClassesAll:', studentClassesData);
-          
+
           if (Array.isArray(studentClassesData)) {
             classesData = studentClassesData.map((cls: any) => ({
               id: cls.id,
@@ -372,7 +377,7 @@ const AssignmentPage: React.FC = () => {
           }
         } catch (apiError: any) {
           console.warn('⚠️ Student classes API failed:', apiError.response?.status, apiError.message);
-          
+
           try {
             console.log('🔄 Trying to get classes from assignments data...');
             const assignmentsResponse = await authService.getStudentAssignmentsAll();
@@ -396,7 +401,8 @@ const AssignmentPage: React.FC = () => {
           }
         }
       }
-      
+
+      // IMPORTANT: LocalStorage fallback for offline or failed API calls
       if (classesData.length === 0) {
         const savedClasses = localStorage.getItem('synchronized_classes');
         if (savedClasses) {
@@ -404,45 +410,46 @@ const AssignmentPage: React.FC = () => {
           classesData = JSON.parse(savedClasses);
         }
       }
-      
+
       console.log('✅ Final classes loaded:', classesData);
       setClasses(classesData);
-      
+
       localStorage.setItem('synchronized_classes', JSON.stringify(classesData));
-      
+
       return classesData;
     } catch (error) {
       console.error('❌ Error loading classes:', error);
-      
+
       const savedClasses = localStorage.getItem('synchronized_classes');
       if (savedClasses) {
         const fallbackClasses = JSON.parse(savedClasses);
         setClasses(fallbackClasses);
         return fallbackClasses;
       }
-      
+
       setClasses([]);
       return [];
     }
   };
 
+  // IMPORTANT: Load assignments with role-specific logic and data enrichment
   const loadAssignments = async (loadedClasses: Class[] = []): Promise<Assignment[]> => {
     try {
       console.log('📝 Loading assignments for:', user?.role);
-      
+
       let assignmentsData: Assignment[] = [];
-      
+
       try {
         if (user?.role === 'teacher') {
-          
+          // Teacher assignments - load from API
           console.log('👨‍🏫 Loading teacher assignments...');
           const response = await apiClient.get('/assignments/');
           console.log('✅ Teacher assignments from database:', response.data);
-          
+
           if (Array.isArray(response.data)) {
             assignmentsData = response.data.map((assignment: any) => {
               const classInfo = loadedClasses.find(c => c.id === assignment.class_id);
-              
+
               return {
                 id: assignment.id,
                 name: assignment.name || `Assignment ${assignment.id}`,
@@ -457,19 +464,20 @@ const AssignmentPage: React.FC = () => {
             });
           }
         } else if (user?.role === 'student') {
-          
+          // Student assignments - load from service
           console.log('🌐 Calling student assignments endpoint...');
           const response = await authService.getStudentAssignmentsAll();
           console.log('✅ Assignments from database:', response);
-          
+
           if (Array.isArray(response)) {
             assignmentsData = response.map((assignment: any) => {
               const classInfo = loadedClasses.find(c => c.id === assignment.class_id);
-              
+
               let className = assignment.class_name || `Class ${assignment.class_id}`;
               let classCode = assignment.class_code || `CLASS-${assignment.class_id}`;
               let teacherName = 'Unknown Teacher';
-              
+
+              // IMPORTANT: Multiple teacher name fallback strategies
               if (assignment.teacher_name) {
                 teacherName = assignment.teacher_name;
               } else if (assignment.teacher_full_name) {
@@ -481,13 +489,13 @@ const AssignmentPage: React.FC = () => {
               } else if (classInfo?.teacher_name) {
                 teacherName = classInfo.teacher_name;
               }
-              
+
               if (classInfo) {
                 className = classInfo.name || className;
                 classCode = classInfo.code || classCode;
                 teacherName = classInfo.teacher_name || teacherName;
               }
-              
+
               if (assignment.class && typeof assignment.class === 'object') {
                 if (assignment.class.name) className = assignment.class.name;
                 if (assignment.class.code) classCode = assignment.class.code;
@@ -495,7 +503,7 @@ const AssignmentPage: React.FC = () => {
                   teacherName = assignment.class.teacher_name;
                 }
               }
-              
+
               return {
                 id: assignment.id,
                 name: assignment.name || `Assignment ${assignment.id}`,
@@ -514,10 +522,10 @@ const AssignmentPage: React.FC = () => {
             });
           }
         }
-        
+
       } catch (apiError: any) {
         console.warn('⚠️ API call failed:', apiError.response?.status, apiError.message);
-        
+
         const savedAssignments = localStorage.getItem('synchronized_assignments');
         if (savedAssignments) {
           console.log('🔄 Using synchronized assignments from localStorage');
@@ -525,23 +533,24 @@ const AssignmentPage: React.FC = () => {
         } else {
           assignmentsData = getFallbackAssignments(loadedClasses);
         }
-        
+
         console.log('🔄 Using fallback data for demonstration');
       }
-      
+
       localStorage.setItem('synchronized_assignments', JSON.stringify(assignmentsData));
-      
+
       console.log('📝 Final assignments for', user?.role + ':', assignmentsData.length, 'assignments');
-      
+
       return assignmentsData;
     } catch (error) {
       console.error('❌ Error loading assignments:', error);
-      
+
       const fallbackData = getFallbackAssignments(classes);
       return fallbackData;
     }
   };
 
+  // IMPORTANT: Fallback assignment data generator for offline/demo mode
   const getFallbackAssignments = (currentClasses: Class[] = []): Assignment[] => {
     if (currentClasses.length > 0) {
       return currentClasses.map((classItem: Class, index: number) => ({
@@ -552,14 +561,14 @@ const AssignmentPage: React.FC = () => {
         creator_id: classItem.teacher_id || 1,
         created_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
         class_name: classItem.name,
-        class_code: classItem.code, 
+        class_code: classItem.code,
         teacher_name: classItem.teacher_name || 'Teacher',
         submission_status: user?.role === 'student' ? 'not_started' : undefined,
         grade: user?.role === 'student' ? null : undefined,
         feedback: user?.role === 'student' ? null : undefined
       }));
     }
-    
+
     return [
       {
         id: 1,
@@ -592,47 +601,48 @@ const AssignmentPage: React.FC = () => {
     ];
   };
 
+  // IMPORTANT: Load student submissions with multiple API endpoint fallbacks
   const loadStudentSubmissions = async (): Promise<StudentSubmission[]> => {
     try {
       console.log('📥 Loading student submissions...');
-      
+
       const submissions: StudentSubmission[] = [];
-      
+
       if (!user || user.role !== 'student') {
         console.log('❌ Not a student user');
         return [];
       }
-      
+
       try {
-        
+        // Get assignments first to know which submissions to fetch
         const assignmentsResponse = await authService.getStudentAssignmentsAll();
         console.log('📝 Total assignments found:', assignmentsResponse.length);
-        
+
         for (const assignment of assignmentsResponse) {
           try {
-         
             let submissionData: any = null;
-            
+
             try {
+              // Try primary submission endpoint
               submissionData = await authService.getStudentMySubmission(assignment.id);
               console.log(`✅ Found submission for assignment ${assignment.id}:`, submissionData);
             } catch (firstError: any) {
               console.log(`❌ First endpoint failed for assignment ${assignment.id}:`, firstError.message);
-              
+
               try {
-              
+                // Try alternative submission endpoint
                 submissionData = await authService.getStudentSubmissionForAssignment(assignment.id);
                 console.log(`✅ Found submission (alternative) for assignment ${assignment.id}`);
               } catch (secondError: any) {
                 console.log(`❌ Both endpoints failed for assignment ${assignment.id}:`, secondError.message);
-                
+
                 if (secondError.response?.status === 404 || firstError.response?.status === 404) {
                   console.log(`ℹ️ No submission found for assignment ${assignment.id} (404)`);
                   continue;
                 }
               }
             }
-            
+
             if (submissionData) {
               submissions.push({
                 id: submissionData.id,
@@ -647,7 +657,7 @@ const AssignmentPage: React.FC = () => {
                 link_url: submissionData.link_url,
                 file_name: submissionData.file_name
               });
-              
+
               console.log(`✅ Loaded submission for assignment ${assignment.id}:`, {
                 grade: submissionData.grade,
                 feedback: submissionData.feedback,
@@ -658,16 +668,16 @@ const AssignmentPage: React.FC = () => {
             console.warn(`⚠️ Error loading submission for assignment ${assignment.id}:`, submissionError.message);
           }
         }
-        
+
         console.log(`✅ Total loaded submissions: ${submissions.length}`);
-        
+
       } catch (error: any) {
         console.warn('⚠️ Could not load assignments for submissions:', error.message);
-        
 
+        // Try bulk submissions endpoint as last resort
         try {
           console.log('🔄 Trying bulk submissions endpoint...');
-          const allSubmissions = await authService.get('/students/me/submissions');
+          const allSubmissions = await apiClient.get('/students/me/submissions');
           if (Array.isArray(allSubmissions)) {
             allSubmissions.forEach((sub: any) => {
               submissions.push({
@@ -690,7 +700,7 @@ const AssignmentPage: React.FC = () => {
           console.warn('⚠️ Bulk submissions endpoint also failed:', bulkError.message);
         }
       }
-      
+
       return submissions;
     } catch (error) {
       console.error('❌ Error loading student submissions:', error);
@@ -698,6 +708,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
+  // IMPORTANT: Main data loading function with progress tracking
   const loadAssignmentData = async () => {
     try {
       console.log('🔄 Loading assignment data for', user?.role + '...');
@@ -711,6 +722,7 @@ const AssignmentPage: React.FC = () => {
       updateLoadingProgress(2, 4);
       const loadedAssignments = await loadAssignments(loadedClasses);
 
+      // IMPORTANT: Student-specific data enrichment with submissions
       if (user?.role === 'student') {
         updateLoadingProgress(3, 4);
         const submissions = await loadStudentSubmissions();
@@ -718,15 +730,15 @@ const AssignmentPage: React.FC = () => {
 
         const enrichedAssignments = loadedAssignments.map(assignment => {
           const submission = submissions.find(sub => sub.assignment_id === assignment.id);
-          
+
           let submissionStatus: 'not_started' | 'submitted' | 'graded' | 'late' = 'not_started';
           let grade = null;
           let feedback = null;
           let submittedAt = undefined;
-          
+
           if (submission) {
             submittedAt = submission.submitted_at;
-            
+
             if (submission.grade !== null && submission.grade !== undefined) {
               submissionStatus = 'graded';
               grade = submission.grade;
@@ -735,7 +747,7 @@ const AssignmentPage: React.FC = () => {
               submissionStatus = 'submitted';
             }
           }
-          
+
           return {
             ...assignment,
             submission_status: submissionStatus,
@@ -744,7 +756,7 @@ const AssignmentPage: React.FC = () => {
             submitted_at: submittedAt
           };
         });
-        
+
         setAssignments(enrichedAssignments);
       } else {
         setAssignments(loadedAssignments);
@@ -762,22 +774,24 @@ const AssignmentPage: React.FC = () => {
       console.error('❌ Error loading assignment data:', error);
       setHasInitialLoadError(true);
       setIsInitialLoading(false);
-      
+
       showErrorAlert("Load Error", "Failed to load assignment data. Please refresh the page.", true, 4000);
     }
   };
 
-  const displayAssignments = user?.role === 'teacher' 
+  // IMPORTANT: Role-based assignment filtering
+  const displayAssignments = user?.role === 'teacher'
     ? assignments.filter(assignment => assignment.creator_id === user.id)
     : assignments;
 
+  // IMPORTANT: Synchronization mechanism for real-time updates across tabs/clients
   const syncAssignmentsAcrossClients = (updatedAssignments: Assignment[]) => {
     setAssignments(updatedAssignments);
-    
+
     localStorage.setItem('synchronized_assignments', JSON.stringify(updatedAssignments));
-    
+
     localStorage.setItem('assignments_updated', Date.now().toString());
-    
+
     setTimeout(() => {
       localStorage.removeItem('assignments_updated');
     }, 100);
@@ -816,15 +830,16 @@ const AssignmentPage: React.FC = () => {
     setShowCreateModal(true);
   };
 
+  // IMPORTANT: Edit assignment handler with permission check
   const handleEditAssignment = (assignment: Assignment) => {
     if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
       showErrorAlert('Permission Denied', 'You can only edit assignments that you created.', true, 3000);
       return;
     }
-    
+
     setEditingAssignment(assignment);
     setShowCreateModal(true);
-    
+
     setTimeout(() => {
       if (nameRef.current) nameRef.current.value = assignment.name;
       if (descriptionRef.current) descriptionRef.current.value = assignment.description || '';
@@ -832,12 +847,13 @@ const AssignmentPage: React.FC = () => {
     }, 0);
   };
 
+  // IMPORTANT: Delete assignment handler with confirmation dialog
   const handleDeleteAssignment = (assignment: Assignment) => {
     if (user?.role === 'teacher' && assignment.creator_id !== user.id) {
       showErrorAlert('Permission Denied', 'You can only delete assignments that you created.', true, 3000);
       return;
     }
-    
+
     showConfirmDialog(
       'Are you sure?',
       `You are about to delete "${assignment.name}". This will also delete all related submissions and cannot be undone.`,
@@ -873,6 +889,7 @@ const AssignmentPage: React.FC = () => {
     navigate(`/student/assignments/${assignment.id}`);
   };
 
+  // IMPORTANT: Delete assignment implementation with API and local state sync
   const deleteAssignmentConfirmed = async (assignment: Assignment) => {
     try {
       console.log('🗑️  Deleting assignment:', assignment.id);
@@ -885,15 +902,15 @@ const AssignmentPage: React.FC = () => {
       } catch (apiError) {
         console.warn('⚠️ API delete failed, updating local state only');
       }
-      
+
       const updatedAssignments = assignments.filter(a => a.id !== assignment.id);
       syncAssignmentsAcrossClients(updatedAssignments);
-      
+
       closeAlert();
       showSuccessAlert(`Assignment Deleted!`, `"${assignment.name}" has been deleted successfully.`, 'delete', true, 3000);
-      
+
       console.log('✅ Assignment removed and synchronized');
-      
+
     } catch (error: any) {
       console.error('Error deleting assignment:', error);
       closeAlert();
@@ -910,30 +927,32 @@ const AssignmentPage: React.FC = () => {
     if (classRef.current) classRef.current.value = '';
   };
 
+  // IMPORTANT: Form validation for assignment creation/editing
   const validateForm = (): boolean => {
-    const errors: {[key: string]: string} = {};
-    
+    const errors: { [key: string]: string } = {};
+
     const name = nameRef.current?.value.trim();
     const classId = classRef.current?.value;
-    
+
     if (!name) {
       errors.name = 'Assignment name is required';
     }
-    
+
     if (!classId) {
       errors.class_id = 'Please select a class';
     }
-    
+
     setFormErrors(errors);
-    
+
     if (Object.keys(errors).length > 0) {
       const firstError = Object.values(errors)[0];
       showErrorAlert('Validation Error', firstError, true, 3000);
     }
-    
+
     return Object.keys(errors).length === 0;
   };
 
+  // IMPORTANT: Assignment submission handler with API and local state sync
   const handleSubmitAssignment = async () => {
     if (!validateForm()) {
       return;
@@ -941,7 +960,7 @@ const AssignmentPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      
+
       const formData: CreateAssignmentRequest = {
         name: nameRef.current?.value.trim() || '',
         description: descriptionRef.current?.value.trim() || undefined,
@@ -951,18 +970,18 @@ const AssignmentPage: React.FC = () => {
       console.log('Submitting assignment with data:', formData);
 
       const selectedClass = classes.find(c => c.id === formData.class_id);
-      
+
       if (editingAssignment) {
         console.log('📝 Updating assignment via API:', editingAssignment.id);
-        
+
         showLoadingAlert('Updating assignment...', false);
-        
+
         let updatedAssignment: Assignment;
-        
+
         try {
           const response = await apiClient.patch(`/assignments/${editingAssignment.id}`, formData);
           console.log('✅ Assignment updated successfully via API', response.data);
-          
+
           updatedAssignment = {
             ...editingAssignment,
             name: formData.name,
@@ -984,26 +1003,26 @@ const AssignmentPage: React.FC = () => {
             teacher_name: selectedClass?.teacher_name || getTeacherName(formData.class_id)
           };
         }
-        
-        const updatedAssignments = assignments.map(a => 
+
+        const updatedAssignments = assignments.map(a =>
           a.id === editingAssignment.id ? updatedAssignment : a
         );
         syncAssignmentsAcrossClients(updatedAssignments);
-        
+
         closeAlert();
         showSuccessAlert('Assignment Updated!', 'Assignment has been updated successfully.', 'update', true, 3000);
-        
+
       } else {
         console.log('📝 Creating new assignment...');
-        
+
         showLoadingAlert('Creating assignment...', false);
-        
+
         let newAssignment: Assignment;
-        
+
         try {
           const response = await apiClient.post('/assignments/', formData);
           console.log('✅ Assignment created successfully via API', response.data);
-          
+
           newAssignment = {
             id: response.data.id,
             name: formData.name,
@@ -1018,7 +1037,7 @@ const AssignmentPage: React.FC = () => {
         } catch (apiError) {
           console.warn('⚠️ API create failed, creating local assignment only');
           newAssignment = {
-            id: Date.now(), 
+            id: Date.now(),
             name: formData.name,
             description: formData.description || null,
             class_id: formData.class_id,
@@ -1031,22 +1050,23 @@ const AssignmentPage: React.FC = () => {
         }
         const updatedAssignments = [...assignments, newAssignment];
         syncAssignmentsAcrossClients(updatedAssignments);
-        
+
         closeAlert();
         showSuccessAlert('Assignment Created!', 'New assignment has been created successfully.', 'create', true, 3000);
       }
 
       handleCloseModal();
-      
+
     } catch (error: any) {
       console.error('Error saving assignment:', error);
-      
+
       closeAlert();
-      
+
       let errorMessage = 'Failed to save assignment. Please try again.';
-      
+
+      // IMPORTANT: API error handling for different status codes
       if (error.response?.status === 422 && error.response?.data?.detail) {
-        const apiErrors: {[key: string]: string} = {};
+        const apiErrors: { [key: string]: string } = {};
         error.response.data.detail.forEach((err: any) => {
           if (err.loc && err.loc.length > 1) {
             apiErrors[err.loc[1]] = err.msg;
@@ -1059,9 +1079,9 @@ const AssignmentPage: React.FC = () => {
       } else if (error.response?.status === 500) {
         errorMessage = 'Server error occurred. Please try again later.';
       }
-      
+
       showErrorAlert('Error!', errorMessage, true, 4000);
-      
+
       setFormErrors({ general: errorMessage });
     } finally {
       setIsSubmitting(false);
@@ -1088,7 +1108,7 @@ const AssignmentPage: React.FC = () => {
     }
   };
 
-  const activeAssignmentsCount = user?.role === 'student' 
+  const activeAssignmentsCount = user?.role === 'student'
     ? assignments.filter(a => a.submission_status === 'not_started').length
     : displayAssignments.length;
 
@@ -1132,7 +1152,7 @@ const AssignmentPage: React.FC = () => {
             <span>{loadingProgress}%</span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-red-500 to-purple-600 transition-all duration-300 ease-out"
               style={{ width: `${loadingProgress}%` }}
             ></div>
@@ -1148,11 +1168,10 @@ const AssignmentPage: React.FC = () => {
           ].map((step, index) => (
             <div
               key={index}
-              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${
-                loadingProgress >= ((index + 1) * 25)
+              className={`px-3 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300 ${loadingProgress >= ((index + 1) * 25)
                   ? `${step.color} shadow-sm`
                   : "bg-gray-100 text-gray-400"
-              }`}
+                }`}
             >
               {step.text}
             </div>
@@ -1194,15 +1213,15 @@ const AssignmentPage: React.FC = () => {
               />
             </svg>
           </div>
-          
+
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
             Unable to Load Assignments
           </h2>
-          
+
           <p className="text-gray-600 mb-6">
             We encountered an issue while loading your assignment data. This could be due to network issues or server problems.
           </p>
-          
+
           <div className="space-y-3">
             <button
               onClick={loadAssignmentData}
@@ -1223,7 +1242,7 @@ const AssignmentPage: React.FC = () => {
               </svg>
               Retry Loading Assignments
             </button>
-            
+
             <button
               onClick={() => navigate("/login")}
               className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 cursor-pointer"
@@ -1231,7 +1250,7 @@ const AssignmentPage: React.FC = () => {
               Return to Login
             </button>
           </div>
-          
+
           <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <p className="text-sm text-gray-600 mb-2">Troubleshooting tips:</p>
             <ul className="text-sm text-gray-500 text-left space-y-1">
@@ -1269,9 +1288,9 @@ const AssignmentPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-xl blur-sm"></div>
-              <img 
-                src={plmunLogo} 
-                alt="PLMun Logo" 
+              <img
+                src={plmunLogo}
+                alt="PLMun Logo"
                 className="relative w-8 h-8 object-contain"
               />
             </div>
@@ -1285,7 +1304,7 @@ const AssignmentPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={handleLogout}
               className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200 border border-red-200 hover:border-red-300 cursor-pointer"
               title="Logout"
@@ -1294,7 +1313,7 @@ const AssignmentPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
-            <button 
+            <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
               title="Toggle menu"
@@ -1306,7 +1325,7 @@ const AssignmentPage: React.FC = () => {
           </div>
         </header>
         <div className="hidden lg:block">
-          <DynamicHeader 
+          <DynamicHeader
             title={user?.role === 'student' ? "My Assignments" : "Manage Class Assignments"}
             subtitle={user?.role === 'student' ? "View your assigned tasks, deadlines, and grades" : "Create, edit, and manage your assignments"}
             showBackButton={false}
@@ -1330,7 +1349,7 @@ const AssignmentPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                 <span className="text-red-600 font-medium">
-                  {user?.role === 'student' 
+                  {user?.role === 'student'
                     ? `${activeAssignmentsCount} Active Assignments`
                     : `${displayAssignments.length} Created Assignments`
                   }
@@ -1363,14 +1382,14 @@ const AssignmentPage: React.FC = () => {
                       {user?.role === 'student' ? 'My Assignments Dashboard' : 'Assignment Management'}
                     </h2>
                     <p className="text-gray-600 leading-relaxed">
-                      {user?.role === 'student' 
+                      {user?.role === 'student'
                         ? `You have ${assignments.length} assigned tasks from ${new Set(assignments.map(a => a.teacher_name)).size} different teachers. ${activeAssignmentsCount} still need submission, and ${assignments.filter(a => a.submission_status === 'graded').length} have been graded.`
                         : `You have created ${displayAssignments.length} assignments. Students will see these assignments immediately.`
                       }
                     </p>
                   </div>
                 </div>
-                
+
                 {user?.role === 'teacher' ? (
                   <button
                     onClick={handleCreateAssignment}
@@ -1408,7 +1427,7 @@ const AssignmentPage: React.FC = () => {
                       {user?.role === 'student' ? 'All Assignments' : 'My Created Assignments'}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {user?.role === 'student' 
+                      {user?.role === 'student'
                         ? `Showing ${assignments.length} assignments with submission status and grades`
                         : 'Manage your class assignments - Students see these immediately'
                       }
@@ -1438,7 +1457,7 @@ const AssignmentPage: React.FC = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 cursor-default">
@@ -1468,24 +1487,23 @@ const AssignmentPage: React.FC = () => {
                   <tbody className="divide-y divide-gray-200">
                     {displayAssignments.length > 0 ? (
                       displayAssignments.map((assignment) => {
-                        const isSubmitted = user?.role === 'student' && 
+                        const isSubmitted = user?.role === 'student' &&
                           (assignment.submission_status === 'submitted' || assignment.submission_status === 'graded');
                         const isGraded = user?.role === 'student' && assignment.submission_status === 'graded';
                         const hasGrade = user?.role === 'student' && assignment.grade !== null && assignment.grade !== undefined;
-                        
+
                         return (
                           <tr key={assignment.id} className="hover:bg-gray-50 transition-colors duration-200 cursor-default">
                             <td className="px-4 lg:px-6 py-4">
                               <div className="flex items-start">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm mr-3 flex-shrink-0 ${
-                                  user?.role === 'student'
-                                    ? isGraded 
-                                      ? 'bg-gradient-to-br from-green-400 to-green-600' 
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm mr-3 flex-shrink-0 ${user?.role === 'student'
+                                    ? isGraded
+                                      ? 'bg-gradient-to-br from-green-400 to-green-600'
                                       : isSubmitted
-                                      ? 'bg-gradient-to-br from-blue-400 to-blue-600'
-                                      : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                                        ? 'bg-gradient-to-br from-blue-400 to-blue-600'
+                                        : 'bg-gradient-to-br from-gray-400 to-gray-500'
                                     : 'bg-gradient-to-br from-gray-400 to-gray-500'
-                                }`}>
+                                  }`}>
                                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                   </svg>
@@ -1534,22 +1552,21 @@ const AssignmentPage: React.FC = () => {
                             </td>
                             <td className="px-4 lg:px-6 py-4">
                               {user?.role === 'student' ? (
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full border whitespace-nowrap cursor-default ${
-                                  assignment.submission_status === 'graded'
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full border whitespace-nowrap cursor-default ${assignment.submission_status === 'graded'
                                     ? 'bg-green-100 text-green-800 border-green-200'
                                     : assignment.submission_status === 'submitted'
-                                    ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                    : assignment.submission_status === 'late'
-                                    ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                                    : 'bg-red-100 text-red-800 border-red-200'
-                                }`}>
+                                      ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                      : assignment.submission_status === 'late'
+                                        ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                        : 'bg-red-100 text-red-800 border-red-200'
+                                  }`}>
                                   {assignment.submission_status === 'graded'
                                     ? '✓ Graded'
                                     : assignment.submission_status === 'submitted'
-                                    ? '✓ Submitted'
-                                    : assignment.submission_status === 'late'
-                                    ? '⚠ Late'
-                                    : 'Active'
+                                      ? '✓ Submitted'
+                                      : assignment.submission_status === 'late'
+                                        ? '⚠ Late'
+                                        : 'Active'
                                   }
                                 </span>
                               ) : (
@@ -1618,11 +1635,10 @@ const AssignmentPage: React.FC = () => {
                                   <>
                                     <button
                                       onClick={() => handleViewAssignment(assignment)}
-                                      className={`px-3 py-2 rounded-lg transition-all duration-200 border cursor-pointer flex items-center gap-1 text-sm ${
-                                        isSubmitted
+                                      className={`px-3 py-2 rounded-lg transition-all duration-200 border cursor-pointer flex items-center gap-1 text-sm ${isSubmitted
                                           ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200 hover:border-gray-300'
                                           : 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-200 hover:border-blue-300'
-                                      }`}
+                                        }`}
                                       title={isSubmitted ? "View Submission" : "View Assignment"}
                                       aria-label={isSubmitted ? "View Submission" : "View Assignment"}
                                     >
@@ -1664,7 +1680,7 @@ const AssignmentPage: React.FC = () => {
                             {user?.role === 'student' ? 'No assignments yet' : 'No assignments created yet'}
                           </h3>
                           <p className="text-gray-500 mb-4">
-                            {user?.role === 'student' 
+                            {user?.role === 'student'
                               ? 'You currently have no assigned tasks. Check back later for new assignments from your teachers.'
                               : 'Create your first assignment to get started - Students will see it immediately'
                             }
@@ -1737,7 +1753,7 @@ const AssignmentPage: React.FC = () => {
                       {Math.round(
                         assignments
                           .filter(a => a.grade !== null)
-                          .reduce((sum, a) => sum + (a.grade || 0), 0) / 
+                          .reduce((sum, a) => sum + (a.grade || 0), 0) /
                         assignments.filter(a => a.grade !== null).length
                       )}%
                     </div>
@@ -1745,7 +1761,7 @@ const AssignmentPage: React.FC = () => {
                       Based on {assignments.filter(a => a.grade !== null).length} graded assignments
                     </div>
                   </div>
-                  
+
                   <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
                     <div className="text-sm font-medium text-blue-700 mb-1">Highest Grade</div>
                     <div className="text-2xl font-bold text-blue-800">
@@ -1755,7 +1771,7 @@ const AssignmentPage: React.FC = () => {
                       {assignments.find(a => a.grade === Math.max(...assignments.filter(a => a.grade !== null).map(a => a.grade || 0)))?.name}
                     </div>
                   </div>
-                  
+
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
                     <div className="text-sm font-medium text-purple-700 mb-1">Completion Rate</div>
                     <div className="text-2xl font-bold text-purple-800">
@@ -1771,9 +1787,9 @@ const AssignmentPage: React.FC = () => {
           </div>
         </main>
       </div>
-      
+
       {showCreateModal && user?.role === 'teacher' && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-default"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -1798,7 +1814,7 @@ const AssignmentPage: React.FC = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-6">
               {formErrors.general && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl cursor-default">
@@ -1817,9 +1833,8 @@ const AssignmentPage: React.FC = () => {
                     ref={nameRef}
                     type="text"
                     autoComplete="off"
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent cursor-text ${
-                      formErrors.name ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent cursor-text ${formErrors.name ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     placeholder="Enter assignment name"
                     defaultValue={editingAssignment?.name || ''}
                   />
@@ -1827,19 +1842,18 @@ const AssignmentPage: React.FC = () => {
                     <p className="mt-1 text-sm text-red-600 cursor-default">{formErrors.name}</p>
                   )}
                 </div>
-                
+
                 <div>
                   <label htmlFor="assignment-class" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                     Class <span className="text-red-500">*</span>
                   </label>
-                  <select 
+                  <select
                     id="assignment-class"
                     name="assignment-class"
                     ref={classRef}
                     autoComplete="off"
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent cursor-pointer ${
-                      formErrors.class_id ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent cursor-pointer ${formErrors.class_id ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     defaultValue={editingAssignment?.class_id || ''}
                     disabled={classes.length === 0}
                   >
@@ -1861,7 +1875,7 @@ const AssignmentPage: React.FC = () => {
                     </p>
                   )}
                 </div>
-                
+
                 <div>
                   <label htmlFor="assignment-description" className="block text-sm font-medium text-gray-700 mb-2 cursor-default">
                     Description
@@ -1881,7 +1895,7 @@ const AssignmentPage: React.FC = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseModal}
@@ -1898,8 +1912,8 @@ const AssignmentPage: React.FC = () => {
                   {isSubmitting && (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   )}
-                  {isSubmitting 
-                    ? (editingAssignment ? 'Updating...' : 'Creating...') 
+                  {isSubmitting
+                    ? (editingAssignment ? 'Updating...' : 'Creating...')
                     : (editingAssignment ? 'Update Assignment' : 'Create Assignment')
                   }
                 </button>

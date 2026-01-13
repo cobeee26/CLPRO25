@@ -12,6 +12,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const location = useLocation();
   const { user } = useUser();
 
+  // Constructs full URL for profile images from various input formats
   const getProfileImageUrl = (url: string | null): string => {
     if (!url || url.trim() === "") {
       return "";
@@ -39,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     return constructedUrl;
   };
 
+  // Returns appropriate icon based on user role
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
@@ -120,10 +122,12 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     }
   };
 
+  // Checks if current route matches given path
   const isActive = (path: string) => {
     return location.pathname === path;
   };
 
+  // Returns navigation items based on user role
   const getNavigationItems = () => {
     const userRole =
       user?.role || localStorage.getItem("userRole") || "student";
@@ -483,6 +487,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   const navigationItems = getNavigationItems();
 
+  // Returns branding information based on user role
   const getBranding = () => {
     let userRole = user?.role || localStorage.getItem("userRole") || "student";
 
@@ -534,6 +539,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   const branding = getBranding();
 
+  // Returns gradient colors based on user role for avatar background
   const getRoleAvatarGradient = () => {
     let userRole = user?.role || localStorage.getItem("userRole") || "student";
 
@@ -557,6 +563,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     }
   };
 
+  // Clears all user data and redirects to login
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
@@ -619,6 +626,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
         </div>
 
+        {/* Navigation menu */}
         <nav
           className="flex-1 p-3 overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 200px)", minHeight: "200px" }}
@@ -663,6 +671,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
         </nav>
 
+        {/* User profile and logout section */}
         <div className="p-3 border-t border-gray-200 mt-auto">
           <div className="flex items-center space-x-3 mb-3">
             <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-lg flex-shrink-0">
@@ -742,6 +751,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       </div>
 
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-20 lg:hidden"
