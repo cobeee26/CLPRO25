@@ -163,6 +163,17 @@ def run_migrations():
             END IF;
         END $$;
         """
+        # Add join_code to schedules if not exists
+        """
+        ALTER TABLE schedules 
+        ADD COLUMN IF NOT EXISTS join_code VARCHAR(50);
+        """,
+
+        # Add schedule_id to attendance if not exists
+        """
+        ALTER TABLE attendance 
+        ADD COLUMN IF NOT EXISTS schedule_id INTEGER REFERENCES schedules(id);
+        """
     ]
     
     try:
@@ -214,8 +225,24 @@ def check_and_run_migrations():
             if len(columns) < 3:
                 print("⚠️  Violations table missing required columns, running migrations...")
                 run_migrations()
-            else:
-                print("✅ Database schema is up to date")
+                return # Migrations run, we are good
+
+            # Check for new columns in other tables
+            # Check schedules.join_code
+            res_join = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='schedules' AND column_name='join_code'"))
+            if not res_join.scalar():
+                print("⚠️  schedules.join_code missing, running migrations...")
+                run_migrations()
+                return
+
+            # Check attendance.schedule_id
+            res_sched = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='attendance' AND column_name='schedule_id'"))
+            if not res_sched.scalar():
+                print("⚠️  attendance.schedule_id missing, running migrations...")
+                run_migrations()
+                return
+            
+            print("✅ Database schema is up to date (violations table and new columns verified)")
                 
     except Exception as e:
         print(f"❌ Error checking database schema: {e}")

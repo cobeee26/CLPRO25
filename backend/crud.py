@@ -1,7 +1,27 @@
 from sqlalchemy.orm import Session
-from models import Class, ClassCreate, User, Assignment, AssignmentCreate, Submission, Enrollment, Schedule, ScheduleCreate, Announcement, AnnouncementCreate, ClassroomReport, ClassroomReportCreate, Violation, ViolationCreate, Attendance
+from models import Class, User, Assignment, Submission, Enrollment, Schedule, Announcement, ClassroomReport, Violation, Attendance, UserRole
 import schemas
-from schemas import SubmissionCreate
+from schemas import SubmissionCreate, UserCreate, ClassCreate, AssignmentCreate, ScheduleCreate, AnnouncementCreate, ClassroomReportCreate, ViolationCreate
+from security import get_password_hash
+from datetime import datetime
+
+
+def create_user_with_role(db: Session, user: UserCreate) -> User:
+    hashed_password = get_password_hash(user.password)
+    # Convert string role (from Pydantic) to Enum (for SQLAlchemy)
+    db_role = UserRole(user.role.value)
+    
+    db_user = User(
+        username=user.username,
+        hashed_password=hashed_password,
+        role=db_role,
+        first_name=user.first_name,
+        last_name=user.last_name
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
 from typing import Optional, List
 from datetime import datetime, timedelta
 
@@ -1111,6 +1131,28 @@ def get_teacher_attendance(db: Session, teacher_id: int, date_limit: datetime = 
         })
     return results
 
+def get_recent_scans_for_teacher(db: Session, teacher_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    Get recent successful scans (Present) for classes taught by this teacher.
+    """
+    query = db.query(Attendance).join(Class).filter(
+        Class.teacher_id == teacher_id, 
+        Attendance.status == "Present"
+    ).order_by(Attendance.date.desc()).limit(limit)
+    
+    scans = query.all()
+    
+    results = []
+    for s in scans:
+        student = db.query(User).filter(User.id == s.student_id).first()
+        results.append({
+            "student": f"{student.first_name} {student.last_name}" if student else "Unknown",
+            "class": s.class_.name if s.class_ else "Unknown",
+            "time": s.date.strftime("%I:%M %p"),
+            "date": s.date.strftime("%Y-%m-%d")
+        })
+    return results
+
 def get_student_attendance(db: Session, student_id: int) -> List[Dict[str, Any]]:
     """
     Get attendance record for a student
@@ -1430,16 +1472,24 @@ def verify_and_record_attendance(db: Session, scan_data: schemas.AttendanceScan)
     from datetime import datetime, time
     
     # 1. Identify Student
-    # Expected format: "chaney@classtrack.edu" or "username:chaney" or just "chaney"
-    # We'll try to match by email first, then username.
+    # Expected format: "chaney@classtrack.edu" or "username:chaney" or just "chaney" or ID "123"
     qr = scan_data.qr_content.strip()
-    student = db.query(User).filter((User.email == qr) | (User.username == qr)).first()
+    
+    student = None
+    
+    # Check if numeric ID
+    if qr.isdigit():
+        student = db.query(User).filter(User.id == int(qr)).first()
+    
+    if not student:
+        # Try to match by email first, then username.
+        student = db.query(User).filter((User.email == qr) | (User.username == qr)).first()
     
     # Try cleaner "email:" prefix removal if exists
     if not student and ":" in qr:
         clean_qr = qr.split(":")[-1].strip()
         student = db.query(User).filter((User.email == clean_qr) | (User.username == clean_qr)).first()
-        
+
     if not student:
         raise ValueError(f"Student identity not found for QR code: {qr}")
         
@@ -1520,3 +1570,73 @@ def verify_and_record_attendance(db: Session, scan_data: schemas.AttendanceScan)
     db.commit()
     db.refresh(new_record)
     return new_record
+
+def get_student_class_by_fuzzy_name(db: Session, student_id: int, class_name_query: str) -> Optional[Class]:
+    """
+    Find a class a student is enrolled in by a fuzzy name search.
+    """
+    # Get all enrolled classes
+    enrollments = db.query(Enrollment).filter(Enrollment.student_id == student_id).all()
+    class_ids = [e.class_id for e in enrollments]
+    
+    if not class_ids:
+        return None
+        
+    class_obj = db.query(Class).filter(
+        Class.id.in_(class_ids),
+        (Class.name.ilike(f"%{class_name_query}%")) | (Class.code.ilike(f"%{class_name_query}%"))
+    ).first()
+    
+    return class_obj
+
+def get_classmates(db: Session, class_id: int) -> List[User]:
+    """
+    Get all students enrolled in a class.
+    """
+    enrollments = db.query(Enrollment).filter(Enrollment.class_id == class_id).all()
+    student_ids = [e.student_id for e in enrollments]
+    
+    if not student_ids:
+        return []
+        
+    students = db.query(User).filter(User.id.in_(student_ids)).all()
+    return students
+
+# Attendance CRUD
+def create_attendance(db: Session, attendance: schemas.AttendanceCreate):
+    db_attendance = Attendance(
+        class_id=attendance.class_id,
+        student_id=attendance.student_id,
+        status=attendance.status,
+        schedule_id=attendance.schedule_id,
+        date=datetime.utcnow()
+    )
+    db.add(db_attendance)
+    db.commit()
+    db.refresh(db_attendance)
+    return db_attendance
+
+def get_attendance(db: Session, attendance_id: int):
+    return db.query(Attendance).filter(Attendance.id == attendance_id).first()
+
+def update_attendance_status(db: Session, attendance_id: int, status: str):
+    db_attendance = db.query(Attendance).filter(Attendance.id == attendance_id).first()
+    if db_attendance:
+        db_attendance.status = status
+        db.commit()
+        db.refresh(db_attendance)
+    return db_attendance
+
+def get_latest_attendance_for_student(db: Session, student_id: int, class_id: int):
+    return db.query(Attendance).filter(
+        Attendance.student_id == student_id, 
+        Attendance.class_id == class_id
+    ).order_by(Attendance.date.desc()).first()
+
+def get_attendance_for_class_today(db: Session, class_id: int):
+    today = datetime.utcnow().date()
+    return db.query(Attendance).filter(
+        Attendance.class_id == class_id,
+        Attendance.date >= today
+    ).all()
+

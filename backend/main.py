@@ -40,8 +40,6 @@ print("✅ OpenAI client configured successfully!")
 
 
 
-
-
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
@@ -54,14 +52,21 @@ import enum
 from datetime import datetime, timedelta
 import uuid
 import aiofiles
+import json
 # Note: google.generativeai is imported at the top to avoid FutureWarning
 # and ensure proper configuration before other imports
 # Configuration is already done above (lines 29-37)
 
 from database import engine, SessionLocal, get_db
 import models
-from models import Base, User, Class, UserRole, ClassCreate, ClassResponse, Assignment, AssignmentCreate, AssignmentResponse, Schedule, ScheduleCreate, ScheduleResponse, Announcement, AnnouncementCreate, AnnouncementResponse, Submission, ClassroomReport, ClassroomReportCreate, ClassroomReportResponse, Enrollment, Attendance
-from schemas import ClassExport, SubmissionCreate, Submission as SubmissionSchema, SubmissionResponse
+from models import Base, User, Class, UserRole, Assignment, Schedule, Announcement, Submission, ClassroomReport, Enrollment, Attendance, Violation
+from schemas import (
+    ClassExport, SubmissionCreate, Submission as SubmissionSchema, SubmissionResponse,
+    ClassCreate, ClassResponse, AssignmentCreate, AssignmentResponse,
+    ScheduleCreate, ScheduleResponse, ScheduleEnrichedResponse, AnnouncementCreate, AnnouncementResponse,
+    ClassroomReportCreate, ClassroomReportResponse, UserCreate, UserResponse,
+    ViolationCreate, ViolationResponse, ChatRequest
+)
 from security import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password, get_password_hash, create_access_token, verify_token
 import crud  # IMPORTANT: DITO NILAGAY ANG ACTUAL VIOLATION CRUD FUNCTIONS
 
@@ -78,32 +83,12 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".doc", 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 # Pydantic models for request/response
-class UserRoleEnum(str, enum.Enum):
-    ADMIN = "admin"
-    TEACHER = "teacher"
-    STUDENT = "student"
-
-class UserCreate(BaseModel):
-    username: str
-    password: str
-    role: UserRoleEnum
-    
-    @validator('username')
-    def validate_username(cls, v):
-        if len(v) < 3:
-            raise ValueError('Username must be at least 3 characters long')
-        return v
-    
-    @validator('password')
-    def validate_password(cls, v):
-        if len(v) < 6:
-            raise ValueError('Password must be at least 6 characters long')
-        return v
+# UserRoleEnum and UserCreate are now imported from schemas
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
-    role: Optional[UserRoleEnum] = None
+    role: Optional[schemas.UserRoleEnum] = None
     
     @validator('username')
     def validate_username(cls, v):
@@ -118,23 +103,10 @@ class UserUpdate(BaseModel):
         return v
 
 
-class UserResponse(BaseModel):
-    id: int
-    username: str
-    role: str # Siguraduhing 'str' ito para mabasa ng frontend
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
-    
-class ChatRequest(BaseModel):
-    message: str
-
-    
+# Local models that are not in schemas.py yet (or unique to endpoints)
 class UserMeResponse(BaseModel):
-    user: Optional[UserResponse] = None
+    user: Optional[schemas.UserResponse] = None
     authenticated: bool
 
 class UserProfileUpdate(BaseModel):
@@ -600,6 +572,658 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 
 
+
+# TOOL DEFINITIONS
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "create_announcement",
+            "description": "Create a new system-wide announcement.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Title of the announcement"},
+                    "content": {"type": "string", "description": "Body of the announcement"},
+                    "class_name": {"type": "string", "description": "Optional: Name of the class to target (e.g., 'Physics')"}
+                },
+                "required": ["title", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_announcement",
+            "description": "Delete an announcement by title (fuzzy match) or ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title_query": {"type": "string", "description": "Title or keyword to identify the announcement to delete."}
+                },
+                "required": ["title_query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_attendance",
+            "description": "Mark a student as Present, Absent, or Late for a specific class/time today.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "student_name": {"type": "string", "description": "Name or username of the student"},
+                    "status": {"type": "string", "enum": ["Present", "Absent", "Late", "Excused"]},
+                    "class_name": {"type": "string", "description": "Name of the class (e.g. 'Clinical Psychology 2')"}
+                },
+                "required": ["student_name", "status"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_user",
+            "description": "Create a new user account (Student or Teacher).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "username": {"type": "string", "description": "Desired username"},
+                    "password": {"type": "string", "description": "Temporary password"},
+                    "role": {"type": "string", "enum": ["student", "teacher"], "description": "Role of the user"},
+                    "first_name": {"type": "string", "description": "First name (optional)"},
+                    "last_name": {"type": "string", "description": "Last name (optional)"}
+                },
+                "required": ["username", "password", "role"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_class_classmates",
+            "description": "Get the list of classmates (and teacher) for a specific class.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "class_name": {"type": "string", "description": "Name or Code of the class (e.g. 'Physics' or 'PHYS101')"}
+                },
+                "required": ["class_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_latest_scan_activity",
+            "description": "Get the most recent QR scan activity (Pending or Present) for the teacher's classes.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    }
+]
+
+
+
+def get_user_context(db: Session, user_id: int, role: UserRole) -> str:
+    """
+    Generates dynamic context data for Teachers and Students.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return "User not found."
+    
+    context_lines = []
+    
+    # Dynamic Greeting Context
+    full_name = f"{user.first_name} {user.last_name}" if user.first_name and user.last_name else user.username
+    context_lines.append(f"Current User: {full_name} (Role: {role.value})")
+    
+    today = datetime.utcnow().date()
+    start_of_day = datetime.utcnow().replace(hour=0, minute=0, second=0)
+    end_of_day = datetime.utcnow().replace(hour=23, minute=59, second=59)
+
+    if role == UserRole.TEACHER:
+        # Get Classes Taught
+        classes = db.query(Class).filter(Class.teacher_id == user_id).all()
+        class_ids = [c.id for c in classes]
+        
+        context_lines.append(f"\nClasses Taught ({len(classes)}):")
+        for c in classes:
+            context_lines.append(f"- {c.name} ({c.code})")
+            
+        if class_ids:
+            # Get Today's Schedule for THEIR classes
+            schedules = db.query(Schedule).filter(
+                Schedule.class_id.in_(class_ids),
+                Schedule.start_time >= start_of_day,
+                Schedule.start_time <= end_of_day
+            ).all()
+            
+            if schedules:
+                context_lines.append(f"\nToday's Schedule:")
+                for s in schedules:
+                     time_str = s.start_time.strftime("%H:%M")
+                     context_lines.append(f"- {s.class_.name} at {time_str} (Room {s.room_number})")
+            else:
+                 context_lines.append("\nNo classes scheduled for today.")
+        else:
+            context_lines.append("\nNo classes assigned.")
+             
+    elif role == UserRole.STUDENT:
+        # 1. Enrollments
+        # Eager load class AND teacher to avoid N+1 and ensure data availability
+        enrollments = db.query(Enrollment).options(
+            joinedload(Enrollment.class_).joinedload(Class.teacher)
+        ).filter(Enrollment.student_id == user_id).all()
+        
+        class_ids = [e.class_id for e in enrollments]
+        
+        context_lines.append(f"\n✅ You are interacting with Student: {full_name}")
+        
+        if not enrollments:
+             context_lines.append("\n⚠️ This student is not currently enrolled in any classes.")
+        else:
+            context_lines.append(f"\n📚 Enrolled Subjects ({len(enrollments)}):")
+            for e in enrollments:
+                teacher_name = "Unknown"
+                if e.class_.teacher:
+                    teacher_name = f"{e.class_.teacher.first_name} {e.class_.teacher.last_name}" if e.class_.teacher.first_name else e.class_.teacher.username
+                    
+                context_lines.append(f"- {e.class_.name} ({e.class_.code}) | Teacher: {teacher_name}")
+                # Add join code if available in the class schedule? 
+                # Ideally, if they are enrolled, they don't need the code anymore, but good for reference?
+                # Sticking to user requirement: "Chatbot must query endorsements table" which we are doing.
+
+        if class_ids:
+            # 2. Today's Schedule & Attendance
+            schedules = db.query(Schedule).filter(
+                Schedule.class_id.in_(class_ids),
+                Schedule.start_time >= start_of_day,
+                Schedule.start_time <= end_of_day
+            ).order_by(Schedule.start_time).all()
+            
+            if schedules:
+                context_lines.append(f"\n📅 Today's Schedule:")
+                for s in schedules:
+                    # Check proactive attendance status
+                    attendance = db.query(Attendance).filter(
+                        Attendance.student_id == user_id,
+                        Attendance.schedule_id == s.id
+                    ).first()
+                    status_str = f"✅ {attendance.status}" if attendance else "⏳ Not yet marked"
+                    
+                    time_str = s.start_time.strftime("%I:%M %p")
+                    context_lines.append(f"- {s.class_.name} @ {time_str} (Room {s.room_number}) -> {status_str}")
+            else:
+                context_lines.append("\nNo classes scheduled for today.")
+
+            # 3. Relevant Announcements
+            announcements = db.query(Announcement).filter(
+                (Announcement.class_id == None) | (Announcement.class_id.in_(class_ids))
+            ).order_by(Announcement.date_posted.desc()).limit(5).all()
+            
+            if announcements:
+                context_lines.append(f"\n📢 Recent Announcements:")
+                for a in announcements:
+                    source = f"[{a.class_.name}]" if a.class_ else "[Admin]"
+                    context_lines.append(f"- {source} {a.title}: {a.content}")
+            else:
+                context_lines.append("\nNo new announcements.")
+    
+    return "\n".join(context_lines)
+
+def execute_with_retry(db_func, max_retries=3):
+    """
+    Executes a database operation with retries.
+    Returns: (success: bool, result: Any, message: str)
+    """
+    for attempt in range(max_retries):
+        try:
+            result = db_func()
+            return True, result, "Operation successful."
+        except Exception as e:
+            print(f"⚠️ Retry {attempt + 1}/{max_retries} failed: {e}")
+            if attempt == max_retries - 1:
+                return False, None, str(e)
+    return False, None, "Unknown error"
+
+@app.post("/api/enrollment/join", response_model=schemas.EnrollmentResponse)
+def join_class(
+    request: schemas.JoinClassRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Join a class using a unique 6-character code.
+    """
+    # Allow "student" (string) or UserRoleEnum.STUDENT
+    # Convert rule to string comparison to be safe against Enum mismatches
+    role_str = str(current_user.role).lower().split('.')[-1] # Handle UserRole.STUDENT or "student"
+    if role_str != "student":
+         raise HTTPException(status_code=403, detail="Only students can join classes")
+
+    # Find schedule by join code
+    schedule = db.query(Schedule).filter(Schedule.join_code == request.join_code).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Invalid join code. Please check and try again.")
+
+    # Check if already enrolled in this specific schedule
+    existing = db.query(Enrollment).filter(
+        Enrollment.student_id == current_user.id,
+        Enrollment.class_id == schedule.class_id,
+        Enrollment.schedule_id == schedule.id
+    ).first()
+
+    if existing:
+        # If already enrolled, just return the existing enrollment
+        # Or raise an error if you strictly want to prevent re-join calls
+        return existing
+
+    # Create enrollment
+    enrollment = Enrollment(
+        class_id=schedule.class_id,
+        schedule_id=schedule.id,
+        student_id=current_user.id
+    )
+    db.add(enrollment)
+    db.commit()
+    db.refresh(enrollment)
+    return enrollment
+
+@app.post("/api/chat")
+async def chat_endpoint(
+    request: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Chat endpoint with Role-Based Context, Professional Tone, and System Operator Tools
+    """
+    try:
+        user_message = request.message
+        history = request.history or []
+        
+        system_prompt = "You are the Classtrack AI Assistant, a dynamic and intelligent system operator. Your tone is Professional but Conversational (Taglish/English mix allowed). "
+        context_data = ""
+        
+        # 1. Admin Role Optimization
+        if current_user.role == UserRole.ADMIN:
+            system_prompt += (
+                "You are the System Operator. You have full control over the database using the provided tools. "
+                "Do NOT start every message with 'Greetings Administrator'. Answer naturally, professionally, and conversationally (Taglish allowed). "
+                "1. **Persistent Memory**: If the user asks 'tapos na ba?' or 'what happened?', check the CONVERSATION HISTORY and the result of the last tool call to answer. Do not ask 'what task?'. "
+                "2. **Proactive Actions**: If a requested action (e.g. 'message teacher') is not available, immediately suggest a viable alternative (e.g. 'I cannot DM, but I can post an announcement for their class. Shall I do that?'). "
+                "3. **Real-time Data**: When asked 'Sino teacher ng X?', use the `get_database_info` tool to find the class and teacher. Do not guess. "
+                "4. **Autonomous Reporting**: When a tool is called, the output will contain a log ('Processing... Done!'). You MUST present this status to the user immediately to confirm completion. Do not say 'I will create it'; say 'I have created it'. "
+            )
+            
+            # Fetch System-Wide Data
+            try:
+                # Proactive Data Summary
+                total_students = db.query(User).filter(User.role == UserRole.STUDENT).count()
+                total_classes = db.query(Class).count()
+                active_announcements = db.query(Announcement).count()
+                
+                # Get all schedules for today (Quick Access)
+                now = datetime.utcnow()
+                start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+                
+                todays_schedules = db.query(Schedule).options(
+                    joinedload(Schedule.class_)
+                ).filter(
+                    Schedule.start_time >= start_of_day,
+                    Schedule.start_time <= end_of_day
+                ).all()
+                
+                schedule_list = []
+                for s in todays_schedules:
+                    class_name = s.class_.name if s.class_ else f"Class {s.class_id}"
+                    time_str = s.start_time.strftime("%H:%M") + " - " + s.end_time.strftime("%H:%M")
+                    teacher = s.class_.teacher.username if (s.class_ and s.class_.teacher) else "Unknown"
+                    schedule_list.append(f"- {class_name}: {time_str} (Room {s.room_number}, Teacher: {teacher})")
+                
+                context_data = f"System Health:\n- Total Students: {total_students}\n- Active Classes: {total_classes}\n- Live Announcements: {active_announcements}\n"
+                
+                if schedule_list:
+                    context_data += f"\nToday's Scheduled Classes ({len(schedule_list)}):\n" + "\n".join(schedule_list)
+                else:
+                    context_data += "\nNo classes scheduled for today."
+                
+                system_prompt += " IF the user asks about system status, summarize the stats provided above clearly."
+
+            except Exception as db_err:
+                print(f"Admin Data Error: {db_err}")
+                context_data = "Data synchronization incomplete."
+
+        # 2. Teacher Role
+        elif current_user.role == UserRole.TEACHER:
+            display_name = f"{current_user.first_name} {current_user.last_name}" if current_user.first_name else current_user.username
+            system_prompt += (
+                f" You are the Personal Assistant for Teacher {display_name}. "
+                "1. **Class Detection**: If context shows classes today, proactively remind them (e.g. 'Teacher {display_name}, you have a class in Room X starting at Y'). "
+                "2. **Attendance Bot**: If asked 'Who is present?', only check students in YOUR classes (refer to context). "
+                "3. **Feedback**: If asked to 'Notify my class', use the `create_announcement` tool targeted at the specific class."
+            )
+            # Use the helper function we created
+            context_data = get_user_context(db, current_user.id, UserRole.TEACHER)
+
+        # 3. Student Role
+        elif current_user.role == UserRole.STUDENT:
+             display_name = f"{current_user.first_name} {current_user.last_name}" if current_user.first_name else current_user.username
+             system_prompt += (
+                f" You are a supportive and professional guide for Student {display_name}. "
+                "1. **STRICTLY READ CONTEXT**: The 'Context Data' below contains your real-time Schedule, Enrolled Subjects, and Announcements. "
+                "2. **Strict Enrollment**: Only discuss classes listed in 'Context Data'. If a student asks about a class NOT in that list, say 'Paumanhin [Name], hindi ka pa enrolled sa klaseng iyan. Pakilagay muna ang code mula sa iyong teacher.' DO NOT assume they are enrolled. "
+                "3. **Announcements**: If asked 'May announcement ba?', you MUST list the items under '📢 Recent Announcements'. If that section is empty, say 'Wala pong active announcement mula sa school o sa iyong mga teachers ngayon.'. "
+                "4. **Proactive Reminders**: If context shows classes today, greet them with a helpful reminder (e.g., 'Hi {display_name}! You have Clinical Psychology 2 at 04:28 AM. Don't forget to have your QR code ready!'). "
+                "5. **Attendance Status**: If asked about attendance (e.g., 'Present na ba ako?'), check the '✅' or '⏳' status. If the status is '⏳ Not yet marked' or missing, say: '{display_name}, wala pa pong recorded attendance para sa klase mo ngayon. Make sure to scan your QR code!'. "
+                "6. **No Hallucinations**: NEVER say 'Wala akong access'. You HAVE access via the Context Data. "
+             )
+             context_data = get_user_context(db, current_user.id, UserRole.STUDENT)
+
+        # Assemble Messages
+        # 1. System Prompt + Context
+        messages = [
+            {"role": "system", "content": f"{system_prompt}\n\nContext Data:\n{context_data}"}
+        ]
+        
+        # 2. Append Chat History (Limit to last 10 pairs to save context window if needed)
+        # Convert frontend history format (role: user/assistant) to OpenAI format
+        for msg in history[-10:]:
+             messages.append({"role": msg["role"], "content": msg["content"]})
+
+        # 3. Append Current User Message
+        messages.append({"role": "user", "content": user_message})
+        
+        # First call to Model
+        user_tools = tools if current_user.role == UserRole.ADMIN else None
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            tools=user_tools,
+            tool_choice="auto" if user_tools else None, 
+            max_tokens=300,
+            temperature=0.3
+        )
+        
+        response_message = response.choices[0].message
+        tool_calls = response_message.tool_calls
+
+        # Handle Tool Calls
+        if tool_calls:
+            messages.append(response_message)
+            
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+                tool_output = "Action Failed."
+                
+                try:
+                    if function_name == "create_user":
+                        username = function_args.get("username")
+                        password = function_args.get("password")
+                        role_str = function_args.get("role")
+                        first_name = function_args.get("first_name", "")
+                        last_name = function_args.get("last_name", "")
+                        
+                        # 1. Auto-fill missing data for dynamic behavior
+                        if not username and first_name:
+                            username = f"{first_name.lower()}"
+                            if last_name: username += f".{last_name.lower()}"
+                        
+                        if not password:
+                            password = f"{username}123" if username else "Classtrack123"
+                            
+                        db_role = UserRole.STUDENT if role_str == "student" else UserRole.TEACHER
+                        
+                        tool_output = f"🔄 Processing account creation for {username}...\n"
+
+                        # 2. Smart Creation Logic with internal conflict resolution
+                        try:
+                            # Check existence first to be proactive
+                            existing = db.query(User).filter(User.username == username).first()
+                            if existing:
+                                # Auto-resolve conflict
+                                import random
+                                new_username = f"{username}{random.randint(10, 99)}"
+                                tool_output += f"⚠️ Username '{username}' taken. Trying '{new_username}'...\n"
+                                username = new_username
+                            
+                            def create_action():
+                                new_user = create_user_with_role(db, UserCreate(username=username, password=password, role=db_role))
+                                if first_name: new_user.first_name = first_name
+                                if last_name: new_user.last_name = last_name
+                                db.commit()
+                                return new_user
+
+                            success, result, msg = execute_with_retry(create_action)
+                            
+                            if success:
+                                tool_output += f"✅ Database Write Successful.\n✨ Done! {username}'s account is active with password {password}."
+                            else:
+                                tool_output += f"❌ Error: {msg}"
+                                
+                        except Exception as wrapper_err:
+                            tool_output += f"❌ Detailed Error: {str(wrapper_err)}"
+
+                    elif function_name == "create_announcement":
+                        title = function_args.get("title")
+                        content = function_args.get("content")
+                        class_name = function_args.get("class_name")
+                        
+                        class_link_str = ""
+                        target_class_id = None
+                        
+                        if class_name:
+                            target_class = db.query(Class).filter(Class.name.ilike(f"%{class_name}%")).first()
+                            if target_class:
+                                target_class_id = target_class.id
+                                class_link_str = f" for class '{target_class.name}'"
+                            else:
+                                class_link_str = f" (Warning: Class '{class_name}' not found, posting globally)"
+                        
+                        # We use date_posted instead of created_at as per models.py
+                        def create_ann_action():
+                            new_announcement = Announcement(
+                                title=title, 
+                                content=content, 
+                                date_posted=datetime.utcnow(), 
+                                is_urgent=False,
+                                class_id=target_class_id
+                            )
+                            db.add(new_announcement)
+                            db.commit()
+                            return new_announcement
+
+                        tool_output = f"🔄 Processing announcement '{title}'...\n"
+                        success, result, msg = execute_with_retry(create_ann_action)
+                        
+                        if success:
+                             tool_output += f"✅ Database Write Successful.\n✨ Done! Announcement created{class_link_str}."
+                        else:
+                             tool_output += f"❌ Failed to create announcement: {msg}."
+
+                    elif function_name == "delete_announcement":
+                        query = function_args.get("title_query")
+                        ann = db.query(Announcement).filter(Announcement.title.ilike(f"%{query}%")).first()
+                        if ann:
+                            db.delete(ann)
+                            db.commit()
+                            tool_output = f"Announcement '{ann.title}' deleted."
+                        else:
+                            tool_output = f"Announcement matching '{query}' not found."
+
+                    elif function_name == "manage_schedule":
+                        action = function_args.get("action")
+                        class_name = function_args.get("class_name")
+                        start_of_day = datetime.utcnow().replace(hour=0, minute=0, second=0)
+                        end_of_day = datetime.utcnow().replace(hour=23, minute=59, second=59)
+                        
+                        target_class = db.query(Class).filter(Class.name.ilike(f"%{class_name}%")).first()
+                        if target_class:
+                            schedule = db.query(Schedule).filter(
+                                Schedule.class_id == target_class.id,
+                                Schedule.start_time >= start_of_day,
+                                Schedule.start_time <= end_of_day
+                            ).first()
+                            
+                            if schedule:
+                                if action == "cancel":
+                                    schedule.status = "Cancelled"
+                                    tool_output = f"Class {target_class.name} for today has been Cancelled."
+                                else:
+                                    schedule.status = "Occupied"
+                                    tool_output = f"Class {target_class.name} status restored."
+                                db.commit()
+                            else:
+                                tool_output = f"No schedule found for {target_class.name} today."
+                        else:
+                            tool_output = f"Class '{class_name}' not found."
+
+                    elif function_name == "update_attendance":
+                        s_name = function_args.get("student_name")
+                        status_val = function_args.get("status")
+                        
+                        student = db.query(User).filter(User.username.ilike(f"%{s_name}%")).first()
+                        if not student:
+                             student = db.query(User).filter(User.first_name.ilike(f"%{s_name}%")).first()
+                            
+                        if student:
+                            # Privacy Guard: If Teacher, verify student is in THEIR class
+                            if current_user.role == UserRole.TEACHER:
+                                # Get teacher's classes
+                                teacher_class_ids = [c.id for c in db.query(Class).filter(Class.teacher_id == current_user.id).all()]
+                                # Check enrollment
+                                enrollment = db.query(Enrollment).filter(
+                                    Enrollment.student_id == student.id,
+                                    Enrollment.class_id.in_(teacher_class_ids)
+                                ).first()
+                                
+                                if not enrollment:
+                                    tool_output = f"Permission Denied: Student {student.username} is not enrolled in any of your classes."
+                                else:
+                                    # TODO: In future, link to specific schedule. For now, log it.
+                                    tool_output = f"Marked {student.username} as {status_val} for your class."
+                            else:
+                                # Admin can do anything
+                                tool_output = f"Marked {student.username} as {status_val}. (Admin Override)"
+                        else:
+                            tool_output = f"Student '{s_name}' not found."
+
+                    elif function_name == "get_database_info":
+                        category = function_args.get("category")
+                        query = function_args.get("query", "").lower()
+                        result_list = []
+
+                        if category == "students":
+                            q = db.query(User).filter(User.role == UserRole.STUDENT)
+                            if query:
+                                q = q.filter(User.username.ilike(f"%{query}%") | User.first_name.ilike(f"%{query}%"))
+                            users = q.limit(20).all()
+                            for u in users:
+                                result_list.append(f"- {u.username} ({u.first_name} {u.last_name})")
+                            tool_output = f"Found {len(result_list)} students:\n" + "\n".join(result_list)
+
+                        elif category == "teachers":
+                            q = db.query(User).filter(User.role == UserRole.TEACHER)
+                            if query:
+                                q = q.filter(User.username.ilike(f"%{query}%") | User.last_name.ilike(f"%{query}%"))
+                            users = q.limit(20).all()
+                            for u in users:
+                                result_list.append(f"- {u.username} (Teacher {u.last_name})")
+                            tool_output = f"Found {len(result_list)} teachers:\n" + "\n".join(result_list)
+
+                        elif category == "classes":
+                            q = db.query(Class).options(joinedload(Class.teacher))
+                            if query:
+                                q = q.filter(Class.name.ilike(f"%{query}%"))
+                            classes = q.limit(20).all()
+                            for c in classes:
+                                if c.teacher:
+                                    t_name = f"Teacher {c.teacher.last_name}" if c.teacher.last_name else c.teacher.username
+                                else:
+                                    t_name = "No Teacher Assigned"
+                                result_list.append(f"- {c.name} ({c.code}) -> {t_name}")
+                            tool_output = f"Found {len(result_list)} classes:\n" + "\n".join(result_list)
+                            
+                        elif category == "schedules":
+                             tool_output = "Please check the 'Today's Scheduled Classes' section above for schedule info."
+
+                    elif function_name == "get_latest_scan_activity":
+                        # Only for teachers
+                        if current_user.role != UserRole.TEACHER:
+                             tool_output = "Permission Denied: Only teachers can check scan activity."
+                        else:
+                            # Query latest attendance for teacher's classes
+                            teacher_classes = db.query(Class).filter(Class.teacher_id == current_user.id).all()
+                            class_ids = [c.id for c in teacher_classes]
+                            
+                            if not class_ids:
+                                tool_output = "You have no classes assigned."
+                            else:
+                                # Get latest attendance
+                                latest = db.query(Attendance).options(joinedload(Attendance.class_)).filter(
+                                    Attendance.class_id.in_(class_ids)
+                                ).order_by(Attendance.date.desc()).first()
+                                
+                                if latest:
+                                    student = db.query(User).filter(User.id == latest.student_id).first()
+                                    s_name = f"{student.first_name} {student.last_name}" if student and student.first_name else (student.username if student else "Unknown")
+                                    time_ago = (datetime.utcnow() - latest.date).total_seconds()
+                                    
+                                    if time_ago < 60:
+                                        time_str = "just now"
+                                    elif time_ago < 3600:
+                                        time_str = f"{int(time_ago/60)} mins ago"
+                                    else:
+                                        time_str = latest.date.strftime("%I:%M %p")
+                                        
+                                    status_icon = "⏳" if latest.status == "Pending" else "✅" 
+                                    class_name = latest.class_.name if latest.class_ else "Unknown Class"
+                                    tool_output = f"Latest Scan: {status_icon} {s_name} ({latest.status}) - {time_str} in {class_name}."
+                                else:
+                                    tool_output = "No recent scan activity found."
+
+                except Exception as tool_err:
+                    tool_output = f"Error executing {function_name}: {str(tool_err)}"
+
+                messages.append(
+                    {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": tool_output,
+                    }
+                )
+            
+            # Second call to Model
+            second_response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                max_tokens=300,
+                temperature=0.3
+            )
+            bot_reply = second_response.choices[0].message.content
+            return {"reply": bot_reply}
+
+        # No tool called
+        bot_reply = response_message.content
+        return {"reply": bot_reply}
+
+    except Exception as e:
+        print(f"❌ Chat Error: {e}")
+        if current_user.role == UserRole.ADMIN:
+            return {"reply": f"System Error: {str(e)}"}
+        return {"reply": "Paumanhin, may kaunting teknikal na problema sa pagkuha ng iyong data. Pakisuyong subukan muli."}
+
+
 @app.get("/api/users/me", response_model=UserResponse)
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     # Pinipilit nating maging lowercase ang role para mabasa ng ProtectedRoute.tsx
@@ -1062,6 +1686,50 @@ async def get_enriched_violations_for_assignment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch enriched violations: {str(e)}"
         )
+
+@app.get("/api/schedules/live", response_model=List[ScheduleEnrichedResponse])
+async def get_live_schedules(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get currently active schedules for the user.
+    """
+    now = datetime.utcnow()
+    # Buffer: +/- 5 mins or exact? Use exact for now.
+    query = db.query(Schedule).join(Class).filter(
+        Schedule.start_time <= now,
+        Schedule.end_time >= now
+    )
+    
+    if current_user.role == UserRole.TEACHER:
+        query = query.filter(Class.teacher_id == current_user.id)
+    elif current_user.role == UserRole.STUDENT:
+        query = query.join(Enrollment, Class.id == Enrollment.class_id).filter(
+            Enrollment.student_id == current_user.id
+        )
+        
+    schedules = query.all()
+    
+    # Enrich
+    enriched = []
+    for s in schedules:
+        teacher = s.class_.teacher
+        enriched.append(ScheduleEnrichedResponse(
+            id=s.id,
+            class_id=s.class_id,
+            start_time=s.start_time,
+            end_time=s.end_time,
+            room_number=s.room_number,
+            status=s.status,
+            class_name=s.class_.name,
+            class_code=s.class_.code,
+            teacher_name=teacher.last_name if teacher and teacher.last_name else "Unknown",
+            teacher_full_name=f"{teacher.first_name} {teacher.last_name}" if teacher else "Unknown",
+            join_code=None 
+        ))
+        
+    return enriched
 
 @app.get("/assignments/{assignment_id}/violations/summary")
 async def get_violations_summary(
@@ -2954,7 +3622,9 @@ async def get_student_assignments_all(
     Requires authentication and STUDENT role.
     """
     # Check if current user is a student
-    if current_user.role != UserRole.STUDENT:
+    # Validating role string to avoid Enum mismatch
+    role_str = str(current_user.role).lower().split('.')[-1]
+    if role_str != "student":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view student assignments"
@@ -3036,7 +3706,9 @@ async def get_student_classes_all(
     Requires authentication and STUDENT role.
     """
     # Check if current user is a student
-    if current_user.role != UserRole.STUDENT:
+    # Validating role string to avoid Enum mismatch
+    role_str = str(current_user.role).lower().split('.')[-1]
+    if role_str != "student":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view student classes"
@@ -3118,7 +3790,9 @@ async def get_student_my_classes(
     Requires authentication and STUDENT role.
     """
     # Check if current user is a student
-    if current_user.role != UserRole.STUDENT:
+    # Validating role string to avoid Enum mismatch
+    role_str = str(current_user.role).lower().split('.')[-1]
+    if role_str != "student":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view student classes"
@@ -3942,7 +4616,6 @@ async def export_all_classes_data(
     classes = crud.get_all_classes(db)
     return classes
 
-# Schedule endpoints
 @app.post("/schedules/", response_model=ScheduleResponse)
 async def create_schedule_endpoint(
     schedule: ScheduleCreate,
@@ -3950,13 +4623,14 @@ async def create_schedule_endpoint(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Create a new schedule entry (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
+    Create a new schedule entry (Admin only)
+    Requires authentication and ADMIN role.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
+    # Strict Admin check
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to create schedules"
+            detail="Only administrators can create schedules"
         )
     
     try:
@@ -3978,17 +4652,36 @@ async def get_schedules_endpoint(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get all schedules with pagination (Admin and Teacher only)
-    Requires authentication and ADMIN or TEACHER role.
+    Get all schedules with pagination (Filtered by Role)
+    - Admin: All schedules
+    - Teacher: Assigned class schedules only
+    - Student: Enrolled class schedules only
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view schedules"
-        )
-    
     try:
-        return crud.get_schedules(db, skip=skip, limit=limit)
+        if current_user.role == UserRole.ADMIN:
+             return crud.get_schedules(db, skip=skip, limit=limit)
+        
+        elif current_user.role == UserRole.TEACHER:
+            # Join Class to filter by teacher_id
+            return db.query(Schedule).join(Class).filter(
+                Class.teacher_id == current_user.id
+            ).offset(skip).limit(limit).all()
+            
+        elif current_user.role == UserRole.STUDENT:
+            # Filter by enrollment
+            enrollments = db.query(Enrollment).filter(Enrollment.student_id == current_user.id).all()
+            schedule_ids = [e.schedule_id for e in enrollments if e.schedule_id is not None]
+            
+            if not schedule_ids:
+                return []
+                
+            return db.query(Schedule).filter(
+                Schedule.id.in_(schedule_ids)
+            ).offset(skip).limit(limit).all()
+            
+        else:
+            return [] # Should not happen if auth works
+            
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -4003,19 +4696,63 @@ async def get_schedules_live_endpoint(
     """
     Get schedules for live display.
     - Students: Only enrolled schedules
-    - Teachers/Admins: All schedules (or filtered if needed)
+    - Teachers: Only assigned schedules
+    - Admins: All schedules
     
     Requires authentication.
     """
     try:
-        if current_user.role == UserRole.STUDENT:
-            return crud.get_student_schedules_live_enriched(db, current_user.id)
+        # Robust role check
+        role_str = str(current_user.role).lower().split('.')[-1]
         
-        # Admin / Teacher see all (or use specific teacher filter if desired later)
-        # For now, Teacher View uses this for general schedule display? 
-        # Actually, teachers usually use /teachers/me/classes. 
-        # But to be safe and backward compatible with Admin Dashboard:
+        if role_str == "student":
+            return crud.get_student_schedules_live_enriched(db, current_user.id)
+            
+        if role_str == "teacher":
+            # Filter enriched schedules for teacher
+            all_schedules = crud.get_schedules_live_enriched(db)
+            # Filter in python (easier reuse of crud function) or write new query
+            # Since crud returns dicts, we filter the list
+            teacher_name_check = current_user.username
+            # Better to strictly check ID via class relation, but the enriched data has flattened it.
+            # Let's write a direct query for safety and performance
+            
+            schedules = db.query(Schedule).join(Class).options(
+                joinedload(Schedule.class_).joinedload(Class.teacher)
+            ).filter(Class.teacher_id == current_user.id).all()
+            
+            enriched_schedules = []
+            for schedule in schedules:
+                # Same enrichment logic as crud
+                teacher_full_name = "Unknown"
+                teacher_name = "Unknown"
+                if schedule.class_ and schedule.class_.teacher:
+                    t = schedule.class_.teacher
+                    teacher_name = t.username
+                    if t.first_name and t.last_name:
+                        teacher_full_name = f"{t.first_name} {t.last_name}"
+                    else:
+                        teacher_full_name = t.username
+                        
+                enriched_schedule = {
+                    "id": schedule.id,
+                    "class_id": schedule.class_id,
+                    "start_time": schedule.start_time,
+                    "end_time": schedule.end_time,
+                    "room_number": schedule.room_number,
+                    "status": schedule.status,
+                    "class_name": schedule.class_.name if schedule.class_ else "Unknown",
+                    "class_code": schedule.class_.code if schedule.class_ else "UNKNOWN",
+                    "join_code": schedule.join_code,
+                    "teacher_name": teacher_name,
+                    "teacher_full_name": teacher_full_name
+                }
+                enriched_schedules.append(enriched_schedule)
+            return enriched_schedules
+        
+        # Admin sees all
         return crud.get_schedules_live_enriched(db)
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -4691,6 +5428,58 @@ async def get_class_by_id(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch class: {str(e)}"
         )
+
+@app.get("/api/classes/{class_id}/people", response_model=schemas.ClassPeopleResponse)
+async def get_class_people(
+    class_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the people (teacher and students) in a class.
+    Access: Teacher of the class OR Enrolled Student.
+    """
+    class_obj = db.query(Class).filter(Class.id == class_id).first()
+    if not class_obj:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    # Permission Check
+    is_teacher = class_obj.teacher_id == current_user.id
+    is_student = db.query(Enrollment).filter(
+        Enrollment.class_id == class_id,
+        Enrollment.student_id == current_user.id
+    ).first() is not None
+
+    if not (is_teacher or is_student or current_user.role == UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Not authorized to view people in this class")
+
+    # Fetch Teacher
+    teacher = None
+    if class_obj.teacher_id:
+         teacher_obj = db.query(User).filter(User.id == class_obj.teacher_id).first()
+         if teacher_obj:
+            teacher = schemas.UserResponse.from_orm(teacher_obj)
+    
+    # Fetch Students via Enrollments
+    # Use joinedload for efficiency if possible, but loop is fine for now
+    enrollments = db.query(Enrollment).filter(Enrollment.class_id == class_id).all()
+    students = []
+    
+    # Batch fetch students for performance
+    student_ids = [e.student_id for e in enrollments]
+    if student_ids:
+        student_objs = db.query(User).filter(User.id.in_(student_ids)).all()
+        # Map back to ensure order or just list them
+        for s in student_objs:
+            students.append(schemas.UserResponse.from_orm(s))
+
+    return {
+        "teacher": teacher,
+        "students": students,
+        "class_name": class_obj.name,
+        "class_section": class_obj.code,
+        "student_count": len(students)
+    }
 
 @app.get("/teachers/me/classes", response_model=dict)
 async def get_teacher_classes_with_metrics(
@@ -5415,7 +6204,34 @@ async def get_teacher_students_count(
 # ADDITIONAL ENDPOINTS FOR API CLIENT COMPATIBILITY
 
 # NEW: Get specific class for student (for enrollment checking)
+@app.get("/classes/student/me", response_model=list[ClassResponse])
+async def get_student_classes_me(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all classes the current student is enrolled in.
+    """
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view student classes"
+        )
+    
+    # Get enrollments for this student
+    enrollments = db.query(Enrollment).filter(Enrollment.student_id == current_user.id).all()
+    
+    # Collect unique class IDs (enrollments might be per schedule, but we want unique classes)
+    class_ids = list(set([e.class_id for e in enrollments]))
+    
+    if not class_ids:
+        return []
+        
+    classes = db.query(Class).filter(Class.id.in_(class_ids)).all()
+    return classes
+
 @app.get("/classes/student/{class_id}")
+
 async def get_student_class_by_id(
     class_id: int,
     db: Session = Depends(get_db),
@@ -5961,12 +6777,22 @@ def chat_with_ai(
             else:
                 system_context += "\n[System Info] Ask for 'masterlist for class [name]' to see students."
 
-        # 5. ATTENDANCE / ABSENT
-        if any(k in user_msg for k in ["absent", "attendance", "liban", "pumasok"]):
+        # 5. ATTENDANCE / ABSENT / SCAN
+        if any(k in user_msg for k in ["absent", "attendance", "liban", "pumasok", "scan", "qr"]):
             if role_key in ["admin", "teacher"]:
                 # Fetch recent absentees
                 absentees = crud.get_teacher_attendance(db, current_user.id)
-                system_context += f"\n[System Data] Recent Absentees in your classes: {absentees}"
+                if absentees:
+                    system_context += f"\n[System Data] Recent Absentees in your classes: {absentees}"
+                
+                # Fetch recent successful scans (Present)
+                recent_scans = crud.get_recent_scans_for_teacher(db, current_user.id)
+                if recent_scans:
+                    system_context += f"\n[System Data] Recent Successful Scans (Present): {recent_scans}"
+                
+                if not absentees and not recent_scans:
+                     system_context += f"\n[System Data] No recent attendance activity (Absent or Present) found."
+
             elif role_key == "student":
                 my_attendance = crud.get_student_attendance(db, current_user.id)
                 system_context += f"\n[System Data] Your Attendance Record: {my_attendance}"
@@ -5977,6 +6803,37 @@ def chat_with_ai(
             # Format nicely
             class_list_str = ", ".join([f"{c['class_name']} (Join Code: {c['join_code']})" for c in my_classes])
             system_context += f"\n[System Data] You are enrolled in: {class_list_str}"
+
+        # 6.2. CLASSMATES INQUIRY (Student)
+        if role_key == "student" and any(k in user_msg for k in ["classmate", "kaklase", "sino"]):
+            # Extract class name query
+            import re
+            match = re.search(r"(?:classmate|kaklase)\s+(?:sa|in|ng)?\s*(\w+)", user_msg)
+            class_query = match.group(1) if match else ""
+            
+            if class_query:
+                # Get the specific class if enrolled
+                enrolled_class = crud.get_student_class_by_fuzzy_name(db, current_user.id, class_query)
+                if enrolled_class:
+                     # Fetch classmates
+                     classmates = crud.get_classmates(db, enrolled_class.id)
+                     # Filter out self
+                     classmates = [c for c in classmates if c.id != current_user.id]
+                     
+                     if classmates:
+                        names = [f"{c.first_name} {c.last_name}" for c in classmates]
+                        teacher_name = "Unknown"
+                        if enrolled_class.teacher:
+                             teacher_name = f"{enrolled_class.teacher.first_name} {enrolled_class.teacher.last_name}"
+                        
+                        system_context += f"\n[System Data] For class '{enrolled_class.name}': Teacher is {teacher_name}. Classmates ({len(names)}): {', '.join(names)}."
+                     else:
+                        system_context += f"\n[System Data] You have no other classmates in '{enrolled_class.name}' yet."
+                else:
+                     system_context += f"\n[System Info] You are not enrolled in a class matching '{class_query}'."
+            else:
+                 # If no specific class mentioned, maybe list all? Or ask for clarification.
+                 system_context += "\n[System Info] Please specify which class you mean (e.g. 'Sinong kaklase ko sa PE?')."
             
         # 6.5. HOW TO JOIN (Student)
         if role_key == "student" and any(k in user_msg for k in ["how to join", "join class", "paano sumali", "enroll", "add class"]):
@@ -6334,46 +7191,133 @@ def join_class_by_code(
 
 
 # QR SCAN ENDPOINT
-@app.post("/api/attendance/scan")
-async def record_attendance_scan(
-    scan_data: schemas.AttendanceScan,
+@app.post("/api/attendance/scan", response_model=schemas.ScanResponse)
+def scan_qr_code(
+    scan: schemas.AttendanceScan,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Record attendance from a QR scan.
-    Requires strict validation of identity, enrollment, and session time.
+    Step 1: Scan and Verify Identity.
+    Does NOT mark as Present yet. Creates a 'Pending' record.
     """
-    if current_user.role != UserRole.TEACHER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only teachers can record attendance via scanner."
-        )
-        
+    if current_user.role != schemas.UserRoleEnum.TEACHER:
+        raise HTTPException(status_code=403, detail="Only teachers can scan.")
+
+    # 1. Find Student
+    # Try looking up by ID if int, else username/email
+    student = None
     try:
-        record = crud.verify_and_record_attendance(db, scan_data)
+        if scan.qr_content.isdigit():
+             student = db.query(models.User).filter(models.User.id == int(scan.qr_content)).first()
         
-        # Get student name for response
-        student_name = f"{record.student.first_name} {record.student.last_name}" if record.student.first_name else record.student.username
+        if not student:
+             # Try username or email
+             student = db.query(models.User).filter(
+                 (models.User.username == scan.qr_content) | (models.User.email == scan.qr_content)
+             ).first()
+    except:
+        pass
+
+    if not student:
+        return schemas.ScanResponse(
+            status="error",
+            message="Student not found",
+            enrollment_status=False
+        )
+
+    # 2. Check Enrollment
+    enrollment = db.query(models.Enrollment).filter(
+        models.Enrollment.class_id == scan.class_id,
+        models.Enrollment.student_id == student.id
+    ).first()
+
+    student_name = f"{student.first_name} {student.last_name}" if student.first_name else student.username
+    class_obj = db.query(models.Class).filter(models.Class.id == scan.class_id).first()
+    class_name = class_obj.name if class_obj else "Unknown Class"
+
+    if not enrollment:
+        return schemas.ScanResponse(
+            status="not_enrolled",
+            message=f"Student {student_name} is not enrolled in {class_name}",
+            student_name=student_name,
+            student_id=student.id,
+            class_name=class_name,
+            enrollment_status=False
+        )
+
+    # 3. Create Pending Attendance
+    # Check if already Present today
+    existing = crud.get_latest_attendance_for_student(db, student.id, scan.class_id)
+    today = datetime.utcnow().date()
+    
+    if existing and existing.date.date() == today and existing.status == "Present":
+         return schemas.ScanResponse(
+            status="duplicate",
+            message=f"{student_name} is already marked Present today.",
+            student_name=student_name,
+            student_id=student.id,
+            class_name=class_name,
+            enrollment_status=True,
+            attendance_id=existing.id
+        )
+
+    # Allow re-scanning if only Pending/Discarded/Absent
+    # Create new Pending record
+    new_attendance = crud.create_attendance(db, schemas.AttendanceCreate(
+        class_id=scan.class_id,
+        student_id=student.id,
+        status="Pending",
+        schedule_id=scan.schedule_id
+    ))
+
+    return schemas.ScanResponse(
+        status="success",
+        message="Student detected. Please confirm.",
+        student_name=student_name,
+        student_id=student.id,
+        class_name=class_name,
+        attendance_id=new_attendance.id,
+        enrollment_status=True
+    )
+
+@app.post("/api/attendance/{attendance_id}/confirm")
+def confirm_attendance(
+    attendance_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != schemas.UserRoleEnum.TEACHER:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    record = crud.update_attendance_status(db, attendance_id, "Present")
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
         
-        return {
-            "status": "success",
-            "message": "Attendance recorded successfully",
-            "student_name": student_name,
-            "scan_time": record.date
-        }
-    except ValueError as e:
-        # Business logic errors (not enrolled, duplicate, etc)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        print(f"Error processing QR scan: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error processing scan"
-        )
+    return {"status": "confirmed", "student_name": record.student.first_name}
+
+@app.post("/api/attendance/{attendance_id}/discard")
+def discard_attendance(
+    attendance_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != schemas.UserRoleEnum.TEACHER:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    record = crud.update_attendance_status(db, attendance_id, "Discarded")
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+        
+    return {"status": "discarded"}
+
+# Chatbot Helper Tool (Exposed as endpoint or used internally? Plan said Tool)
+# Adding this as a simple endpoint for the chatbot to query if needed, or just function.
+# I'll rely on the Chatbot to call `crud.get_latest_scan_activity` if I exposed it?
+# Wait, Chatbot usually uses `tools` list.
+# I will implement `read_latest_teacher_scan` tool function for the chatbot later.
+# For now, these API endpoints are sufficient for the frontend.
+
 
 if __name__ == "__main__":
     import uvicorn
